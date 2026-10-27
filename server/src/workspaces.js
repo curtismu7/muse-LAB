@@ -17,7 +17,7 @@ export function createWorkspaces({ max = 200, idleMs = IDLE_MS, now = () => Date
   function create() {
     sweep();
     if (store.size >= max) return null;
-    const ws = { id: randomBytes(16).toString('hex'), touched: now(), user: null, gatewayMode: 'mock', discovery: null, calls: [], decisions: [], holds: new Map() };
+    const ws = { id: randomBytes(16).toString('hex'), touched: now(), user: null, gatewayMode: 'mock', discovery: null, calls: [], decisions: [], holds: new Map(), tokens: {}, pending: {} };
     store.set(ws.id, ws);
     return ws;
   }
