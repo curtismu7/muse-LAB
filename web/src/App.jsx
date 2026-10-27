@@ -31,7 +31,22 @@ const TABS = [
   { id: 'trace', label: 'Sign-in trace', icon: 'clock' },
 ];
 
-const OUTCOME_LABEL = { allowed: 'Allowed', held: 'Held for approval', blocked: 'Blocked', approved: 'Approved by a person' };
+const OUTCOME_LABEL = {
+  allowed: 'Allowed',
+  held: 'Held for approval',
+  consent: "Waiting for Sam's consent",
+  blocked: 'Blocked',
+  approved: 'Approved by a person',
+};
+
+const CALLERS = [
+  { id: 'muse', label: 'Muse (agent)' },
+  { id: 'browser', label: 'Sam (typing directly)' },
+];
+
+function callerLine(actor) {
+  return actor === 'human' ? 'Caller: Sam, a person in the browser' : 'Caller: Muse, an agent';
+}
 
 const ICON_PATHS = {
   chat: 'M4 5h16v11H8l-4 4V5z',
@@ -49,13 +64,15 @@ function Icon({ name, size = 18 }) {
 }
 
 function Outcome({ value }) {
-  return <span className={`badge badge-${value}`}>{OUTCOME_LABEL[value] ?? value}</span>;
+  return <span className={`badge badge-${value === 'consent' ? 'held' : value}`}>{OUTCOME_LABEL[value] ?? value}</span>;
 }
 
 function MuseReply({ entry, onApprove, busy }) {
+  const waiting = entry.outcome === 'held' && entry.consent;
   return (
     <div className="bubble muse">
-      <Outcome value={entry.outcome} />
+      <Outcome value={waiting ? 'consent' : entry.outcome} />
+      <p className="small muted">{callerLine(entry.actor)}</p>
       <ul className="rules">
         {entry.rules.map((r) => <li key={r}>{r}</li>)}
         {entry.signals?.length > 0 && <li>Muse-detect: {entry.signals.join(', ')}</li>}
@@ -63,7 +80,7 @@ function MuseReply({ entry, onApprove, busy }) {
       {entry.result && <pre>{JSON.stringify(entry.result, null, 2)}</pre>}
       {entry.outcome === 'held' && (
         <button type="button" className="approve" onClick={() => onApprove(entry)} disabled={busy}>
-          Approve (simulated CIBA)
+          {waiting ? "Give Sam's consent (simulated)" : 'Approve (simulated CIBA)'}
         </button>
       )}
     </div>
@@ -80,6 +97,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
+  const [via, setVia] = useState('muse');
   const feedEnd = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -121,13 +139,13 @@ export default function App() {
     if (prompt.burst) {
       push({ kind: 'user', text: 'Read my calendar seven times in a row.' });
       for (let i = 0; i < 7; i++) {
-        const entry = await api('POST', '/api/request', { tool: 'calendar.read', args: {} });
+        const entry = await api('POST', '/api/request', { tool: 'calendar.read', args: {}, via });
         push({ kind: 'muse', entry });
       }
       return;
     }
     push({ kind: 'user', text: prompt.label });
-    const entry = await api('POST', '/api/request', { tool: prompt.tool, args: prompt.args });
+    const entry = await api('POST', '/api/request', { tool: prompt.tool, args: prompt.args, via });
     push({ kind: 'muse', entry });
   });
 
@@ -231,6 +249,14 @@ export default function App() {
               <div ref={feedEnd} />
             </div>
 
+            <div className="callers" role="group" aria-label="Who is calling">
+              <span className="small muted">Who is calling:</span>
+              {CALLERS.map((c) => (
+                <button key={c.id} type="button" className={`chip ${via === c.id ? 'on' : ''}`} aria-pressed={via === c.id}
+                  onClick={() => setVia(c.id)} disabled={busy}>{c.label}</button>
+              ))}
+            </div>
+
             <form className="composer" onSubmit={send}>
               <label className="sr-only" htmlFor="ask-muse">Ask Muse</label>
               <input
@@ -287,6 +313,7 @@ export default function App() {
                   <div>
                     <strong>{session.tools.find((t) => t.id === d.tool)?.label ?? d.tool}</strong>
                     <span className="small muted">{new Date(d.at).toLocaleTimeString()} · {OUTCOME_LABEL[d.outcome]}</span>
+                    <span className="small">{d.actor === 'human' ? 'Sam, in the browser' : 'Muse, an agent'}</span>
                     {d.signals.length > 0 && <span className="small">{d.signals.join(', ')}</span>}
                   </div>
                 </li>

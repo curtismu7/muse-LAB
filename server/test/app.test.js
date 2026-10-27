@@ -89,16 +89,16 @@ test('calls need a sign-in first, and an unknown tool is a 400', async () => {
   }
 });
 
-test('a small payment goes through, a large one is held until a person approves it', async () => {
+test('a person in the browser: a small payment goes through, a large one is held until a person approves it', async () => {
   const app = await boot();
   try {
     const v = visitor(app.base);
     await v.post('/api/signin');
-    const small = await v.post('/api/request', { tool: 'payments.send', args: { payee: 'Acme', amount: 120 } });
+    const small = await v.post('/api/request', { tool: 'payments.send', args: { payee: 'Acme', amount: 120 }, via: 'browser' });
     assert.equal(small.json.outcome, 'allowed');
     assert.equal(small.json.result.queued, true);
 
-    const big = await v.post('/api/request', { tool: 'payments.send', args: { payee: 'Acme', amount: 800 } });
+    const big = await v.post('/api/request', { tool: 'payments.send', args: { payee: 'Acme', amount: 800 }, via: 'browser' });
     assert.equal(big.json.outcome, 'held');
     assert.equal(big.json.result, undefined, 'nothing runs while held');
 
@@ -118,10 +118,39 @@ test('the burst check holds the call after the threshold', async () => {
     await v.post('/api/signin');
     let last;
     for (let i = 0; i <= BURST_MAX; i++) {
-      last = await v.post('/api/request', { tool: 'calendar.read' });
+      last = await v.post('/api/request', { tool: 'calendar.read', via: 'browser' });
     }
     assert.equal(last.json.outcome, 'held');
-    assert.deepEqual(last.json.signals, ['burst']);
+    assert.ok(last.json.signals.includes('burst'));
+  } finally {
+    await app.close();
+  }
+});
+
+test('an agent call is held for Sam\'s consent, and approving it runs the tool', async () => {
+  const app = await boot();
+  try {
+    const v = visitor(app.base);
+    await v.post('/api/signin');
+    const asked = await v.post('/api/request', { tool: 'calendar.read', via: 'muse' });
+    assert.equal(asked.json.outcome, 'held');
+    assert.equal(asked.json.consent, true);
+    assert.equal(asked.json.actor, 'agent');
+    assert.match(asked.json.rules[0], /Sam must consent/);
+    const done = await v.post(`/api/approve/${asked.json.id}`);
+    assert.equal(done.json.outcome, 'approved');
+    assert.equal(done.json.result.simulated, true);
+  } finally {
+    await app.close();
+  }
+});
+
+test('an unknown channel is refused', async () => {
+  const app = await boot();
+  try {
+    const v = visitor(app.base);
+    await v.post('/api/signin');
+    assert.equal((await v.post('/api/request', { tool: 'calendar.read', via: 'carrier-pigeon' })).status, 400);
   } finally {
     await app.close();
   }

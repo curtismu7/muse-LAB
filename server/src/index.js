@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createWorkspaces } from './workspaces.js';
 import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
+import { CHANNELS } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -112,21 +113,26 @@ export function createApp(env = process.env) {
     if (!TOOLS[tool]) return res.status(400).json({ error: 'unknown tool' });
     if (typeof args !== 'object' || Array.isArray(args)) return res.status(400).json({ error: 'args must be an object' });
 
+    const via = req.body?.via ?? 'muse';
+    if (!CHANNELS.includes(via)) return res.status(400).json({ error: 'unknown channel' });
+
     const now = Date.now();
-    const d = decide(ws, { tool, args, now });
+    const d = decide(ws, { tool, args, now, via });
     const entry = {
       id: randomUUID(),
       at: new Date(now).toISOString(),
       tool,
       persona: ws.user,
+      actor: d.protect.actor,
       outcome: d.outcome,
-      signals: d.detect.signals,
-      rules: [d.coarse.rule, d.fine?.rule].filter(Boolean),
+      consent: d.outcome === 'held' && d.consent,
+      signals: [...d.protect.signals, ...d.detect.signals],
+      rules: [d.protect.rule, d.coarse.rule, d.fine?.rule].filter(Boolean),
     };
-    if (d.outcome === 'held') ws.holds.set(entry.id, { tool, args });
+    if (d.outcome === 'held') ws.holds.set(entry.id, { tool, args, actor: entry.actor, consent: entry.consent });
     if (d.outcome === 'allowed') entry.result = runTool(tool, args);
     record(ws, entry);
-    res.json({ ...entry, detect: d.detect.steps, coarse: d.coarse, fine: d.fine });
+    res.json({ ...entry, detect: d.detect.steps, protect: d.protect, coarse: d.coarse, fine: d.fine });
   });
 
   app.post('/api/approve/:id', (req, res) => {
@@ -139,9 +145,11 @@ export function createApp(env = process.env) {
       at: new Date().toISOString(),
       tool: hold.tool,
       persona: ws.user,
+      actor: hold.actor,
       outcome: 'approved',
+      consent: false,
       signals: [],
-      rules: ['A person approved this call (simulated CIBA)'],
+      rules: [hold.consent ? 'Sam consented for Muse to make this call (simulated)' : 'A person approved this call (simulated CIBA)'],
       result: runTool(hold.tool, hold.args),
     };
     record(ws, entry);

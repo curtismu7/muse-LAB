@@ -10,11 +10,15 @@ const SPEEDS = [0.5, 1, 2];
 
 // Which step a request stops at, given the server's decision. Steps are listed in the diagram data.
 export function stopStep(entry) {
-  if (!entry) return DIAGRAM.steps.length - 1;
+  const last = DIAGRAM.steps.length - 1;
+  if (!entry) return last;
   if (entry.detect?.some((s) => s.result === 'block')) return 1;
-  if (entry.coarse?.result === 'deny') return 2;
-  if (entry.fine?.result === 'deny' || entry.outcome === 'held') return 3;
-  return DIAGRAM.steps.length - 1;
+  if (entry.coarse?.result === 'deny') return 3;
+  if (entry.fine?.result === 'deny') return 4;
+  if (entry.consent) return 2;
+  if (entry.fine?.result === 'step_up') return 4;
+  if (entry.outcome === 'held') return 1;
+  return last;
 }
 
 function nodeLabel(n) {
@@ -48,7 +52,7 @@ function initialEdges() {
 
 // Box states after playing step `s` (0-based). Nodes on the newest edge are the active ones. At the stop step a
 // blocked or held request marks its box with that outcome.
-function nodeStates(s, stop, outcome) {
+function nodeStates(s, stop, outcome, actor) {
   const reached = new Set();
   const newest = DIAGRAM.steps[s].edges;
   for (const i of newest) {
@@ -66,6 +70,8 @@ function nodeStates(s, stop, outcome) {
   } else {
     states[last] = 'active';
   }
+  // A person's call does not wait for consent, so that box is shown as skipped once the flow reaches it.
+  if (actor === 'human' && states.consent !== 'idle') states.consent = 'skipped';
   return states;
 }
 
@@ -78,8 +84,8 @@ export default function PersonalAgentFlow({ lastEntry }) {
   const [current, setCurrent] = useState(DIAGRAM.steps.length - 1);
   const timer = useRef(null);
 
-  const paint = useCallback((s, target, outcome) => {
-    const states = nodeStates(s, target, outcome);
+  const paint = useCallback((s, target, outcome, actor) => {
+    const states = nodeStates(s, target, outcome, actor);
     setNodes((ns) => ns.map((n) => ({
       ...n,
       className: `hop hop-${states[n.id]} grp-${DIAGRAM.groups[DIAGRAM.nodes.find((d) => d.id === n.id).group]?.color ?? 'grey'}`,
@@ -99,10 +105,11 @@ export default function PersonalAgentFlow({ lastEntry }) {
     reset();
     const target = stopStep(lastEntry);
     const outcome = lastEntry?.outcome ?? 'allowed';
+    const actor = lastEntry?.actor ?? 'agent';
     setStop(target);
     setRunning(true);
     let s = 0;
-    paint(0, target, outcome);
+    paint(0, target, outcome, actor);
     timer.current = setInterval(() => {
       if (s >= target) {
         clearInterval(timer.current);
@@ -110,7 +117,7 @@ export default function PersonalAgentFlow({ lastEntry }) {
         return;
       }
       s += 1;
-      paint(s, target, outcome);
+      paint(s, target, outcome, actor);
     }, STEP_MS / speed);
   }
 

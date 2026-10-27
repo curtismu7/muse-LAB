@@ -298,3 +298,7 @@ button.approve { border-radius: 8px; width: 100%; }
 @media (max-width: 480px) {
   .flow-row { padding: 0 16px 20px; }
 }
+.hop-skipped { opacity: 0.45; border-style: dashed !important; }
+
+.callers { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
