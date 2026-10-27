@@ -13,6 +13,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
   const register = () => guarded(async () => { await api('POST', '/api/live/register'); await onChange(); });
   const signIn = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); if (!la.registered) await api('POST', '/api/live/register'); const r = await api('POST', '/api/live/signin'); window.location.assign(r.url); });
   const callGw = () => guarded(async () => { await api('POST', '/api/live/call'); await onChange(); });
+  const reset = () => guarded(async () => { await api('POST', '/api/reset'); await onChange(); setOpen(null); });
   const discover = () => guarded(async () => { await api('POST', '/api/discover'); await onChange(); });
 
   return (
@@ -59,6 +60,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
         <div className="disco-top" data-testid="live-steps">
           {!session.live.viaPingOne && <button type="button" onClick={register} disabled={busy || la.registered}>{la.registered ? 'Muse is registered' : '4 Register Muse (writes a client)'}</button>}
           <button type="button" onClick={signIn} disabled={busy || la.signedIn}>{session.live.viaPingOne ? 'Sign in at PingOne' : '5 Sign in at the gateway'}</button>
+          <button type="button" onClick={reset} disabled={busy} title="Clear this session and start again">Reset</button>
           <button type="button" onClick={callGw} disabled={busy || !la.signedIn}>{session.live.viaPingOne ? 'Show my airline points' : '7 Call with the token'}</button>
         </div>
       )}
