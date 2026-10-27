@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
+import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -78,6 +79,7 @@ export default function App() {
   const [presenter, setPresenter] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState('');
   const feedEnd = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -128,6 +130,21 @@ export default function App() {
     const entry = await api('POST', '/api/request', { tool: prompt.tool, args: prompt.args });
     push({ kind: 'muse', entry });
   });
+
+  // A typed request goes through the same path as a prompt chip. Text it cannot map gets a reply, not a tool call.
+  function send(e) {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    const intent = parseIntent(text);
+    if (intent.reply) {
+      push({ kind: 'user', text });
+      push({ kind: 'muse', text: intent.reply });
+      return;
+    }
+    ask(intent.burst ? { burst: true } : { label: intent.label, tool: intent.tool, args: intent.args });
+  }
 
   const approve = (entry) => guarded(async () => {
     const done = await api('POST', `/api/approve/${entry.id}`);
@@ -203,7 +220,7 @@ export default function App() {
         ) : (
           <>
             <div className="feed" role="log" aria-live="polite">
-              {feed.length === 0 && <p className="muted center">Pick a prompt below. Each reply shows which gate decided.</p>}
+              {feed.length === 0 && <p className="muted center">Type a request below, or pick a prompt. Each reply shows which gate decided.</p>}
               {feed.map((m) => (
                 m.kind === 'user'
                   ? <div key={m.id} className="bubble user">{m.text}</div>
@@ -214,7 +231,19 @@ export default function App() {
               <div ref={feedEnd} />
             </div>
 
-            <PersonalAgentFlow lastEntry={lastEntry} />
+            <form className="composer" onSubmit={send}>
+              <label className="sr-only" htmlFor="ask-muse">Ask Muse</label>
+              <input
+                id="ask-muse"
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder='Ask Muse, e.g. "pay Acme 800" or "read my calendar"'
+                autoComplete="off"
+                disabled={busy}
+              />
+              <button type="submit" className="primary" disabled={busy || !draft.trim()}>Send</button>
+            </form>
 
             <div className="prompts" role="group" aria-label="Prompts">
               {PROMPTS.map((p) => (
@@ -291,6 +320,12 @@ export default function App() {
           </div>
         )}
       </aside>
+
+      {session.signedIn && (
+        <div className="flow-row">
+          <PersonalAgentFlow lastEntry={lastEntry} />
+        </div>
+      )}
     </main>
   );
 }

@@ -282,3 +282,19 @@ button.approve { border-radius: 8px; width: 100%; }
 .grp-blue { border-left: 4px solid var(--accent) !important; }
 .grp-dark, .grp-grey { border-left: 4px solid var(--muted) !important; }
 .hop-label small { display: block; }
+
+/* Typed requests. */
+.composer { display: flex; gap: 8px; align-items: center; }
+.composer input {
+  flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px;
+}
+.composer input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.composer button { flex: 0 0 auto; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The personal agent flow sits in its own full-width row, outside the conversation and the identity panel. */
+.flow-row { grid-column: 1 / -1; padding: 0 24px 24px; max-width: 1040px; width: 100%; margin: 0 auto; }
+@media (max-width: 480px) {
+  .flow-row { padding: 0 16px 20px; }
+}
