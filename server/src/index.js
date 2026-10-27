@@ -104,6 +104,8 @@ export function createApp(env = process.env) {
 
   app.post('/api/signout', (req, res) => {
     req.ws.user = null;
+    req.ws.tokens = {};
+    req.ws.pending = {};
     res.json({ signedIn: false });
   });
 
@@ -119,8 +121,12 @@ export function createApp(env = process.env) {
     if (!CHANNELS.includes(via)) return res.status(400).json({ error: 'unknown channel' });
 
     const now = Date.now();
-    const verdict = await protect.assess(via, { userName: ws.user, sessionId: createHash('sha256').update(ws.id).digest('hex').slice(0, 16) });
-    const d = decide(ws, { tool, args, now, via, protect: verdict });
+    const token = ws.tokens[via];
+    if (!token) {
+      res.set('WWW-Authenticate', 'Bearer error="invalid_token", resource_metadata="https://muse.example/.well-known/oauth-protected-resource"');
+      return res.status(401).json({ error: 'invalid_token', detail: 'The gateway needs an access token for this caller.', client: via });
+    }
+    const d = decide(ws, { tool, args, now, via, protect: token.protect });
     const entry = {
       id: randomUUID(),
       at: new Date(now).toISOString(),
@@ -128,14 +134,56 @@ export function createApp(env = process.env) {
       persona: ws.user,
       actor: d.protect.actor,
       outcome: d.outcome,
-      consent: d.outcome === 'held' && d.consent,
       signals: [...d.protect.signals, ...d.detect.signals],
       rules: [d.protect.rule, d.coarse.rule, d.fine?.rule].filter(Boolean),
     };
-    if (d.outcome === 'held') ws.holds.set(entry.id, { tool, args, actor: entry.actor, consent: entry.consent });
+    if (d.outcome === 'held') ws.holds.set(entry.id, { tool, args, actor: entry.actor });
     if (d.outcome === 'allowed') entry.result = runTool(tool, args);
     record(ws, entry);
     res.json({ ...entry, detect: d.detect.steps, protect: d.protect, coarse: d.coarse, fine: d.fine });
+  });
+
+  // The caller got a 401 from the gateway, so it asks PingOne for a token. PingOne has Sam signed in, then asks Protect
+  // (through DaVinci) who is calling. A person gets a token. An agent needs Sam's consent first.
+  app.post('/api/authorize', async (req, res) => {
+    const ws = req.ws;
+    if (!ws.user) return res.status(401).json({ error: 'sign in first' });
+    const client = req.body?.client;
+    if (!CHANNELS.includes(client)) return res.status(400).json({ error: 'unknown channel' });
+    const name = client === 'muse' ? 'Muse' : 'Sam in the browser';
+    const steps = [
+      `${name} sends an authorization request to PingOne`,
+      'PingOne has Sam signed in (simulated)',
+      'PingOne runs the DaVinci flow, which calls Protect',
+    ];
+    const verdict = await protect.assess(client, { userName: ws.user, sessionId: createHash('sha256').update(ws.id).digest('hex').slice(0, 16) });
+    steps.push(verdict.rule);
+    if (verdict.deny) return res.status(403).json({ status: 'denied', steps, signals: verdict.signals });
+    if (verdict.actor === 'human') {
+      ws.tokens[client] = { protect: verdict };
+      steps.push('Not Muse, so PingOne assumes a person and issues the token');
+      return res.json({ status: 'issued', actor: 'human', steps, signals: verdict.signals });
+    }
+    ws.pending[client] = verdict;
+    steps.push('Muse is a bot, so PingOne asks Sam for consent');
+    res.json({
+      status: 'consent_required',
+      actor: 'agent',
+      steps,
+      signals: verdict.signals,
+      prompt: 'This is a bot. Do you consent to let it act on your behalf?',
+    });
+  });
+
+  app.post('/api/consent', (req, res) => {
+    const ws = req.ws;
+    const client = req.body?.client;
+    const verdict = ws.pending[client];
+    if (!verdict) return res.status(404).json({ error: 'no consent is pending for that caller' });
+    delete ws.pending[client];
+    if (req.body?.approve !== true) return res.status(403).json({ status: 'denied', steps: ['Sam declined. No token was issued'] });
+    ws.tokens[client] = { protect: verdict };
+    res.json({ status: 'issued', actor: 'agent', steps: ['Sam consented (simulated)', 'PingOne issues the token to Muse'] });
   });
 
   app.post('/api/approve/:id', (req, res) => {
@@ -150,9 +198,8 @@ export function createApp(env = process.env) {
       persona: ws.user,
       actor: hold.actor,
       outcome: 'approved',
-      consent: false,
       signals: [],
-      rules: [hold.consent ? 'Sam consented for Muse to make this call (simulated)' : 'A person approved this call (simulated CIBA)'],
+      rules: ['A person approved this call (simulated CIBA)'],
       result: runTool(hold.tool, hold.args),
     };
     record(ws, entry);
@@ -165,6 +212,8 @@ export function createApp(env = process.env) {
     ws.calls = [];
     ws.decisions = [];
     ws.holds.clear();
+    ws.tokens = {};
+    ws.pending = {};
     res.json({ reset: true });
   });
 

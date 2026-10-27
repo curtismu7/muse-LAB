@@ -17,6 +17,18 @@ The starter is the "CIAM Plus With Protect - Threat Detection - Subflow" DaVinci
 
 It does **not** decide agent versus person. That is what the Muse parent flow adds.
 
+## Where it runs
+
+Protect runs once, at authorization, not on every tool call:
+
+1. Muse calls the gateway with no token and gets 401.
+2. Muse sends an authorization request to PingOne (its own PingOne application, so the flow can tell Muse from a browser by `applicationId`).
+3. PingOne signs Sam in, and the application's DaVinci flow policy calls the Protect subflow.
+4. Not Muse: PingOne assumes a person and issues the token. Muse: Sam sees "this is a bot, do you consent?" and the token is issued only on yes.
+5. Muse retries the call. The gateway then runs Muse-detect and the Privilege coarse and fine checks.
+
+One login flow is enough: attach a DaVinci flow policy to the Muse application, and have that flow call the Protect subflow (Flow Conductor), then branch on the result. pi.flow is how Muse drives that flow without a redirect; it does not call the subflow itself. This is from the PingOne documentation as recalled, not tested in a tenant.
+
 ## What to build in the tenant
 
 1. A **parent flow** with an API trigger that calls the subflow with the inputs Muse sends (below) and returns the subflow's outputs as JSON. Turn on API key access for it and note the flow URL.

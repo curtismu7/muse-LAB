@@ -2,36 +2,243 @@
   "schema": "diagram-studio/1",
   "id": "personal-agent-flow",
   "title": "Personal agent flow",
-  "lede": "Sam asks Muse for something. Protect works out who is calling. An agent call waits for Sam's consent; a person's call goes straight on. Privilege then checks the tool and the call. Everything here is simulated.",
+  "lede": "Sam asks Muse. The gateway answers 401, so Muse asks PingOne for a token. PingOne signs Sam in and calls Protect through DaVinci. If it is not Muse, PingOne assumes a person. If it is Muse, Sam is asked to consent. Then the call is retried: the gateway checks the tool and the call. Everything here is simulated.",
   "groups": {
-    "person": { "label": "Person", "color": "blue" },
-    "agent": { "label": "Personal agent", "color": "dark" },
-    "gate": { "label": "Gate", "color": "amber" },
-    "tool": { "label": "Tool", "color": "green" }
+    "person": {
+      "label": "Person",
+      "color": "blue"
+    },
+    "agent": {
+      "label": "Personal agent",
+      "color": "dark"
+    },
+    "gate": {
+      "label": "Gate",
+      "color": "amber"
+    },
+    "tool": {
+      "label": "Tool",
+      "color": "green"
+    }
   },
   "nodes": [
-    { "id": "user", "group": "person", "label": "Sam", "sub": ["Signed in with PingOne (simulated)"], "x": 0, "y": 80 },
-    { "id": "muse", "group": "agent", "label": "Muse", "sub": ["Personal agent in the browser"], "x": 200, "y": 80 },
-    { "id": "protect", "group": "gate", "label": "Protect", "sub": ["Agent or person? DaVinci flow (simulated)"], "x": 400, "y": 80 },
-    { "id": "consent", "group": "person", "label": "Consent", "sub": ["Agent calls only: Sam approves"], "x": 600, "y": 80 },
-    { "id": "coarse", "group": "gate", "label": "Coarse check", "sub": ["Which personas may call the tool"], "x": 800, "y": 80 },
-    { "id": "fine", "group": "gate", "label": "Fine check", "sub": ["Business rule for this call"], "x": 1000, "y": 80 },
-    { "id": "resource", "group": "tool", "label": "Resource", "sub": ["The tool runs (simulated)"], "x": 1200, "y": 80 }
+    {
+      "id": "user",
+      "group": "person",
+      "label": "Sam",
+      "sub": [
+        "Signed in with PingOne (simulated)"
+      ],
+      "x": 0,
+      "y": 80
+    },
+    {
+      "id": "muse",
+      "group": "agent",
+      "label": "Muse",
+      "sub": [
+        "Personal agent"
+      ],
+      "x": 200,
+      "y": 80
+    },
+    {
+      "id": "gateway",
+      "group": "gate",
+      "label": "Gateway",
+      "sub": [
+        "Privilege: answers 401 without a token"
+      ],
+      "x": 400,
+      "y": 80
+    },
+    {
+      "id": "pingone",
+      "group": "gate",
+      "label": "PingOne",
+      "sub": [
+        "Authorization + sign-in (simulated)"
+      ],
+      "x": 600,
+      "y": 80
+    },
+    {
+      "id": "protect",
+      "group": "gate",
+      "label": "Protect",
+      "sub": [
+        "Muse or a person? DaVinci flow (simulated)"
+      ],
+      "x": 800,
+      "y": 80
+    },
+    {
+      "id": "consent",
+      "group": "person",
+      "label": "Consent",
+      "sub": [
+        "Muse only: \"this is a bot, allow it?\""
+      ],
+      "x": 1000,
+      "y": 80
+    },
+    {
+      "id": "coarse",
+      "group": "gate",
+      "label": "Coarse check",
+      "sub": [
+        "Which personas may call the tool"
+      ],
+      "x": 1200,
+      "y": 80
+    },
+    {
+      "id": "fine",
+      "group": "gate",
+      "label": "Fine check",
+      "sub": [
+        "Business rule for this call"
+      ],
+      "x": 1400,
+      "y": 80
+    },
+    {
+      "id": "resource",
+      "group": "tool",
+      "label": "Resource",
+      "sub": [
+        "The tool runs (simulated)"
+      ],
+      "x": 1600,
+      "y": 80
+    }
   ],
   "edges": [
-    { "source": "user", "target": "muse", "label": "1 Ask" },
-    { "source": "muse", "target": "protect", "label": "2 Who is calling?" },
-    { "source": "protect", "target": "consent", "label": "3 Agent: ask Sam" },
-    { "source": "consent", "target": "coarse", "label": "4 Coarse" },
-    { "source": "coarse", "target": "fine", "label": "5 Fine" },
-    { "source": "fine", "target": "resource", "label": "6 Run tool" }
+    {
+      "source": "user",
+      "target": "muse",
+      "label": "1 Ask"
+    },
+    {
+      "source": "muse",
+      "target": "gateway",
+      "label": "2 Call tool"
+    },
+    {
+      "source": "gateway",
+      "target": "pingone",
+      "label": "3 401: authorize"
+    },
+    {
+      "source": "pingone",
+      "target": "protect",
+      "label": "4 Login, then who?"
+    },
+    {
+      "source": "protect",
+      "target": "consent",
+      "label": "5 Muse: ask Sam"
+    },
+    {
+      "source": "consent",
+      "target": "coarse",
+      "label": "6 Token, retry: coarse"
+    },
+    {
+      "source": "coarse",
+      "target": "fine",
+      "label": "7 Fine"
+    },
+    {
+      "source": "fine",
+      "target": "resource",
+      "label": "8 Run tool"
+    }
   ],
   "steps": [
-    { "title": "Sam asks Muse", "what": "Muse takes the request from Sam's signed-in session.", "edges": [0] },
-    { "title": "Protect", "what": "Protect works out who is calling: Muse, an agent, or a person in the browser. Muse-detect also checks for bursts and hidden instructions. A block stops the call here.", "edges": [0, 1] },
-    { "title": "Consent (agent only)", "what": "An agent call waits for Sam to consent. A person's call skips this step.", "edges": [0, 1, 2] },
-    { "title": "Coarse check", "what": "Privilege asks whether this persona may call the tool at all. A deny stops the call here.", "edges": [0, 1, 2, 3] },
-    { "title": "Fine check", "what": "Privilege applies the business rule to this call. Over the limit, the call is held until a person approves it.", "edges": [0, 1, 2, 3, 4] },
-    { "title": "Resource", "what": "The call is allowed, so the tool runs.", "edges": [0, 1, 2, 3, 4, 5] }
+    {
+      "title": "Sam asks Muse",
+      "what": "Muse takes the request from Sam's signed-in session.",
+      "edges": [
+        0
+      ]
+    },
+    {
+      "title": "Muse calls the gateway",
+      "what": "Muse calls the tool through the gateway with no token yet.",
+      "edges": [
+        0,
+        1
+      ]
+    },
+    {
+      "title": "401: authorize",
+      "what": "The gateway answers 401. Muse sends an authorization request to PingOne.",
+      "edges": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "title": "Login and Protect",
+      "what": "PingOne has Sam signed in, then its DaVinci flow calls Protect to detect whether the caller is Muse. If it is not Muse, PingOne assumes a person and issues the token.",
+      "edges": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "title": "Consent (Muse only)",
+      "what": "Muse is a bot, so Sam sees a modal asking whether to allow it to act on their behalf. A person skips this step.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "title": "Retry: coarse check",
+      "what": "With a token, the gateway retries. Muse-detect looks for bursts and hidden instructions, then Privilege asks whether this persona may call the tool at all.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "title": "Fine check",
+      "what": "Privilege applies the business rule to this call. Over the limit, the call is held until a person approves it.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "title": "Resource",
+      "what": "The call is allowed, so the tool runs.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
   ]
 }

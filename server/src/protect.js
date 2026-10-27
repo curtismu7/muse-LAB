@@ -11,7 +11,7 @@ export function assessCaller(via) {
   if (via === 'browser') {
     return { actor: 'human', mode: 'mock', signals: ['interactive browser session'], rule: 'Protect: a person is using the browser. No consent needed.' };
   }
-  return { actor: 'agent', mode: 'mock', signals: ['agent client: Muse', 'no direct input from Sam in this request'], rule: 'Protect: the caller is Muse, an agent. Sam must consent first.' };
+  return { actor: 'agent', mode: 'mock', signals: ['agent client: Muse', 'no direct input from Sam in this request'], rule: 'Protect: the caller is Muse, an agent. Sam is asked to consent.' };
 }
 
 function liveConfig(env) {
@@ -58,7 +58,7 @@ export function createProtect(env = {}, { fetchImpl = globalThis.fetch } = {}) {
       if (level === 'HIGH') return { actor, mode: 'live', deny: true, signals, rule: 'Protect: risk is HIGH. The call is blocked.' };
       return {
         actor, mode: 'live', signals,
-        rule: actor === 'agent' ? 'Protect: the caller is an agent. Sam must consent first.' : 'Protect: a person is using the browser. No consent needed.',
+        rule: actor === 'agent' ? 'Protect: the caller is an agent. Sam is asked to consent.' : 'Protect: a person is using the browser. No consent needed.',
       };
     } catch (err) {
       return { actor: declared, mode: 'live', deny: true, signals: ['Protect unavailable'], rule: `Protect: no verdict (${err.message}). The call is blocked.` };

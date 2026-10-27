@@ -67,20 +67,18 @@ test('decide: for a person in the browser, a big payment is held and a small one
   assert.equal(decide(ws('finance'), { tool: 'payments.send', args: { payee: 'Acme', amount: 120 }, via: 'browser' }).outcome, 'allowed');
 });
 
-test('decide: an agent call waits for consent even when it is small', () => {
+test('decide: consent is settled at authorization, so a small agent call is allowed', () => {
   const d = decide(ws('finance'), { tool: 'calendar.read', args: {}, via: 'muse' });
-  assert.equal(d.outcome, 'held');
-  assert.equal(d.consent, true);
+  assert.equal(d.outcome, 'allowed');
   assert.equal(d.protect.actor, 'agent');
 });
 
-test('decide: a person in the browser needs no consent', () => {
+test('decide: a person in the browser is allowed', () => {
   const d = decide(ws('finance'), { tool: 'calendar.read', args: {}, via: 'browser' });
   assert.equal(d.outcome, 'allowed');
-  assert.equal(d.consent, false);
   assert.equal(d.protect.actor, 'human');
 });
 
-test('decide: a coarse deny still blocks an agent; consent does not open a closed tool', () => {
+test('decide: a coarse deny still blocks an agent; a closed tool stays closed', () => {
   assert.equal(decide(ws('staff'), { tool: 'payments.send', args: { payee: 'Acme', amount: 10 }, via: 'muse' }).outcome, 'blocked');
 });

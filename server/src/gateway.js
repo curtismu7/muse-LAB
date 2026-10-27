@@ -41,7 +41,7 @@ export function fineCheck(tool, args = {}) {
 }
 
 // Records the call on the workspace (for the burst check) and returns the decision. It does not run the tool.
-// Protect comes first: an agent call needs Sam's consent before the coarse and fine checks even run.
+// Protect and consent happen earlier, when the caller is authorized (see /api/authorize). The verdict rides in on the token.
 export function decide(ws, { tool, args = {}, now = Date.now(), via = 'muse', protect = assessCaller(via) }) {
   const detect = runDetectionFlow({ ws, args, now });
   ws.calls.push(now);
@@ -49,11 +49,10 @@ export function decide(ws, { tool, args = {}, now = Date.now(), via = 'muse', pr
 
   const coarse = coarseCheck(ws.user, tool);
   const fine = coarse.result === 'allow' ? fineCheck(tool, args) : null;
-  const consent = protect.actor === 'agent';
 
   let outcome = 'allowed';
   if (protect.deny || detect.verdict === 'block' || coarse.result === 'deny' || fine?.result === 'deny') outcome = 'blocked';
-  else if (detect.verdict === 'step_up' || fine?.result === 'step_up' || consent) outcome = 'held';
+  else if (detect.verdict === 'step_up' || fine?.result === 'step_up') outcome = 'held';
 
-  return { outcome, protect, detect, coarse, fine, consent };
+  return { outcome, protect, detect, coarse, fine };
 }
