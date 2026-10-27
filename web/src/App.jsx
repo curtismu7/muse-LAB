@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -142,6 +143,7 @@ export default function App() {
   }
 
   const decisions = session.decisions ?? [];
+  const lastEntry = [...feed].reverse().find((m) => m.entry)?.entry ?? null;
 
   return (
     <main className="app">
@@ -210,6 +212,8 @@ export default function App() {
               ))}
               <div ref={feedEnd} />
             </div>
+
+            <PersonalAgentFlow lastEntry={lastEntry} />
 
             <div className="prompts" role="group" aria-label="Prompts">
               {PROMPTS.map((p) => (
