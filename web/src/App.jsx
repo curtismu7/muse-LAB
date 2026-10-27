@@ -270,10 +270,16 @@ export default function App() {
           )}
         </header>
 
-        <aside className="banner" role="note">
-          Simulated. PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.
-          {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
-        </aside>
+        {session.mode === 'live' ? (
+          <aside className="banner live" role="note">
+            Real. PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Muse acts on their behalf through the gateway at {session.live.origin}. Nothing in this mode is simulated. Switch to Fake (mock) below for the offline version.
+          </aside>
+        ) : (
+          <aside className="banner" role="note">
+            Simulated. PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.
+            {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
+          </aside>
+        )}
 
         {presenter && session.signedIn && (
           <p className="say">Say: each reply names the gate that decided, and why. Try a payment over 500, then the burst.</p>
@@ -283,7 +289,7 @@ export default function App() {
           <div className="signin">
             <span className="avatar big" aria-hidden="true">M</span>
             <h2>Sign in with PingOne</h2>
-            <p className="muted">The sign-in runs a DaVinci-shaped flow, simulated in this build.</p>
+            <p className="muted">{session.mode === 'live' ? 'Muse only redirects. PingOne runs the login, Protect and consent.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
             <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
             {session.picker && (
               <label className="field">
@@ -293,9 +299,11 @@ export default function App() {
                 </select>
               </label>
             )}
-            <button type="button" className="primary" onClick={signIn} disabled={busy || session.mode === 'live'} title={session.mode === 'live' ? 'In Real mode, sign in with the steps under Agent Privilege' : undefined}>
-              {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
-            </button>
+            {session.mode !== 'live' && (
+              <button type="button" className="primary" onClick={signIn} disabled={busy}>
+                {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
+              </button>
+            )}
           </div>
         ) : (
           <>

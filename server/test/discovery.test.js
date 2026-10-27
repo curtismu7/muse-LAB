@@ -110,6 +110,7 @@ test('API: live mode discovers through the injected network, and live sign-in is
   const net = fakeNet(happy());
   const a = await boot(LIVE_ENV, net.f);
   assert.deepEqual((await a.call('GET', '/api/session')).json.live, { available: true, origin: 'https://gw.example', viaPingOne: false });
+  assert.equal((await a.call('GET', '/api/session')).json.mode, 'live', 'a new visitor starts in Real when it is configured');
   assert.equal((await a.call('POST', '/api/gateway-mode', { mode: 'nope' })).status, 400);
   assert.equal((await a.call('POST', '/api/gateway-mode', { mode: 'live' })).status, 200);
   const d = await a.call('POST', '/api/discover');
@@ -117,6 +118,8 @@ test('API: live mode discovers through the injected network, and live sign-in is
   assert.equal(d.json.steps.length, 3);
   assert.equal((await a.call('POST', '/api/signin', {})).status, 409);
   await a.call('POST', '/api/reset');
+  assert.equal((await a.call('GET', '/api/session')).json.mode, 'live', 'Real is the default whenever live is configured');
+  assert.equal((await a.call('POST', '/api/gateway-mode', { mode: 'mock' })).status, 200, 'Mock stays one click away');
   assert.equal((await a.call('GET', '/api/session')).json.mode, 'mock');
   await a.close();
 });

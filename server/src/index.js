@@ -79,6 +79,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     if (!ws) {
       ws = workspaces.create();
       if (!ws) return res.status(503).json({ error: 'busy', detail: 'Too many visitors right now. Try again shortly.' });
+      if (live) ws.gatewayMode = 'live';
       const secure = hosted ? '; Secure' : '';
       res.append('Set-Cookie', `${WS_COOKIE}=${ws.id}; Path=/; HttpOnly; SameSite=Lax${secure}`);
     }
@@ -320,7 +321,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   app.post('/api/reset', (req, res) => {
     const ws = req.ws;
     ws.user = null;
-    ws.gatewayMode = 'mock';
+    ws.gatewayMode = live ? 'live' : 'mock';
     ws.discovery = null;
     clearLive(ws);
     ws.calls = [];

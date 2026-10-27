@@ -323,3 +323,5 @@ button.approve { border-radius: 8px; width: 100%; }
 .modal h2 { margin: 0; font-size: 20px; }
 .modal p { margin: 0; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+.banner.live { border-color: var(--ok); }

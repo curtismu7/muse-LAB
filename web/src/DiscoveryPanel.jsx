@@ -11,7 +11,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
   const setMode = (mode) => guarded(async () => { await api('POST', '/api/gateway-mode', { mode }); await onChange(); setOpen(null); });
   const la = session.liveAuth ?? { steps: [] };
   const register = () => guarded(async () => { await api('POST', '/api/live/register'); await onChange(); });
-  const signIn = () => guarded(async () => { if (!la.registered) await api('POST', '/api/live/register'); const r = await api('POST', '/api/live/signin'); window.location.assign(r.url); });
+  const signIn = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); if (!la.registered) await api('POST', '/api/live/register'); const r = await api('POST', '/api/live/signin'); window.location.assign(r.url); });
   const callGw = () => guarded(async () => { await api('POST', '/api/live/call'); await onChange(); });
   const discover = () => guarded(async () => { await api('POST', '/api/discover'); await onChange(); });
 
@@ -55,11 +55,11 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
           Muse learned: sign in at <code>{d.learned.authorizeEndpoint}</code>, token from <code>{d.learned.tokenEndpoint}</code>{d.learned.pkce ? ', PKCE required' : ''}.
         </p>
       )}
-      {live && d?.learned && (
+      {live && (
         <div className="disco-top" data-testid="live-steps">
           {!session.live.viaPingOne && <button type="button" onClick={register} disabled={busy || la.registered}>{la.registered ? 'Muse is registered' : '4 Register Muse (writes a client)'}</button>}
-          <button type="button" onClick={signIn} disabled={busy || la.signedIn}>{session.live.viaPingOne ? '4 Sign in at PingOne' : '5 Sign in at the gateway'}</button>
-          <button type="button" onClick={callGw} disabled={busy || !la.signedIn}>7 Call with the token</button>
+          <button type="button" onClick={signIn} disabled={busy || la.signedIn}>{session.live.viaPingOne ? 'Sign in at PingOne' : '5 Sign in at the gateway'}</button>
+          <button type="button" onClick={callGw} disabled={busy || !la.signedIn}>{session.live.viaPingOne ? 'Show my airline points' : '7 Call with the token'}</button>
         </div>
       )}
       {live && la.error && <p role="alert" className="small bad">{la.error}</p>}
