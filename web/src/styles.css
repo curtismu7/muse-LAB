@@ -346,3 +346,6 @@ button.approve { border-radius: 8px; width: 100%; }
 .toggle input[role="switch"]:checked { background: var(--accent); border-color: var(--accent); }
 .toggle input[role="switch"]:checked::after { transform: translateX(16px); background: var(--accent-text); }
 .toggle input[role="switch"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.how-link { color: var(--accent); }
+.how-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
