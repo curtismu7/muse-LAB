@@ -95,7 +95,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       picker,
       hosted,
       mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
-      live: live ? { available: true, origin: live.origin } : { available: false },
+      live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp) } : { available: false },
       discovery: ws.discovery ?? null,
       liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null },
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
