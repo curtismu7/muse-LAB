@@ -42,3 +42,13 @@ Muse redirects to PingOne; PingOne handles login. Then Muse acts on the user's b
 Flow: sign in (auth code + PKCE, `prompt=login`, resource and scope for the gateway) -> Muse's own agent token (`client_credentials`) -> exchange 1 (user + actor, stamps `act`) -> exchange 2 (gateway audience, `act` carried) -> gateway call with `X-Token-Validation: jwks` and `MCP-Protocol-Version` -> `tools/call loyalty_balance`.
 
 PingOne needs: an OIDC web app for Muse (auth code, client credentials, token exchange, secret, its callback URI), grants on the gateway resource (`gateway:mcp:invoke`) and the workload resource (`agent:invoke`), and Muse's client id added to the Authorize `HasValidActorChain` list (snapshot import). Verified live 2026-10-27: Authorize PERMIT, `loyalty_balance` returned points. Not yet built: the DaVinci login flow with Protect that detects Muse, and consent.
+
+## Muse as a connector for other agents (for example Meta's Muse at muse.ai)
+
+With `MUSE_CONNECTOR=1`, real mode configured and an https `MUSE_PUBLIC_URL`, Muse also acts as a standard MCP server with OAuth, so another agent can add it as a custom connector (remote streamable HTTP, OAuth).
+
+- **MCP endpoint:** `<public address>/mcp` (JSON responses, `initialize`, `tools/list`, `tools/call`). Tools: `loyalty_balance` and `get_loyalty_status`, answered through the gateway.
+- **Sign-in:** `/connector/authorize` sends the user to the same PingOne flow as the app (login, Protect, agent-detected screen, consent). `/connector/callback` does the on-behalf-of exchanges. `/connector/token` gives the agent its own opaque token (PKCE S256, one-use code, no refresh token, at most an hour). The agent never receives the delegated token.
+- **Clients:** dynamic registration (`/connector/register`) is offered only for redirect hosts you list in `MUSE_CONNECTOR_REDIRECT_HOSTS` (comma separated, https only). For an agent that asks you to type a client id, set `MUSE_CONNECTOR_CLIENT_ID` and `MUSE_CONNECTOR_REDIRECT_URIS`. With neither set, nothing can be issued.
+- **PingOne:** the Muse app needs `<public address>/connector/callback` as a redirect URI.
+- Refused registrations and authorizations log the redirect host only, so you can see what an agent asked for.

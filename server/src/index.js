@@ -7,6 +7,7 @@ import { createWorkspaces } from './workspaces.js';
 import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
 import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
+import { mountConnector } from './connector.js';
 import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
@@ -59,6 +60,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   const PENDING_MS = 10 * 60 * 1000;
   const app = express();
   app.disable('x-powered-by');
+  if (hosted) app.set('trust proxy', 1);
 
   // Health is public and read-only. Probes call it with a pod-IP Host, so it sits before the Host check.
   app.get('/api/health', (req, res) => {
@@ -78,13 +80,16 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   });
 
   app.use((req, res, next) => {
-    if (req.method === 'POST' && req.headers.origin) {
+    if (req.method === 'POST' && req.headers.origin && !(req.path === '/mcp' || req.path.startsWith('/connector/'))) {
       let origin = null;
       try { origin = new URL(req.headers.origin).host; } catch { origin = null; }
       if (origin !== req.headers.host) return res.status(403).json({ error: 'cross-origin write refused' });
     }
     next();
   });
+
+  // Muse as a connector for other agents (off unless MUSE_CONNECTOR=1 and real mode is configured).
+  mountConnector(app, { env, live, fetchImpl });
 
   app.use(express.json({ limit: '16kb' }));
 
