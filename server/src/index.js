@@ -7,6 +7,7 @@ import { createWorkspaces } from './workspaces.js';
 import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
 import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
+import { callGateway, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 
@@ -37,6 +38,10 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   ]);
   const live = liveConfig(env);
   const workspaces = createWorkspaces({ max: Number(env.MUSE_MAX_WORKSPACES) || 200 });
+  // Sign-in state to workspace. The return from the identity provider is a cross-site navigation, so the SameSite=Strict
+  // cookie is not sent; the one-time state value is what ties the return to the visitor who started it.
+  const pending = new Map();
+  const PENDING_MS = 10 * 60 * 1000;
   const app = express();
   app.disable('x-powered-by');
 
@@ -90,6 +95,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
       live: live ? { available: true, origin: live.origin } : { available: false },
       discovery: ws.discovery ?? null,
+      liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null },
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
       tools: Object.entries(TOOLS).map(([id, t]) => ({ id, label: t.label, fields: t.fields, personas: t.personas })),
       decisions: ws.decisions,
@@ -104,6 +110,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     if (mode === 'live' && !live) return res.status(403).json({ error: 'live mode is not enabled in this build' });
     req.ws.gatewayMode = mode;
     req.ws.discovery = null;
+    clearLive(req.ws);
     res.json({ mode });
   });
 
@@ -118,8 +125,71 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     res.json(ws.discovery);
   });
 
+  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; };
+  const liveReady = (req, res) => {
+    if (req.ws.gatewayMode !== 'live' || !live) { res.status(409).json({ error: 'switch to Real (live) first' }); return false; }
+    if (!req.ws.discovery?.learned) { res.status(409).json({ error: 'run the discovery steps first' }); return false; }
+    return true;
+  };
+  const addStep = (ws, step) => { if (step) ws.liveSteps = [...(ws.liveSteps ?? []).filter((x) => x.n !== step.n), step].sort((a, b) => a.n - b.n); };
+  const failed = (e) => ({ error: 'Agent Privilege could not be reached', detail: String(e?.name ?? 'error').slice(0, 40) });
+
+  // Step 4. A real write: one client registration at the gateway's authorization server. Only on an explicit click.
+  app.post('/api/live/register', async (req, res) => {
+    if (!liveReady(req, res)) return;
+    const ws = req.ws;
+    try {
+      const r = await registerClient(live, ws.discovery.learned, `http://${req.headers.host}/api/callback`, fetchImpl);
+      addStep(ws, r.step);
+      ws.liveClient = r.client ?? null;
+      ws.liveError = r.error ?? null;
+      res.json({ registered: Boolean(r.client), error: r.error ?? null });
+    } catch (e) { res.status(502).json(failed(e)); }
+  });
+
+  // Step 5. Returns the authorize URL; the page navigates there. Nothing is sent to the gateway yet.
+  app.post('/api/live/signin', (req, res) => {
+    if (!liveReady(req, res)) return;
+    const ws = req.ws;
+    if (!ws.liveClient) return res.status(409).json({ error: 'register Muse first' });
+    const resource = live.url;
+    const r = startSignIn(ws.discovery.learned, ws.liveClient, resource);
+    for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
+    pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, at: Date.now() });
+    addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: 'The browser leaves Muse for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
+    res.json({ url: r.url });
+  });
+
+  // Step 6. The identity provider sends the browser back here with a code.
+  app.get('/api/callback', async (req, res) => {
+    const p = pending.get(String(req.query.state ?? ''));
+    pending.delete(String(req.query.state ?? ''));
+    const ws = p && Date.now() - p.at <= PENDING_MS ? workspaces.find(p.wsId) : null;
+    const done = (msg) => res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Muse</title><p>${msg}</p><script>location.replace('/')</script>`);
+    if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Muse.');
+    if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Muse.'); }
+    try {
+      const r = await exchangeCode(live, ws.discovery.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource }, fetchImpl);
+      addStep(ws, r.step);
+      ws.liveError = r.error ?? null;
+      if (r.token) { ws.liveToken = r.token; ws.liveClaims = r.claims ?? { opaque: true }; }
+    } catch (e) { ws.liveError = failed(e).error; }
+    done('Signed in. Returning to Muse.');
+  });
+
+  // Steps 7 and 8. The call that was refused in step 1, now with the token.
+  app.post('/api/live/call', async (req, res) => {
+    if (!liveReady(req, res)) return;
+    const ws = req.ws;
+    if (!ws.liveToken) return res.status(409).json({ error: 'sign in first' });
+    try {
+      for (const s of await callGateway(live, ws.liveToken, fetchImpl)) addStep(ws, s);
+      res.json({ ok: true });
+    } catch (e) { res.status(502).json(failed(e)); }
+  });
+
   app.post('/api/signin', (req, res) => {
-    if (req.ws.gatewayMode === 'live') return res.status(409).json({ error: 'live sign-in is not built yet', detail: 'Discovery is real; registration and sign-in with the real gateway come next.' });
+    if (req.ws.gatewayMode === 'live') return res.status(409).json({ error: 'use the live steps below, not the persona sign-in', detail: 'In Real mode Muse registers, then you sign in at the gateway authorization server.' });
     const key = picker ? req.body?.persona : 'finance';
     if (!PERSONAS[key]) return res.status(400).json({ error: 'unknown persona' });
     req.ws.user = key;
@@ -128,6 +198,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
 
   app.post('/api/signout', (req, res) => {
     req.ws.user = null;
+    clearLive(req.ws);
     res.json({ signedIn: false });
   });
 
@@ -187,6 +258,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     ws.user = null;
     ws.gatewayMode = 'mock';
     ws.discovery = null;
+    clearLive(ws);
     ws.calls = [];
     ws.decisions = [];
     ws.holds.clear();

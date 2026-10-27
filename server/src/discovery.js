@@ -2,7 +2,7 @@
 // says, then reads the resource metadata (RFC 9728) and the authorization-server metadata (RFC 8414).
 // Mock: static, no network. Live: owner-run, read-only GETs and one unauthenticated POST to the one configured gateway.
 const MAX_BYTES = 64 * 1024;
-const TIMEOUT_MS = 6000;
+export const TIMEOUT_MS = 6000;
 const INIT = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'muse', version: '0.1.0' } } };
 
 const learnedFrom = (as) => ({
@@ -54,7 +54,7 @@ export function liveConfig(env) {
   return { url: u.href, origin: u.origin, allow };
 }
 
-async function readCapped(res) {
+export async function readCapped(res) {
   const text = await res.text();
   const body = text.length > MAX_BYTES ? text.slice(0, MAX_BYTES) : text;
   try { return JSON.parse(body); } catch { return body.slice(0, 500); }

@@ -234,7 +234,7 @@ export default function App() {
                 </select>
               </label>
             )}
-            <button type="button" className="primary" onClick={signIn} disabled={busy || session.mode === 'live'} title={session.mode === 'live' ? 'Live sign-in is not built yet' : undefined}>
+            <button type="button" className="primary" onClick={signIn} disabled={busy || session.mode === 'live'} title={session.mode === 'live' ? 'In Real mode, sign in with the steps under Agent Privilege' : undefined}>
               {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
             </button>
           </div>
