@@ -237,3 +237,10 @@ test('a full workspace store answers 503 busy to a new visitor', async () => {
     await app.close();
   }
 });
+
+test('a denied Protect verdict blocks the call', async () => {
+  const { decide } = await import('../src/gateway.js');
+  const ws = { user: 'finance', calls: [], decisions: [], holds: new Map() };
+  const d = decide(ws, { tool: 'calendar.read', via: 'browser', protect: { actor: 'human', deny: true, signals: [], rule: 'x' } });
+  assert.equal(d.outcome, 'blocked');
+});

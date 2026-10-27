@@ -1,12 +1,12 @@
 import express from 'express';
 import { existsSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createWorkspaces } from './workspaces.js';
 import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
-import { CHANNELS } from './protect.js';
+import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -34,6 +34,7 @@ export function createApp(env = process.env) {
     ...LOOPBACK_NAMES,
     ...(env.MUSE_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean),
   ]);
+  const protect = createProtect(env);
   const workspaces = createWorkspaces({ max: Number(env.MUSE_MAX_WORKSPACES) || 200 });
   const app = express();
   app.disable('x-powered-by');
@@ -81,6 +82,7 @@ export function createApp(env = process.env) {
   app.get('/api/session', (req, res) => {
     const ws = req.ws;
     res.json({
+      protectMode: protect.mode,
       signedIn: Boolean(ws.user),
       persona: ws.user ? { key: ws.user, ...PERSONAS[ws.user] } : null,
       picker,
@@ -105,7 +107,7 @@ export function createApp(env = process.env) {
     res.json({ signedIn: false });
   });
 
-  app.post('/api/request', (req, res) => {
+  app.post('/api/request', async (req, res) => {
     const ws = req.ws;
     if (!ws.user) return res.status(401).json({ error: 'sign in first' });
     const tool = req.body?.tool;
@@ -117,7 +119,8 @@ export function createApp(env = process.env) {
     if (!CHANNELS.includes(via)) return res.status(400).json({ error: 'unknown channel' });
 
     const now = Date.now();
-    const d = decide(ws, { tool, args, now, via });
+    const verdict = await protect.assess(via, { userName: ws.user, sessionId: createHash('sha256').update(ws.id).digest('hex').slice(0, 16) });
+    const d = decide(ws, { tool, args, now, via, protect: verdict });
     const entry = {
       id: randomUUID(),
       at: new Date(now).toISOString(),
