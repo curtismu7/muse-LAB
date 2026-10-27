@@ -19,13 +19,13 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
   const callGw = () => guarded(async () => { await api('POST', '/api/live/call'); await onChange(); });
   const reset = () => guarded(async () => { await api('POST', '/api/reset'); await onChange(); setOpen(null); });
   const [prompt, setPrompt] = useState('');
-  // Off: Muse shows the 401 and waits for the click. On: Muse shows it for a moment, then goes to PingOne by itself.
+  // Off: Muse shows the 401 and a Continue button. On: no button; Muse shows the 401 for a moment, goes to PingOne, and answers on return.
   const [auto, setAuto] = useState(readAuto);
   const toggleAuto = (on) => { setAuto(on); try { window.localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ } };
   const ask = (text) => guarded(async () => {
     const r = await api('POST', '/api/live/ask', { prompt: text });
     await onChange(); setOpen(null);
-    if (r?.state === 'auth_required' && auto) setTimeout(() => signIn(), 1800);
+    if (r?.state === 'auth_required' && auto) setTimeout(() => signIn(), 1500);
   });
   const discover = () => guarded(async () => { await api('POST', '/api/discover'); await onChange(); });
 
@@ -52,8 +52,8 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
               <div className="msg">
                 <span className="avatar sm" aria-hidden="true">M</span>
                 <div className="bubble muse">
-                  <span>I called the gateway without a token and it answered <strong>401</strong>. {la.signedIn ? 'You signed in, so I asked again with a token for you.' : 'I need you to sign in at PingOne first.'}</span>
-                  {!la.signedIn && <button type="button" className="primary" onClick={signIn} disabled={busy}>{auto ? 'Going to PingOne…' : 'Continue to PingOne'}</button>}
+                  <span>I called the gateway without a token and it answered <strong>401</strong>. {la.signedIn ? 'You signed in, so I asked again with a token for you.' : auto ? 'Taking you to PingOne to sign in…' : 'I need you to sign in at PingOne first.'}</span>
+                  {!la.signedIn && !auto && <button type="button" className="primary" onClick={signIn} disabled={busy}>Continue to PingOne</button>}
                 </div>
               </div>
             )}
@@ -72,9 +72,9 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
           <div className="prompts" role="group" aria-label="Prompts">
             <button type="button" className="chip" onClick={() => ask(POINTS_PROMPT)} disabled={busy}>{POINTS_PROMPT}</button>
             <button type="button" className="chip" onClick={reset} disabled={busy} title="Clear this session and start again">Reset</button>
-            <label className="toggle" title="Off: wait for you to click after the 401. On: go to PingOne automatically.">
+            <label className="toggle" title="On: no button. Muse goes to PingOne after the 401, and answers when you return. Off: show the Continue button.">
               <input type="checkbox" role="switch" checked={auto} onChange={(e) => toggleAuto(e.target.checked)} />
-              <span>Go to PingOne automatically</span>
+              <span>Run all the way through</span>
             </label>
           </div>
         </div>
