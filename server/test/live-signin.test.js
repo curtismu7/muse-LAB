@@ -207,3 +207,24 @@ test('acting for the user: sign-in, agent token, two exchanges, then Agent Gatew
   assert.deepEqual(steps, [4, 5, 6, 6.1, 6.2, 6.3, 7, 8, 9]);
   await new Promise((r) => server.close(r));
 });
+
+test('Privilege lane: sign-in asks for openid only, no resource; exchange 2 asks for the Privilege scope', async () => {
+  const P1 = 'https://auth.pingone.com/env1/as';
+  const bodies = [];
+  const n = net({
+    [`${P1}/token`]: (init) => { const f = new URLSearchParams(init.body); bodies.push(Object.fromEntries(f)); return json(200, { access_token: jwt({ aud: 'x', sub: 'sam', act: { sub: 'client1' } }) }); },
+  });
+  const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1', MUSE_P1_CLIENT_SECRET: 's', MUSE_P1_LANE: 'privilege' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let cookie = null;
+  const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { j: await r.json().catch(() => null) }; };
+  assert.equal((await call('GET', '/api/session')).j.live.lane, 'privilege');
+  await call('POST', '/api/discover'); await call('POST', '/api/live/register');
+  const u = new URL((await call('POST', '/api/live/signin')).j.url);
+  assert.equal(u.searchParams.get('scope'), 'openid');
+  assert.equal(u.searchParams.has('resource'), false);
+  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  assert.equal(bodies.at(-1).scope, 'mcp:invoke', 'exchange 2 targets the Muse Privilege resource');
+  await new Promise((r) => server.close(r));
+});

@@ -58,7 +58,9 @@ export function liveConfig(env) {
     const base = `https://auth.pingone.${/^[a-z]{2,4}$/.test(env.MUSE_P1_REGION ?? '') ? env.MUSE_P1_REGION : 'com'}`;
     let clientSecret = env.MUSE_P1_CLIENT_SECRET ?? '';
     if (!clientSecret && env.MUSE_P1_CLIENT_SECRET_FILE) { try { clientSecret = readFileSync(env.MUSE_P1_CLIENT_SECRET_FILE, 'utf8').trim(); } catch { /* none */ } }
-    idp = { clientSecret, actorScope: env.MUSE_P1_ACTOR_SCOPE || 'agent:invoke', gatewayScope: env.MUSE_P1_GATEWAY_SCOPE || 'gateway:mcp:invoke', clientId: env.MUSE_P1_CLIENT_ID, authorizeEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/authorize`, tokenEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/token`, issuer: `${base}/${env.MUSE_P1_ENV_ID}` };
+    const lane = env.MUSE_P1_LANE === 'privilege' ? 'privilege' : 'gateway';
+    // gateway: Muse calls Agent Gateway directly. privilege: Muse calls an Agent Privilege app (token-pass) that fronts Agent Gateway.
+    idp = { lane, clientSecret, actorScope: env.MUSE_P1_ACTOR_SCOPE || 'agent:invoke', gatewayScope: env.MUSE_P1_GATEWAY_SCOPE || (lane === 'privilege' ? 'mcp:invoke' : 'gateway:mcp:invoke'), clientId: env.MUSE_P1_CLIENT_ID, authorizeEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/authorize`, tokenEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/token`, issuer: `${base}/${env.MUSE_P1_ENV_ID}` };
     allow.add(base);
   }
   return { url: u.href, origin: u.origin, allow, idp };
