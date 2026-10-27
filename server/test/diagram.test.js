@@ -34,3 +34,21 @@ test('steps are cumulative: each step covers the one before, and indexes stay in
     prev = s.edges;
   }
 });
+
+test('the personal agent pattern is valid, resolves, and its steps are cumulative', () => {
+  const p = JSON.parse(readFileSync(path.join(here, '../../web/src/diagrams/personal-agent-pattern.json'), 'utf8'));
+  assert.equal(p.schema, 'diagram-studio/1');
+  const ids = new Set(p.nodes.map((n) => n.id));
+  assert.equal(ids.size, p.nodes.length);
+  for (const g of Object.values(p.groups)) assert.ok(COLORS.has(g.color), `colour ${g.color}`);
+  for (const n of p.nodes) assert.ok(p.groups[n.group], `group ${n.group}`);
+  for (const e of p.edges) assert.ok(ids.has(e.source) && ids.has(e.target));
+  assert.equal(p.steps.length, p.edges.length);
+  let prev = [];
+  for (const s of p.steps) {
+    for (const i of prev) assert.ok(s.edges.includes(i));
+    for (const i of s.edges) assert.ok(i >= 0 && i < p.edges.length);
+    prev = s.edges;
+  }
+  assert.ok(!/https?:\/\/(?![a-z]+\.example)/.test(JSON.stringify(p)), 'only .example hosts');
+});

@@ -298,3 +298,6 @@ button.approve { border-radius: 8px; width: 100%; }
 @media (max-width: 480px) {
   .flow-row { padding: 0 16px 20px; }
 }
+.flow-canvas--tall { height: 460px; }
+.grp-red.hop-active, .grp-red.hop-done { border-color: var(--bad) !important; }
+.grp-amber.hop-active, .grp-amber.hop-done { border-color: var(--warn) !important; }

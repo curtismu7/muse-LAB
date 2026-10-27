@@ -1,0 +1,50 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "personal-agent-pattern",
+  "title": "Personal agent pattern",
+  "lede": "One person, one agent. The Ping Agentic Control Plane decides at three points: who the user is (Agent IAM Core), which tools the agent may use (Agent Privilege) and what the business rules allow (Agent Authorize). Everything here is simulated.",
+  "groups": {
+    "person": { "label": "Person", "color": "blue" },
+    "agent": { "label": "Agent", "color": "dark" },
+    "path": { "label": "Request path", "color": "grey" },
+    "iam": { "label": "Agent IAM Core", "color": "green" },
+    "priv": { "label": "Agent Privilege", "color": "amber" },
+    "authz": { "label": "Agent Authorize", "color": "red" }
+  },
+  "nodes": [
+    { "id": "iam", "group": "iam", "label": "Agent IAM Core", "sub": ["Sign-in and token exchange"], "x": 170, "y": -190 },
+    { "id": "priv", "group": "priv", "label": "Agent Privilege", "sub": ["Tool-level authorization"], "x": 560, "y": -190 },
+    { "id": "authz", "group": "authz", "label": "Agent Authorize", "sub": ["Business-level rules"], "x": 950, "y": -190 },
+    { "id": "user", "group": "person", "label": "User", "sub": [], "x": 0, "y": 80 },
+    { "id": "agent", "group": "agent", "label": "Personal Agent", "sub": [], "x": 200, "y": 80 },
+    { "id": "llm", "group": "path", "label": "LLM", "sub": [], "x": 200, "y": 260 },
+    { "id": "gateway", "group": "agent", "label": "PingOne Privilege AI Gateway", "sub": ["MCP"], "x": 470, "y": 80 },
+    { "id": "mcp", "group": "path", "label": "MCP", "sub": [], "x": 740, "y": 80 },
+    { "id": "apigw", "group": "path", "label": "API GW", "sub": [], "x": 940, "y": 80 },
+    { "id": "resource", "group": "path", "label": "Resource", "sub": [], "x": 1140, "y": 80 }
+  ],
+  "edges": [
+    { "source": "user", "target": "agent", "label": "1 Ask" },
+    { "source": "agent", "target": "llm", "label": "2 Plan" },
+    { "source": "agent", "target": "iam", "label": "3 User authenticates" },
+    { "source": "agent", "target": "gateway", "label": "4 MCP / OIDC" },
+    { "source": "gateway", "target": "iam", "label": "5 Token exchange (optional)" },
+    { "source": "gateway", "target": "priv", "label": "6 Coarse to medium" },
+    { "source": "gateway", "target": "mcp", "label": "7 MCP" },
+    { "source": "mcp", "target": "apigw", "label": "8 API call" },
+    { "source": "apigw", "target": "authz", "label": "9 Fine grained" },
+    { "source": "apigw", "target": "resource", "label": "10 Allowed" }
+  ],
+  "steps": [
+    { "title": "The user asks", "what": "The user asks their own agent for something. The agent acts for one person.", "edges": [0] },
+    { "title": "The agent plans", "what": "The agent uses a language model to choose a tool. The model never holds a credential.", "edges": [0, 1] },
+    { "title": "The user authenticates", "what": "Agent IAM Core signs the user in. The token is for the AI gateway: aud https://aigateway.example, sub user.", "edges": [0, 1, 2] },
+    { "title": "The agent calls the gateway", "what": "The agent calls the gateway over MCP with that token.", "edges": [0, 1, 2, 3] },
+    { "title": "Token exchange (optional)", "what": "Optional, and it depends on MCP support: an on-behalf-of token for the MCP server, aud https://mcpserver.example, same sub.", "edges": [0, 1, 2, 3, 4] },
+    { "title": "Coarse to medium grained", "what": "Agent Privilege applies tool-level authorization: may this user, through this agent, call this tool at all?", "edges": [0, 1, 2, 3, 4, 5] },
+    { "title": "The gateway calls the MCP server", "what": "The gateway uses the credential that server needs: OIDC, a static token or an API key.", "edges": [0, 1, 2, 3, 4, 5, 6] },
+    { "title": "The MCP server calls the API", "what": "The MCP server reaches the backend through the API gateway.", "edges": [0, 1, 2, 3, 4, 5, 6, 7] },
+    { "title": "Fine grained authorization", "what": "Agent Authorize applies finer-grained, business-level rules to this request and data.", "edges": [0, 1, 2, 3, 4, 5, 6, 7, 8] },
+    { "title": "The resource", "what": "Only a request that passed both layers reaches the resource.", "edges": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] }
+  ]
+}

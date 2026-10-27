@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
+import PatternFlow from './PatternFlow.jsx';
 import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
@@ -324,6 +325,7 @@ export default function App() {
       {session.signedIn && (
         <div className="flow-row">
           <PersonalAgentFlow lastEntry={lastEntry} />
+          <PatternFlow />
         </div>
       )}
     </main>
