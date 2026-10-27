@@ -301,3 +301,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .flow-canvas--tall { height: 460px; }
 .grp-red.hop-active, .grp-red.hop-done { border-color: var(--bad) !important; }
 .grp-amber.hop-active, .grp-amber.hop-done { border-color: var(--warn) !important; }
+.hop-skipped { opacity: 0.45; border-style: dashed !important; }
+
+.callers { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }

@@ -2,6 +2,7 @@
 // The most restrictive answer wins: blocked beats held for approval, which beats allowed.
 import { TOOLS } from './tools.js';
 import { runDetectionFlow } from './detect.js';
+import { assessCaller } from './protect.js';
 
 export const PAYMENT_APPROVAL_LIMIT = 500;
 export const EXPORT_ROW_CAP = 100;
@@ -40,17 +41,20 @@ export function fineCheck(tool, args = {}) {
 }
 
 // Records the call on the workspace (for the burst check) and returns the decision. It does not run the tool.
-export function decide(ws, { tool, args = {}, now = Date.now() }) {
+// Protect comes first: an agent call needs Sam's consent before the coarse and fine checks even run.
+export function decide(ws, { tool, args = {}, now = Date.now(), via = 'muse' }) {
+  const protect = assessCaller(via);
   const detect = runDetectionFlow({ ws, args, now });
   ws.calls.push(now);
   if (ws.calls.length > 50) ws.calls.splice(0, ws.calls.length - 50);
 
   const coarse = coarseCheck(ws.user, tool);
   const fine = coarse.result === 'allow' ? fineCheck(tool, args) : null;
+  const consent = protect.actor === 'agent';
 
   let outcome = 'allowed';
   if (detect.verdict === 'block' || coarse.result === 'deny' || fine?.result === 'deny') outcome = 'blocked';
-  else if (detect.verdict === 'step_up' || fine?.result === 'step_up') outcome = 'held';
+  else if (detect.verdict === 'step_up' || fine?.result === 'step_up' || consent) outcome = 'held';
 
-  return { outcome, detect, coarse, fine };
+  return { outcome, protect, detect, coarse, fine, consent };
 }
