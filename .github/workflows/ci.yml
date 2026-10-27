@@ -17,6 +17,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: SE manifests render (dry run)
+        run: IMAGE=registry.invalid/muse:ci SE_HOST=muse.invalid k8s/deploy.sh --dry-run > /dev/null
+      - name: Doctor against a local build
+        run: |
+          (PORT=5100 node server/src/index.js &) && sleep 2
+          node scripts/doctor.mjs http://127.0.0.1:5100
   secrets:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","macOS"]') }}
     steps:

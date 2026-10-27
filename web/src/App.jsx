@@ -72,6 +72,7 @@ export default function App() {
   const [lastByTool, setLastByTool] = useState({});
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [presenter, setPresenter] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -184,6 +185,12 @@ export default function App() {
             {lastByTool['calendar.read'] && <p className="muted">Last calendar read:</p>}
             {lastByTool['calendar.read'] && <Decision entry={lastByTool['calendar.read'].entry} />}
           </section>
+
+          <label className="presenter">
+            <input type="checkbox" checked={presenter} onChange={(e) => setPresenter(e.target.checked)} />
+            Presenter mode
+          </label>
+          {presenter && <p className="say">Say: each card is one tool. The decision says which gate decided, and why.</p>}
 
           <h2 className="section-title">Tools Muse can call</h2>
           <div className="grid">

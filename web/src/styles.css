@@ -163,3 +163,6 @@ th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line
 th { color: var(--muted); font-weight: 600; }
 
 .error { color: var(--bad); margin: 0; }
+
+.presenter { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+.say { margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface); }

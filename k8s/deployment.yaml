@@ -1,0 +1,52 @@
+# MOCK-ONLY hosted build of Muse for the SE cluster (rule 18). Same image as the local standalone; MODE=mock and MUSE_HOSTED=1
+# switch on the hosted banner, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids, no volumes with data.
+# Placeholders (__IMAGE__, __SE_HOST__) are filled by k8s/deploy.sh. No namespace: deploy.sh takes NAMESPACE.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muse
+  labels: { app: muse }
+spec:
+  # ONE pod on purpose: workspaces live in this process's memory, so a second replica would give a visitor an empty workspace
+  # on every other request. Do not scale this without moving workspaces out of process.
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: muse }
+  template:
+    metadata:
+      labels: { app: muse }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: app
+          image: __IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 5100 }
+          env:
+            - { name: MODE, value: mock }
+            - { name: MUSE_HOSTED, value: "1" }
+            - { name: PORT, value: "5100" }
+            - { name: MUSE_BIND, value: 0.0.0.0 }
+            # The browser's Origin must match the Host the app sees, so the ingress passes the real host through and the app names it here.
+            - { name: MUSE_ALLOWED_HOSTS, value: "__SE_HOST__" }
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }

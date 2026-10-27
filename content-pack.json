@@ -1,0 +1,27 @@
+{
+  "schema": "demo-content-pack/1",
+  "id": "muse",
+  "title": "Muse: a personal agent behind Privilege",
+  "version": "0.1.0",
+  "demo": {
+    "id": "muse",
+    "name": "Muse",
+    "catalog": "D21",
+    "baseUrl": "http://127.0.0.1:5100",
+    "doctor": "/api/health",
+    "tags": ["privilege", "personal-agent", "detection", "simulated"]
+  },
+  "glossary": [
+    { "id": "coarse-check", "term": "Coarse check", "definition": "Whether a persona may call a tool at all. The first gate after detection." },
+    { "id": "fine-check", "term": "Fine check", "definition": "The business rule inside an allowed call, such as a payment limit or an export row cap." },
+    { "id": "muse-detect", "term": "Muse-detect", "definition": "A detection flow in front of the gateway. It flags bursts of calls and instructions hidden in tool arguments. Simulated here." }
+  ],
+  "sources": [
+    { "id": "diagram", "title": "Personal Agent Pattern (owner diagram)", "url": "https://example.invalid/personal-agent-pattern", "kind": "internal", "use": "Shape of the gateway: detect, coarse, fine.", "status": "read", "checked": "2026-10-26" }
+  ],
+  "cards": [
+    { "id": "try-burst", "label": "Trigger Muse-detect", "group": "try-it", "description": "Send seven calls in a row and watch the seventh held.", "action": { "type": "route", "href": "/" }, "terms": ["muse-detect"] },
+    { "id": "coarse", "label": "Staff cannot pay", "group": "concept", "description": "Sign in as staff and try a payment. The coarse check blocks it before any amount is checked.", "action": { "type": "route", "href": "/" }, "terms": ["coarse-check"] },
+    { "id": "fine", "label": "Big payments need a person", "group": "concept", "description": "A payment over 500 is held until approved (simulated CIBA).", "action": { "type": "route", "href": "/" }, "terms": ["fine-check"] }
+  ]
+}
