@@ -138,6 +138,13 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   app.post('/api/live/register', async (req, res) => {
     if (!liveReady(req, res)) return;
     const ws = req.ws;
+    if (live.idp) {
+      // PingOne already has Muse's app, so there is nothing to register: Muse only redirects.
+      ws.liveClient = { clientId: live.idp.clientId, redirectUri: `http://${req.headers.host}/api/callback` };
+      ws.liveError = null;
+      addStep(ws, { n: 4, title: "Use Muse's PingOne app", request: { method: 'GET', url: live.idp.authorizeEndpoint }, note: 'No registration. Muse is a PingOne app; PingOne handles login, Protect and consent after the redirect.' });
+      return res.json({ registered: true, error: null });
+    }
     try {
       const r = await registerClient(live, ws.discovery.learned, `http://${req.headers.host}/api/callback`, fetchImpl);
       addStep(ws, r.step);
@@ -152,11 +159,12 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     if (!liveReady(req, res)) return;
     const ws = req.ws;
     if (!ws.liveClient) return res.status(409).json({ error: 'register Muse first' });
-    const resource = live.url;
-    const r = startSignIn(ws.discovery.learned, ws.liveClient, resource);
+    const resource = live.idp ? null : live.url;
+    const learned = live.idp ? { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] } : ws.discovery.learned;
+    const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: Boolean(live.idp) });
     for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
-    pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, at: Date.now() });
-    addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: 'The browser leaves Muse for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
+    pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, learned, at: Date.now() });
+    addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: live.idp ? 'The browser leaves Muse for PingOne. PKCE S256, prompt=login so PingOne always asks the user to sign in.' : 'The browser leaves Muse for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
     res.json({ url: r.url });
   });
 
@@ -169,7 +177,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Muse.');
     if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Muse.'); }
     try {
-      const r = await exchangeCode(live, ws.discovery.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource }, fetchImpl);
+      const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource }, fetchImpl);
       addStep(ws, r.step);
       ws.liveError = r.error ?? null;
       if (r.token) { ws.liveToken = r.token; ws.liveClaims = r.claims ?? { opaque: true }; }

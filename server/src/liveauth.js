@@ -36,12 +36,12 @@ export async function registerClient(cfg, learned, redirectUri, fetchImpl = fetc
   return { step: r.step, client: { clientId: id, redirectUri } };
 }
 
-export function startSignIn(learned, client, resource) {
+export function startSignIn(learned, client, resource, { forceLogin = false } = {}) {
   const verifier = b64u(randomBytes(32));
   const state = b64u(randomBytes(16));
   const u = new URL(learned.authorizeEndpoint);
   u.search = new URLSearchParams({
-    response_type: 'code', client_id: client.clientId, redirect_uri: client.redirectUri, state, resource,
+    response_type: 'code', client_id: client.clientId, redirect_uri: client.redirectUri, state, ...(resource ? { resource } : {}), ...(forceLogin ? { prompt: 'login' } : {}),
     code_challenge: b64u(createHash('sha256').update(verifier).digest()), code_challenge_method: 'S256',
     ...(learned.scopes.includes('openid') ? { scope: 'openid' } : {}),
   }).toString();
@@ -60,7 +60,7 @@ function claimsOf(token) {
 export async function exchangeCode(cfg, learned, { code, verifier, client, resource }, fetchImpl = fetch) {
   const r = await send(cfg, fetchImpl, {
     n: 6, title: 'Swap the code for a token', method: 'POST', url: learned.tokenEndpoint,
-    form: { grant_type: 'authorization_code', code, redirect_uri: client.redirectUri, client_id: client.clientId, code_verifier: verifier, resource },
+    form: { grant_type: 'authorization_code', code, redirect_uri: client.redirectUri, client_id: client.clientId, code_verifier: verifier, ...(resource ? { resource } : {}) },
     note: 'The token is held by the Muse server. This page only shows its claims.',
   });
   if (r.step.skipped) return { step: r.step, error: 'The token endpoint is on an origin that is not allowed.' };
@@ -68,8 +68,8 @@ export async function exchangeCode(cfg, learned, { code, verifier, client, resou
   if (r.res.status !== 200 || typeof token !== 'string') return { step: r.step, error: `The token request was refused (${r.res.status}).` };
   const claims = claimsOf(token);
   const aud = claims ? [].concat(claims.aud ?? []) : [];
-  const audOk = aud.some((a) => a === resource || a === new URL(resource).origin);
-  return { step: { ...r.step, note: `${r.step.note} ${claims ? (audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
+  const audOk = !resource || aud.some((a) => a === resource || a === new URL(resource).origin);
+  return { step: { ...r.step, note: `${r.step.note} ${claims ? (!resource ? `Issued by PingOne for Muse (aud ${JSON.stringify(claims.aud)}).` : audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
 }
 
 export async function callGateway(cfg, token, fetchImpl = fetch) {

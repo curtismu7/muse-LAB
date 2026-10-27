@@ -51,7 +51,14 @@ export function liveConfig(env) {
   for (const o of (env.MUSE_LIVE_ALLOW_ORIGINS ?? '').split(',').map((x) => x.trim()).filter(Boolean)) {
     try { const ou = new URL(o); if (ou.protocol === 'https:') allow.add(ou.origin); } catch { /* ignore */ }
   }
-  return { url: u.href, origin: u.origin, allow };
+  // Optional: sign in at PingOne instead of the gateway's own authorization server. Muse only redirects; PingOne runs the rest.
+  let idp = null;
+  if (env.MUSE_P1_ENV_ID && env.MUSE_P1_CLIENT_ID) {
+    const base = `https://auth.pingone.${/^[a-z]{2,4}$/.test(env.MUSE_P1_REGION ?? '') ? env.MUSE_P1_REGION : 'com'}`;
+    idp = { clientId: env.MUSE_P1_CLIENT_ID, authorizeEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/authorize`, tokenEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/token`, issuer: `${base}/${env.MUSE_P1_ENV_ID}` };
+    allow.add(base);
+  }
+  return { url: u.href, origin: u.origin, allow, idp };
 }
 
 export async function readCapped(res) {

@@ -135,3 +135,28 @@ test('live steps are refused in mock mode and before discovery; mock mode makes 
   assert.equal(n.seen.length, 0);
   await a.close();
 });
+
+test('PingOne mode: no registration, redirect to PingOne with prompt=login and no resource, token swapped at PingOne', async () => {
+  const P1 = 'https://auth.pingone.com/env1/as';
+  const n = net({
+    [`${P1}/token`]: () => json(200, { access_token: jwt({ iss: 'https://auth.pingone.com/env1', aud: 'client1', sub: 'FF1' }) }),
+  });
+  const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let cookie = null;
+  const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { s: r.status, j: await r.json().catch(() => null) }; };
+  await call('POST', '/api/gateway-mode', { mode: 'live' }); await call('POST', '/api/discover');
+  assert.equal((await call('POST', '/api/live/register')).j.registered, true);
+  assert.ok(!n.seen.some((s) => s.url.endsWith('/register')), 'nothing registered at the gateway');
+  const u = new URL((await call('POST', '/api/live/signin')).j.url);
+  assert.equal(u.origin + u.pathname, `${P1}/authorize`);
+  assert.equal(u.searchParams.get('prompt'), 'login');
+  assert.equal(u.searchParams.get('client_id'), 'client1');
+  assert.equal(u.searchParams.has('resource'), false);
+  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const tokenCall = n.seen.find((s) => s.url === `${P1}/token`);
+  assert.ok(tokenCall && !/resource=/.test(tokenCall.init.body));
+  assert.equal((await call('GET', '/api/session')).j.liveAuth.signedIn, true);
+  await new Promise((r) => server.close(r));
+});
