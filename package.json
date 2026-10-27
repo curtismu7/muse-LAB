@@ -1,0 +1,12 @@
+{
+  "name": "muse",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "test": "npm test -w server",
+    "build": "npm run build -w web",
+    "start": "node server/src/index.js"
+  }
+}

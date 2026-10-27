@@ -1,0 +1,8 @@
+{
+  "id": "muse",
+  "name": "Muse",
+  "tier": "Demo",
+  "summary": "A personal agent (Muse) calls tools through a PingOne Privilege-shaped gateway, with a DaVinci-shaped detection flow in front. Simulated: no tenant, no OBO.",
+  "composeFile": "docker-compose.yml",
+  "port": 5100
+}

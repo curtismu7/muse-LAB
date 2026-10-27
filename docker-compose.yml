@@ -1,0 +1,5 @@
+services:
+  muse:
+    build: .
+    ports:
+      - "127.0.0.1:5100:5100"
