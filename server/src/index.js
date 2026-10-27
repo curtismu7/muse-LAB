@@ -98,7 +98,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
       live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp), lane: live.idp?.lane ?? null } : { available: false },
       discovery: ws.discovery ?? null,
-      liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null },
+      liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null, ask: ws.liveAsk ?? null, answer: ws.liveAnswer ?? null },
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
       tools: Object.entries(TOOLS).map(([id, t]) => ({ id, label: t.label, fields: t.fields, personas: t.personas })),
       decisions: ws.decisions,
@@ -128,7 +128,17 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     res.json(ws.discovery);
   });
 
-  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; };
+  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; };
+  // The tool result comes back as MCP text content holding JSON; Muse reads the points out of it.
+  const answerFrom = (steps) => {
+    const r = steps.find((x) => x.n === 9)?.response;
+    try { const d = JSON.parse(r.body.result.content[0].text).data; return { points: d.points, tier: d.tier }; } catch { return null; }
+  };
+  const runAsk = async (ws) => {
+    const steps = await callGateway(live, ws.liveToken, fetchImpl, { tool: ws.liveAsk?.tool ?? (live.idp?.clientSecret ? 'loyalty_balance' : null) });
+    for (const st of steps) addStep(ws, st);
+    ws.liveAnswer = answerFrom(steps);
+  };
   const liveReady = (req, res) => {
     if (req.ws.gatewayMode !== 'live' || !live) { res.status(409).json({ error: 'switch to Real (live) first' }); return false; }
     if (!req.ws.discovery?.learned) { res.status(409).json({ error: 'run the discovery steps first' }); return false; }
@@ -136,6 +146,20 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   };
   const addStep = (ws, step) => { if (step) ws.liveSteps = [...(ws.liveSteps ?? []).filter((x) => x.n !== step.n), step].sort((a, b) => a.n - b.n); };
   const failed = (e) => ({ error: 'Agent Privilege could not be reached', detail: String(e?.name ?? 'error').slice(0, 40) });
+
+  // The user asks first. With no token Muse calls the gateway, gets the 401 and shows it; PingOne comes after.
+  app.post('/api/live/ask', async (req, res) => {
+    const ws = req.ws;
+    if (!live || ws.gatewayMode !== 'live') return res.status(409).json({ error: 'switch to Real (live) first' });
+    const prompt = String(req.body?.prompt ?? '').slice(0, 200);
+    if (!/point|mile|balance|loyal/i.test(prompt)) return res.status(400).json({ error: 'In Real mode Muse can answer one thing so far: your airline points.' });
+    ws.liveAsk = { prompt, tool: 'loyalty_balance' }; ws.liveAnswer = null; ws.liveError = null;
+    try {
+      if (ws.liveToken) { await runAsk(ws); return res.json({ state: 'done' }); }
+      ws.discovery = await liveDiscovery(live, fetchImpl);
+      res.json({ state: 'auth_required' });
+    } catch (e) { res.status(502).json(failed(e)); }
+  });
 
   // Step 4. A real write: one client registration at the gateway's authorization server. Only on an explicit click.
   app.post('/api/live/register', async (req, res) => {
@@ -190,6 +214,8 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
         ws.liveError = d.error ?? null;
         if (d.token) { ws.liveToken = d.token; ws.liveClaims = d.claims ?? { opaque: true }; }
       } else if (r.token) { ws.liveToken = r.token; ws.liveClaims = r.claims ?? { opaque: true }; }
+      // The retry: now that Muse has a token, it finishes the request the user made before signing in.
+      if (ws.liveToken && ws.liveAsk) await runAsk(ws);
     } catch (e) { ws.liveError = failed(e).error; }
     done('Signed in. Returning to Muse.');
   });
@@ -200,7 +226,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     const ws = req.ws;
     if (!ws.liveToken) return res.status(409).json({ error: 'sign in first' });
     try {
-      for (const s of await callGateway(live, ws.liveToken, fetchImpl, { tool: live.idp?.clientSecret ? 'loyalty_balance' : null })) addStep(ws, s);
+      await runAsk(ws);
       res.json({ ok: true });
     } catch (e) { res.status(502).json(failed(e)); }
   });

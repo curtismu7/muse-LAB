@@ -74,6 +74,7 @@ export async function readCapped(res) {
 
 export async function liveDiscovery(cfg, fetchImpl = fetch) {
   const steps = [];
+  const gw = cfg.idp?.lane === 'gateway' ? 'Agent Gateway' : 'Agent Privilege';
   const shown = (res) => Object.fromEntries(['www-authenticate', 'content-type'].filter((h) => res.headers.get(h)).map((h) => [h, res.headers.get(h)]));
   // Every request goes through one gate: https (or the configured loopback), an allowed origin, no redirects, a timeout.
   async function call(n, title, method, url, body, note) {
@@ -81,7 +82,7 @@ export async function liveDiscovery(cfg, fetchImpl = fetch) {
     let observed;
     // Some gateways advertise an http:// metadata URL on a host that serves https. Same host only: upgrade, and say so.
     if (target.protocol === 'http:' && target.hostname === new URL(cfg.origin).hostname && new URL(cfg.origin).protocol === 'https:') {
-      observed = `Agent Privilege advertised ${url} (http). Muse used https on the same host.`;
+      observed = `The gateway advertised ${url} (http). Muse used https on the same host.`;
       target = new URL(url.replace(/^http:/, 'https:'));
     }
     if (!cfg.allow.has(target.origin)) {
@@ -99,7 +100,7 @@ export async function liveDiscovery(cfg, fetchImpl = fetch) {
   }
   const stop = (reason) => ({ live: true, gateway: cfg.origin, steps, learned: null, stopped: reason });
 
-  const first = await call(1, 'Call Agent Privilege with no token', 'POST', cfg.url, INIT, 'The 401 is the question. Its WWW-Authenticate header says where to learn how to sign in.');
+  const first = await call(1, `Call ${gw} with no token`, 'POST', cfg.url, INIT, 'The 401 is the question. Its WWW-Authenticate header says where to learn how to sign in.');
   if (!first) return stop('The Agent Privilege origin is not allowed.');
   if (first.res.status !== 401) return stop(`Expected a 401 with no token, got ${first.res.status}.`);
   const m = /resource_metadata="([^"]+)"/.exec(first.res.headers.get('www-authenticate') ?? '');

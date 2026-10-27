@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+const POINTS_PROMPT = 'Show my airline points';
+
 // The 401 and discovery steps, for the mock Agent Privilege or (owner-run) the real one. Every request and response is shown raw.
 const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
 
@@ -14,6 +16,8 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
   const signIn = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); if (!la.registered) await api('POST', '/api/live/register'); const r = await api('POST', '/api/live/signin'); window.location.assign(r.url); });
   const callGw = () => guarded(async () => { await api('POST', '/api/live/call'); await onChange(); });
   const reset = () => guarded(async () => { await api('POST', '/api/reset'); await onChange(); setOpen(null); });
+  const [prompt, setPrompt] = useState('');
+  const ask = (text) => guarded(async () => { await api('POST', '/api/live/ask', { prompt: text }); await onChange(); setOpen(null); });
   const discover = () => guarded(async () => { await api('POST', '/api/discover'); await onChange(); });
 
   return (
@@ -25,11 +29,26 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
           <button type="button" aria-pressed={live} onClick={() => setMode('live')} disabled={busy || !session.live.available}
             title={session.live.available ? `Calls ${session.live.origin}` : 'Live mode is owner-run: set ALLOW_LIVE=1 and MUSE_LIVE_GATEWAY_URL when starting locally. Not available on the hosted build.'}>Real (live)</button>
         </div>
-        <button type="button" onClick={discover} disabled={busy}>Call Agent Privilege with no token</button>
+        {!live && <button type="button" onClick={discover} disabled={busy}>Call Agent Privilege with no token</button>}
       </div>
       <p className="muted small">
         {live ? `Real: Muse calls ${session.live.origin}. The first three steps only read. Registering writes one client at the gateway's authorization server, and only when you click it.` : 'Fake: nothing leaves this page. The answers are teaching values.'}
       </p>
+      {live && (
+        <div className="live-ask" data-testid="live-ask">
+          {!la.ask && (
+            <form className="disco-top" onSubmit={(e) => { e.preventDefault(); if (prompt.trim()) ask(prompt.trim()); }}>
+              <input aria-label="Ask Muse" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Ask Muse, for example: show my points" disabled={busy} />
+              <button type="submit" className="primary" disabled={busy || !prompt.trim()}>Ask Muse</button>
+              <button type="button" onClick={() => ask(POINTS_PROMPT)} disabled={busy}>{POINTS_PROMPT}</button>
+            </form>
+          )}
+          {la.ask && <div className="bubble user">{la.ask.prompt}</div>}
+          {la.ask && !la.signedIn && d && (
+            <p className="small">Muse called the gateway with no token and got the 401 below. Next it sends you to PingOne to sign in.</p>
+          )}
+        </div>
+      )}
       {d && (
         <ol className="disco-steps">
           {d.steps.map((s) => (
@@ -58,10 +77,9 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
       )}
       {live && (
         <div className="disco-top" data-testid="live-steps">
-          {!session.live.viaPingOne && <button type="button" onClick={register} disabled={busy || la.registered}>{la.registered ? 'Muse is registered' : '4 Register Muse (writes a client)'}</button>}
-          <button type="button" onClick={signIn} disabled={busy || la.signedIn}>{session.live.viaPingOne ? 'Sign in at PingOne' : '5 Sign in at the gateway'}</button>
+          {la.ask && !la.signedIn && <button type="button" className="primary" onClick={signIn} disabled={busy}>Continue to PingOne</button>}
+          {la.answer && <div className="bubble muse" data-testid="answer">You have {Number(la.answer.points).toLocaleString()} points ({la.answer.tier}).</div>}
           <button type="button" onClick={reset} disabled={busy} title="Clear this session and start again">Reset</button>
-          <button type="button" onClick={callGw} disabled={busy || !la.signedIn}>{session.live.viaPingOne ? 'Show my airline points' : '7 Call with the token'}</button>
         </div>
       )}
       {live && la.error && <p role="alert" className="small bad">{la.error}</p>}

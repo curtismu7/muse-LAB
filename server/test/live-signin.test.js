@@ -228,3 +228,36 @@ test('Privilege lane: sign-in asks for openid only, no resource; exchange 2 asks
   assert.equal(bodies.at(-1).scope, 'mcp:invoke', 'exchange 2 targets the Muse Privilege resource');
   await new Promise((r) => server.close(r));
 });
+
+test('the user asks first: 401 from the gateway, then PingOne, then Muse retries and answers on return', async () => {
+  const P1 = 'https://auth.pingone.com/env1/as';
+  const n = net({
+    [GW]: (init) => {
+      if (!init.headers.authorization) return json(401, {}, { 'www-authenticate': 'Bearer resource_metadata="https://gw.example/.well-known/oauth-protected-resource/pft/mcp"' });
+      const m = JSON.parse(init.body).method;
+      if (m === 'tools/call') return json(200, { result: { content: [{ type: 'text', text: JSON.stringify({ success: true, data: { points: 4500, tier: 'Gold' } }) }] } });
+      return json(200, { result: { tools: [] } }, { 'mcp-session-id': 's1' });
+    },
+    [`${P1}/token`]: () => json(200, { access_token: jwt({ aud: GW, sub: 'sam', act: { sub: 'client1' } }) }),
+  });
+  const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1', MUSE_P1_CLIENT_SECRET: 's' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let cookie = null;
+  const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { s: r.status, j: await r.json().catch(() => null) }; };
+  assert.equal((await call('POST', '/api/live/ask', { prompt: 'book me a flight to Rome' })).s, 400, 'only points are answered in Real mode so far');
+  const first = await call('POST', '/api/live/ask', { prompt: 'Show my airline points' });
+  assert.equal(first.j.state, 'auth_required');
+  const before = (await call('GET', '/api/session')).j;
+  assert.equal(before.discovery.steps[0].response.status, 401, 'the 401 is shown first');
+  assert.equal(before.liveAuth.ask.prompt, 'Show my airline points');
+  assert.equal(before.liveAuth.answer, null, 'no answer before sign-in');
+  assert.equal(n.seen.filter((x) => x.init.headers.authorization).length, 0, 'nothing authenticated was sent yet');
+  await call('POST', '/api/live/register');
+  const u = new URL((await call('POST', '/api/live/signin')).j.url);
+  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const after = (await call('GET', '/api/session')).j;
+  assert.deepEqual(after.liveAuth.answer, { points: 4500, tier: 'Gold' }, 'Muse finished the request after the redirect');
+  assert.ok(after.liveAuth.steps.some((x) => x.n === 9));
+  await new Promise((r) => server.close(r));
+});
