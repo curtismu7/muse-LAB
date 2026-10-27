@@ -32,23 +32,41 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
         {!live && <button type="button" onClick={discover} disabled={busy}>Call Agent Privilege with no token</button>}
       </div>
       <p className="muted small">
-        {live ? `Real: Muse calls ${session.live.origin}. The first three steps only read. Registering writes one client at the gateway's authorization server, and only when you click it.` : 'Fake: nothing leaves this page. The answers are teaching values.'}
+        {live ? `Real: Muse calls ${session.live.origin} for you. PingOne signs you in, then Muse acts on your behalf.` : 'Fake: nothing leaves this page. The answers are teaching values.'}
       </p>
       {live && (
-        <div className="live-ask" data-testid="live-ask">
-          {!la.ask && (
-            <form className="disco-top" onSubmit={(e) => { e.preventDefault(); if (prompt.trim()) ask(prompt.trim()); }}>
-              <input aria-label="Ask Muse" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Ask Muse, for example: show my points" disabled={busy} />
-              <button type="submit" className="primary" disabled={busy || !prompt.trim()}>Ask Muse</button>
-              <button type="button" onClick={() => ask(POINTS_PROMPT)} disabled={busy}>{POINTS_PROMPT}</button>
-            </form>
-          )}
-          {la.ask && <div className="bubble user">{la.ask.prompt}</div>}
-          {la.ask && !la.signedIn && d && (
-            <p className="small">Muse called the gateway with no token and got the 401 below. Next it sends you to PingOne to sign in.</p>
-          )}
+        <div className="live-chat" data-testid="live-ask">
+          <div className="feed live-feed" role="log" aria-live="polite">
+            {!la.ask && <p className="muted center">Ask Muse for something, for example: {POINTS_PROMPT.toLowerCase()}.</p>}
+            {la.ask && <div className="bubble user">{la.ask.prompt}</div>}
+            {la.ask && d && (
+              <div className="msg">
+                <span className="avatar sm" aria-hidden="true">M</span>
+                <div className="bubble muse">
+                  <span>I called the gateway without a token and it answered <strong>401</strong>. {la.signedIn ? 'You signed in, so I asked again with a token for you.' : 'I need you to sign in at PingOne first.'}</span>
+                  {!la.signedIn && <button type="button" className="primary" onClick={signIn} disabled={busy}>Continue to PingOne</button>}
+                </div>
+              </div>
+            )}
+            {la.answer && (
+              <div className="msg">
+                <span className="avatar sm" aria-hidden="true">M</span>
+                <div className="bubble muse" data-testid="answer">You have <strong>{Number(la.answer.points).toLocaleString()} points</strong> ({la.answer.tier}).</div>
+              </div>
+            )}
+          </div>
+          <form className="composer" onSubmit={(e) => { e.preventDefault(); if (prompt.trim()) { ask(prompt.trim()); setPrompt(''); } }}>
+            <label className="sr-only" htmlFor="live-ask-input">Ask Muse</label>
+            <input id="live-ask-input" type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder='Ask Muse, e.g. "show my airline points"' autoComplete="off" disabled={busy} />
+            <button type="submit" className="primary" disabled={busy || !prompt.trim()}>Send</button>
+          </form>
+          <div className="prompts" role="group" aria-label="Prompts">
+            <button type="button" className="chip" onClick={() => ask(POINTS_PROMPT)} disabled={busy}>{POINTS_PROMPT}</button>
+            <button type="button" className="chip" onClick={reset} disabled={busy} title="Clear this session and start again">Reset</button>
+          </div>
         </div>
       )}
+      {d && live && <p className="small muted"><strong>What Muse did</strong>, step by step (click a step for the raw request and response):</p>}
       {d && (
         <ol className="disco-steps">
           {d.steps.map((s) => (
@@ -74,13 +92,6 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
         <p className="small" data-testid="learned">
           Muse learned: sign in at <code>{d.learned.authorizeEndpoint}</code>, token from <code>{d.learned.tokenEndpoint}</code>{d.learned.pkce ? ', PKCE required' : ''}.
         </p>
-      )}
-      {live && (
-        <div className="disco-top" data-testid="live-steps">
-          {la.ask && !la.signedIn && <button type="button" className="primary" onClick={signIn} disabled={busy}>Continue to PingOne</button>}
-          {la.answer && <div className="bubble muse" data-testid="answer">You have {Number(la.answer.points).toLocaleString()} points ({la.answer.tier}).</div>}
-          <button type="button" onClick={reset} disabled={busy} title="Clear this session and start again">Reset</button>
-        </div>
       )}
       {live && la.error && <p role="alert" className="small bad">{la.error}</p>}
       {live && la.claims && <p className="small" data-testid="claims">Token claims (the token itself stays on the Muse server): <code>{JSON.stringify(la.claims)}</code></p>}

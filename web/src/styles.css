@@ -325,3 +325,10 @@ button.approve { border-radius: 8px; width: 100%; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 .banner.live { border-color: var(--ok); }
+
+/* Real mode chat */
+.live-chat { display: grid; gap: 10px; }
+.live-feed { min-height: 0; max-height: 360px; }
+.msg { display: flex; gap: 8px; align-items: flex-start; }
+.avatar.sm { width: 32px; height: 32px; font-size: 14px; flex: 0 0 auto; }
+.msg .bubble { max-width: 100%; }
