@@ -131,7 +131,8 @@ export default function App() {
 
   const approve = (entry) => guarded(async () => {
     const done = await api('POST', `/api/approve/${entry.id}`);
-    push({ kind: 'muse', entry: done });
+    // Update the held reply in place, so its Approve button goes away and the outcome reads Approved.
+    setFeed((f) => f.map((m) => (m.entry?.id === done.id ? { ...m, entry: done } : m)));
   });
 
   if (!session) {
