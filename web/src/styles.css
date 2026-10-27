@@ -274,3 +274,11 @@ button.approve { border-radius: 8px; width: 100%; }
 .hop-idle { opacity: 0.7; }
 .hop-edge path { stroke: var(--muted); }
 .react-flow__handle { opacity: 0; }
+
+/* Group colours from diagram-studio/1 data: studio palette names mapped to theme tokens. */
+.grp-red { border-left: 4px solid var(--bad) !important; }
+.grp-amber { border-left: 4px solid var(--warn) !important; }
+.grp-green { border-left: 4px solid var(--ok) !important; }
+.grp-blue { border-left: 4px solid var(--accent) !important; }
+.grp-dark, .grp-grey { border-left: 4px solid var(--muted) !important; }
+.hop-label small { display: block; }

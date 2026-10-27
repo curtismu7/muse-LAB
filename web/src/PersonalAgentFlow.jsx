@@ -1,65 +1,72 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, Background, Controls, MarkerType, useNodesState, useEdgesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { loadDiagram } from './diagrams/index.js';
 
-// The personal agent pattern, left to right. Each box is one hop a request takes.
-const LAYOUT = [
-  { id: 'user', label: 'User', sub: 'Sam signs in' },
-  { id: 'muse', label: 'Muse', sub: 'Personal agent' },
-  { id: 'detect', label: 'Muse-detect', sub: 'DaVinci flow (simulated)' },
-  { id: 'coarse', label: 'Coarse check', sub: 'Who may call the tool' },
-  { id: 'fine', label: 'Fine check', sub: 'Business rule for this call' },
-  { id: 'resource', label: 'Resource', sub: 'The tool runs' },
-];
-
+// The diagram is data (diagram-studio/1). This component only draws it and plays its steps.
+const DIAGRAM = loadDiagram('personal-agent-flow');
 const STEP_MS = 800;
 const SPEEDS = [0.5, 1, 2];
 
-// Where a request stops, given the server's decision. Blocked stops at the gate that blocked it.
-export function stopIndex(entry) {
-  if (!entry) return LAYOUT.length - 1;
-  if (entry.detect?.some((s) => s.result === 'block')) return 2;
-  if (entry.coarse?.result === 'deny') return 3;
-  if (entry.fine?.result === 'deny') return 4;
-  if (entry.outcome === 'held') return 4;
-  return LAYOUT.length - 1;
+// Which step a request stops at, given the server's decision. Steps are listed in the diagram data.
+export function stopStep(entry) {
+  if (!entry) return DIAGRAM.steps.length - 1;
+  if (entry.detect?.some((s) => s.result === 'block')) return 1;
+  if (entry.coarse?.result === 'deny') return 2;
+  if (entry.fine?.result === 'deny' || entry.outcome === 'held') return 3;
+  return DIAGRAM.steps.length - 1;
 }
 
 function nodeLabel(n) {
   return (
     <span className="hop-label">
       <strong>{n.label}</strong>
-      <small>{n.sub}</small>
+      {(n.sub ?? []).map((line) => <small key={line}>{line}</small>)}
     </span>
   );
 }
 
 function initialNodes() {
-  return LAYOUT.map((n, i) => ({
+  return DIAGRAM.nodes.map((n) => ({
     id: n.id,
-    position: { x: i * 190, y: 40 },
+    position: { x: n.x, y: n.y },
     data: { label: nodeLabel(n) },
-    className: 'hop hop-idle',
+    className: `hop hop-idle grp-${DIAGRAM.groups[n.group]?.color ?? 'grey'}`,
   }));
-}
-
-// Box state for a step: boxes before the current one are done, the current one is active,
-// and the box where a request stopped shows its outcome (blocked or held).
-function stateFor(i, step, target, outcome) {
-  if (i < step) return 'done';
-  if (i > step) return 'idle';
-  if (step === target && outcome !== 'allowed' && outcome !== 'approved') return outcome;
-  return step === target ? 'done' : 'active';
 }
 
 function initialEdges() {
-  return LAYOUT.slice(1).map((n, i) => ({
-    id: `e-${LAYOUT[i].id}-${n.id}`,
-    source: LAYOUT[i].id,
-    target: n.id,
+  return DIAGRAM.edges.map((e, i) => ({
+    id: `e${i}`,
+    source: e.source,
+    target: e.target,
+    label: e.label,
     markerEnd: { type: MarkerType.ArrowClosed },
     className: 'hop-edge',
   }));
+}
+
+// Box states after playing step `s` (0-based). Nodes on the newest edge are the active ones. At the stop step a
+// blocked or held request marks its box with that outcome.
+function nodeStates(s, stop, outcome) {
+  const reached = new Set();
+  const newest = DIAGRAM.steps[s].edges;
+  for (const i of newest) {
+    reached.add(DIAGRAM.edges[i].source);
+    reached.add(DIAGRAM.edges[i].target);
+  }
+  const last = DIAGRAM.edges[Math.max(...newest)].target;
+  const states = {};
+  for (const n of DIAGRAM.nodes) {
+    if (!reached.has(n.id)) states[n.id] = 'idle';
+    else states[n.id] = 'done';
+  }
+  if (s === stop) {
+    states[last] = outcome === 'blocked' || outcome === 'held' ? outcome : 'done';
+  } else {
+    states[last] = 'active';
+  }
+  return states;
 }
 
 export default function PersonalAgentFlow({ lastEntry }) {
@@ -67,11 +74,17 @@ export default function PersonalAgentFlow({ lastEntry }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges());
   const [speed, setSpeed] = useState(1);
   const [running, setRunning] = useState(false);
-  const [stop, setStop] = useState(LAYOUT.length - 1);
+  const [stop, setStop] = useState(DIAGRAM.steps.length - 1);
+  const [current, setCurrent] = useState(DIAGRAM.steps.length - 1);
   const timer = useRef(null);
 
-  const paint = useCallback((step, target, outcome) => {
-    setNodes((ns) => ns.map((n, i) => ({ ...n, className: `hop hop-${stateFor(i, step, target, outcome)}` })));
+  const paint = useCallback((s, target, outcome) => {
+    const states = nodeStates(s, target, outcome);
+    setNodes((ns) => ns.map((n) => ({
+      ...n,
+      className: `hop hop-${states[n.id]} grp-${DIAGRAM.groups[DIAGRAM.nodes.find((d) => d.id === n.id).group]?.color ?? 'grey'}`,
+    })));
+    setCurrent(s);
   }, [setNodes]);
 
   const reset = useCallback(() => {
@@ -79,23 +92,25 @@ export default function PersonalAgentFlow({ lastEntry }) {
     setRunning(false);
     setNodes(initialNodes());
     setEdges(initialEdges());
+    setCurrent(DIAGRAM.steps.length - 1);
   }, [setNodes, setEdges]);
 
   function simulate() {
     reset();
-    const target = stopIndex(lastEntry);
+    const target = stopStep(lastEntry);
     const outcome = lastEntry?.outcome ?? 'allowed';
     setStop(target);
     setRunning(true);
-    let step = 0;
+    let s = 0;
     paint(0, target, outcome);
     timer.current = setInterval(() => {
-      step += 1;
-      paint(step, target, outcome);
-      if (step >= target) {
+      if (s >= target) {
         clearInterval(timer.current);
         setRunning(false);
+        return;
       }
+      s += 1;
+      paint(s, target, outcome);
     }, STEP_MS / speed);
   }
 
@@ -107,12 +122,15 @@ export default function PersonalAgentFlow({ lastEntry }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastEntry?.id ?? lastEntry?.at]);
 
-  const legend = useMemo(() => (stop === 2 ? 'Stopped at Muse-detect' : stop === 3 ? 'Stopped at the coarse check' : stop === 4 ? 'Stopped at the fine check' : 'Reached the resource'), [stop]);
+  const legend = useMemo(() => {
+    const step = DIAGRAM.steps[current];
+    return step ? `${step.title}. ${step.what}` : '';
+  }, [current]);
 
   return (
     <section className="flow" aria-label="Personal agent flow">
       <div className="flow-top">
-        <h3>Personal agent flow</h3>
+        <h3>{DIAGRAM.title}</h3>
         <div className="flow-actions">
           <select aria-label="Speed" value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
             {SPEEDS.map((s) => <option key={s} value={s}>{s}x</option>)}
@@ -137,7 +155,7 @@ export default function PersonalAgentFlow({ lastEntry }) {
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>
-      <p className="small muted">{legend}. Drag the boxes to rearrange them.</p>
+      <p className="small muted">{legend} Drag the boxes to rearrange them.</p>
     </section>
   );
 }

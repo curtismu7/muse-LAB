@@ -1,0 +1,34 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "personal-agent-flow",
+  "title": "Personal agent flow",
+  "lede": "Sam asks Muse for something. Muse-detect looks first, then Privilege checks who may call the tool and whether this call is allowed. Everything here is simulated.",
+  "groups": {
+    "person": { "label": "Person", "color": "blue" },
+    "agent": { "label": "Personal agent", "color": "dark" },
+    "gate": { "label": "Gate", "color": "amber" },
+    "tool": { "label": "Tool", "color": "green" }
+  },
+  "nodes": [
+    { "id": "user", "group": "person", "label": "Sam", "sub": ["Signed in with PingOne (simulated)"], "x": 0, "y": 80 },
+    { "id": "muse", "group": "agent", "label": "Muse", "sub": ["Personal agent in the browser"], "x": 200, "y": 80 },
+    { "id": "detect", "group": "gate", "label": "Muse-detect", "sub": ["DaVinci-shaped flow (simulated)"], "x": 400, "y": 80 },
+    { "id": "coarse", "group": "gate", "label": "Coarse check", "sub": ["Which personas may call the tool"], "x": 600, "y": 80 },
+    { "id": "fine", "group": "gate", "label": "Fine check", "sub": ["Business rule for this call"], "x": 800, "y": 80 },
+    { "id": "resource", "group": "tool", "label": "Resource", "sub": ["The tool runs (simulated)"], "x": 1000, "y": 80 }
+  ],
+  "edges": [
+    { "source": "user", "target": "muse", "label": "1 Ask" },
+    { "source": "muse", "target": "detect", "label": "2 Check for Muse-like behaviour" },
+    { "source": "detect", "target": "coarse", "label": "3 Coarse" },
+    { "source": "coarse", "target": "fine", "label": "4 Fine" },
+    { "source": "fine", "target": "resource", "label": "5 Run tool" }
+  ],
+  "steps": [
+    { "title": "Sam asks Muse", "what": "Muse takes the request from Sam's signed-in session.", "edges": [0] },
+    { "title": "Muse-detect", "what": "A DaVinci-shaped flow looks for bursts of calls and instructions hidden in tool arguments. A block stops the call here.", "edges": [0, 1] },
+    { "title": "Coarse check", "what": "Privilege asks whether this persona may call the tool at all. A deny stops the call here.", "edges": [0, 1, 2] },
+    { "title": "Fine check", "what": "Privilege applies the business rule to this call. Over the limit, the call is held until a person approves it.", "edges": [0, 1, 2, 3] },
+    { "title": "Resource", "what": "The call is allowed, so the tool runs.", "edges": [0, 1, 2, 3, 4] }
+  ]
+}
