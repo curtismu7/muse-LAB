@@ -333,7 +333,8 @@ button.approve { border-radius: 8px; width: 100%; }
 .avatar.sm { width: 32px; height: 32px; font-size: 14px; flex: 0 0 auto; }
 .msg .bubble { max-width: 100%; }
 
-.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; margin-left: auto; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.prompts .toggle:first-of-type { margin-left: auto; }
 .toggle input[role="switch"] {
   appearance: none; width: 36px; height: 20px; border-radius: 999px; border: 1px solid var(--line);
   background: var(--surface); position: relative; cursor: pointer; margin: 0; transition: background 0.15s;

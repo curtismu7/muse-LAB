@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 const POINTS_PROMPT = 'Show my airline points';
 const AUTO_KEY = 'muse.autoPingOne';
+const MFA_KEY = 'muse.p1mfa';
+const readMfa = () => { try { return window.localStorage.getItem(MFA_KEY) !== '0'; } catch { return true; } };
 const readAuto = () => { try { return window.localStorage.getItem(AUTO_KEY) === '1'; } catch { return false; } };
 
 // The 401 and discovery steps, for the mock Agent Privilege or (owner-run) the real one. Every request and response is shown raw.
@@ -15,12 +17,15 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
   const setMode = (mode) => guarded(async () => { await api('POST', '/api/gateway-mode', { mode }); await onChange(); setOpen(null); });
   const la = session.liveAuth ?? { steps: [] };
   const register = () => guarded(async () => { await api('POST', '/api/live/register'); await onChange(); });
-  const signIn = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); if (!la.registered) await api('POST', '/api/live/register'); const r = await api('POST', '/api/live/signin'); window.location.assign(r.url); });
+  const signIn = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); if (!la.registered) await api('POST', '/api/live/register'); const r = await api('POST', '/api/live/signin', { mfa: mfa ? 'on' : 'off' }); window.location.assign(r.url); });
   const callGw = () => guarded(async () => { await api('POST', '/api/live/call'); await onChange(); });
   const reset = () => guarded(async () => { await api('POST', '/api/reset'); await onChange(); setOpen(null); });
   const [prompt, setPrompt] = useState('');
   // Off: Muse shows the 401 and a Continue button. On: no button; Muse shows the 401 for a moment, goes to PingOne, and answers on return.
   const [auto, setAuto] = useState(readAuto);
+  // PingOne MFA: on leaves the flow as it is (MFA on medium risk); off sends a flag the DaVinci flow reads to skip it.
+  const [mfa, setMfa] = useState(readMfa);
+  const toggleMfa = (on) => { setMfa(on); try { window.localStorage.setItem(MFA_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ } };
   const toggleAuto = (on) => { setAuto(on); try { window.localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ } };
   const ask = (text) => guarded(async () => {
     const r = await api('POST', '/api/live/ask', { prompt: text });
@@ -72,6 +77,10 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
           <div className="prompts" role="group" aria-label="Prompts">
             <button type="button" className="chip" onClick={() => ask(POINTS_PROMPT)} disabled={busy}>{POINTS_PROMPT}</button>
             <button type="button" className="chip" onClick={reset} disabled={busy} title="Clear this session and start again">Reset</button>
+            <label className="toggle" title="On: PingOne asks for MFA when the risk is medium. Off: MFA is skipped for this sign-in.">
+              <input type="checkbox" role="switch" checked={mfa} onChange={(e) => toggleMfa(e.target.checked)} />
+              <span>PingOne MFA</span>
+            </label>
             <label className="toggle" title="On: no button. Muse goes to PingOne after the 401, and answers when you return. Off: show the Continue button.">
               <input type="checkbox" role="switch" checked={auto} onChange={(e) => toggleAuto(e.target.checked)} />
               <span>Run all the way through</span>

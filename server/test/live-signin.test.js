@@ -262,3 +262,18 @@ test('the user asks first: 401 from the gateway, then PingOne, then Muse retries
   assert.ok(after.liveAuth.steps.some((x) => x.n === 9));
   await new Promise((r) => server.close(r));
 });
+
+test('the PingOne MFA switch: off adds the .nomfa flag to the login hint, on leaves it alone', async () => {
+  const n = net();
+  const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let cookie = null;
+  const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { j: await r.json().catch(() => null) }; };
+  await call('POST', '/api/discover'); await call('POST', '/api/live/register');
+  const on = new URL((await call('POST', '/api/live/signin', { mfa: 'on' })).j.url);
+  const off = new URL((await call('POST', '/api/live/signin', { mfa: 'off' })).j.url);
+  assert.equal(on.searchParams.get('login_hint'), 'demouser');
+  assert.equal(off.searchParams.get('login_hint'), 'demouser.nomfa');
+  await new Promise((r) => server.close(r));
+});
