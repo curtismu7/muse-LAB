@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-// The 401 and discovery steps, for the mock gateway or (owner-run) the real one. Every request and response is shown raw.
+// The 401 and discovery steps, for the mock Agent Privilege or (owner-run) the real one. Every request and response is shown raw.
 const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
 
 export default function DiscoveryPanel({ session, api, onChange, busy, guarded }) {
@@ -12,15 +12,15 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
   const discover = () => guarded(async () => { await api('POST', '/api/discover'); await onChange(); });
 
   return (
-    <section className="disco" aria-label="Gateway discovery" data-testid="discovery">
+    <section className="disco" aria-label="Agent Privilege discovery" data-testid="discovery">
       <div className="disco-top">
-        <strong>Gateway</strong>
-        <div className="seg" role="group" aria-label="Real or fake gateway">
+        <strong>Agent Privilege</strong>
+        <div className="seg" role="group" aria-label="Real or fake Agent Privilege">
           <button type="button" aria-pressed={!live} onClick={() => setMode('mock')} disabled={busy}>Fake (mock)</button>
           <button type="button" aria-pressed={live} onClick={() => setMode('live')} disabled={busy || !session.live.available}
             title={session.live.available ? `Calls ${session.live.origin}` : 'Live mode is owner-run: set ALLOW_LIVE=1 and MUSE_LIVE_GATEWAY_URL when starting locally. Not available on the hosted build.'}>Real (live)</button>
         </div>
-        <button type="button" onClick={discover} disabled={busy}>Call the gateway with no token</button>
+        <button type="button" onClick={discover} disabled={busy}>Call Agent Privilege with no token</button>
       </div>
       <p className="muted small">
         {live ? `Real: Muse calls ${session.live.origin}. Reads only; no client is registered and nobody signs in.` : 'Fake: nothing leaves this page. The answers are teaching values.'}

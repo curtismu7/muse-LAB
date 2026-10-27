@@ -112,7 +112,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     const ws = req.ws;
     if (ws.gatewayMode === 'live') {
       try { ws.discovery = await liveDiscovery(live, fetchImpl); } catch (e) {
-        return res.status(502).json({ error: 'the gateway could not be reached', detail: String(e?.name ?? 'error').slice(0, 40) });
+        return res.status(502).json({ error: 'Agent Privilege could not be reached', detail: String(e?.name ?? 'error').slice(0, 40) });
       }
     } else ws.discovery = mockDiscovery();
     res.json(ws.discovery);

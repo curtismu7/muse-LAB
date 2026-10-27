@@ -1,4 +1,4 @@
-// The 401 and discovery steps of the personal agent pattern. Muse calls the gateway with no token, reads what the 401
+// The 401 and discovery steps of the personal agent pattern. Muse calls Agent Privilege with no token, reads what the 401
 // says, then reads the resource metadata (RFC 9728) and the authorization-server metadata (RFC 8414).
 // Mock: static, no network. Live: owner-run, read-only GETs and one unauthenticated POST to the one configured gateway.
 const MAX_BYTES = 64 * 1024;
@@ -27,7 +27,7 @@ export function mockDiscovery() {
     live: false,
     gateway: gw,
     steps: [
-      { n: 1, title: 'Call the gateway with no token', request: { method: 'POST', url: `${gw}/mcp`, body: INIT },
+      { n: 1, title: 'Call Agent Privilege with no token', request: { method: 'POST', url: `${gw}/mcp`, body: INIT },
         response: { status: 401, headers: { 'www-authenticate': `Bearer resource_metadata="${gw}/.well-known/oauth-protected-resource/mcp"` }, body: { error: 'unauthorized' } },
         note: 'The 401 is the question. Its WWW-Authenticate header says where to learn how to sign in.' },
       { n: 2, title: 'Read the resource metadata', request: { method: 'GET', url: `${gw}/.well-known/oauth-protected-resource/mcp` },
@@ -69,7 +69,7 @@ export async function liveDiscovery(cfg, fetchImpl = fetch) {
     let observed;
     // Some gateways advertise an http:// metadata URL on a host that serves https. Same host only: upgrade, and say so.
     if (target.protocol === 'http:' && target.hostname === new URL(cfg.origin).hostname && new URL(cfg.origin).protocol === 'https:') {
-      observed = `The gateway advertised ${url} (http). Muse used https on the same host.`;
+      observed = `Agent Privilege advertised ${url} (http). Muse used https on the same host.`;
       target = new URL(url.replace(/^http:/, 'https:'));
     }
     if (!cfg.allow.has(target.origin)) {
@@ -87,8 +87,8 @@ export async function liveDiscovery(cfg, fetchImpl = fetch) {
   }
   const stop = (reason) => ({ live: true, gateway: cfg.origin, steps, learned: null, stopped: reason });
 
-  const first = await call(1, 'Call the gateway with no token', 'POST', cfg.url, INIT, 'The 401 is the question. Its WWW-Authenticate header says where to learn how to sign in.');
-  if (!first) return stop('The gateway origin is not allowed.');
+  const first = await call(1, 'Call Agent Privilege with no token', 'POST', cfg.url, INIT, 'The 401 is the question. Its WWW-Authenticate header says where to learn how to sign in.');
+  if (!first) return stop('The Agent Privilege origin is not allowed.');
   if (first.res.status !== 401) return stop(`Expected a 401 with no token, got ${first.res.status}.`);
   const m = /resource_metadata="([^"]+)"/.exec(first.res.headers.get('www-authenticate') ?? '');
   if (!m) return stop('The 401 has no resource_metadata in WWW-Authenticate, so Muse cannot discover how to sign in.');
