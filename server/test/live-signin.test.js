@@ -160,3 +160,50 @@ test('PingOne mode: no registration, redirect to PingOne with prompt=login and n
   assert.equal((await call('GET', '/api/session')).j.liveAuth.signedIn, true);
   await new Promise((r) => server.close(r));
 });
+
+test('acting for the user: sign-in, agent token, two exchanges, then Agent Gateway tools/call with the delegated token', async () => {
+  const P1 = 'https://auth.pingone.com/env1/as';
+  const bodies = [];
+  const act = { sub: 'client1' };
+  const n = net({
+    [GW]: (init) => {
+      if (!init.headers.authorization) return json(401, {}, { 'www-authenticate': 'Bearer resource_metadata="https://gw.example/.well-known/oauth-protected-resource/pft/mcp"' });
+      const m = JSON.parse(init.body).method;
+      if (m === 'tools/call') return json(200, { result: { content: [{ type: 'text', text: '{"points":4500}' }] } });
+      return json(200, { result: { tools: [] } }, { 'mcp-session-id': 's1' });
+    },
+    [`${P1}/token`]: (init) => {
+      const f = new URLSearchParams(init.body); bodies.push(Object.fromEntries(f));
+      const g = f.get('grant_type');
+      if (g === 'authorization_code') return json(200, { access_token: jwt({ aud: GW, sub: 'sam' }) });
+      if (g === 'client_credentials') return json(200, { access_token: jwt({ aud: 'workload', sub: 'client1' }) });
+      return json(200, { access_token: jwt({ aud: f.get('actor_token') ? 'workload' : GW, sub: 'sam', act }) });
+    },
+  });
+  const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1', MUSE_P1_CLIENT_SECRET: 'sekret' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let cookie = null;
+  const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; const t = await r.text(); return { s: r.status, t, j: (() => { try { return JSON.parse(t); } catch { return null; } })() }; };
+  await call('POST', '/api/gateway-mode', { mode: 'live' }); await call('POST', '/api/discover'); await call('POST', '/api/live/register');
+  const u = new URL((await call('POST', '/api/live/signin')).j.url);
+  assert.equal(u.searchParams.get('resource'), GW);
+  assert.equal(u.searchParams.get('scope'), 'openid gateway:mcp:invoke');
+  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  assert.deepEqual(bodies.map((b) => b.grant_type), ['authorization_code', 'client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange', 'urn:ietf:params:oauth:grant-type:token-exchange']);
+  assert.ok(bodies.every((b) => b.client_secret === 'sekret'));
+  assert.equal(bodies[2].actor_token_type, 'urn:ietf:params:oauth:token-type:access_token');
+  assert.equal(bodies[3].actor_token, undefined, 'exchange 2 carries act on from the first token');
+  const s = await call('GET', '/api/session');
+  assert.deepEqual(s.j.liveAuth.claims.act, act);
+  assert.ok(!s.t.includes('sekret'));
+  await call('POST', '/api/live/call');
+  const authed = n.seen.filter((x) => x.url === GW && x.init.headers.authorization);
+  assert.equal(authed.length, 3);
+  assert.equal(authed[0].init.headers['x-token-validation'], 'jwks');
+  assert.equal(authed[0].init.headers['mcp-protocol-version'], '2025-06-18');
+  assert.equal(JSON.parse(authed[2].init.body).params.name, 'loyalty_balance');
+  const steps = (await call('GET', '/api/session')).j.liveAuth.steps.map((x) => x.n);
+  assert.deepEqual(steps, [4, 5, 6, 6.1, 6.2, 6.3, 7, 8, 9]);
+  await new Promise((r) => server.close(r));
+});

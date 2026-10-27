@@ -29,3 +29,16 @@ After the three read-only steps, three buttons go further: **4 Register Muse** (
 
 ## Honest scope
 Simulated: PingOne sign-in, the DaVinci flow, Privilege and approvals. No tenant, no real money or mail. OBO (token exchange) is coming soon: the pattern diagram shows it, marked as such, and nothing here performs it.
+
+
+## Real sign-in through PingOne, acting for the user (owner-run)
+
+Muse redirects to PingOne; PingOne handles login. Then Muse acts on the user's behalf (RFC 8693) and calls Agent Gateway.
+
+    NODE_EXTRA_CA_CERTS=<mkcert root CA> ALLOW_LIVE=1 \
+    MUSE_LIVE_GATEWAY_URL=https://api.ping.demo:3036/mcp \
+    MUSE_P1_ENV_ID=<env id> MUSE_P1_CLIENT_ID=<Muse app id> MUSE_P1_CLIENT_SECRET_FILE=<file, mode 600> npm start
+
+Flow: sign in (auth code + PKCE, `prompt=login`, resource and scope for the gateway) -> Muse's own agent token (`client_credentials`) -> exchange 1 (user + actor, stamps `act`) -> exchange 2 (gateway audience, `act` carried) -> gateway call with `X-Token-Validation: jwks` and `MCP-Protocol-Version` -> `tools/call loyalty_balance`.
+
+PingOne needs: an OIDC web app for Muse (auth code, client credentials, token exchange, secret, its callback URI), grants on the gateway resource (`gateway:mcp:invoke`) and the workload resource (`agent:invoke`), and Muse's client id added to the Authorize `HasValidActorChain` list (snapshot import). Verified live 2026-10-27: Authorize PERMIT, `loyalty_balance` returned points. Not yet built: the DaVinci login flow with Protect that detects Muse, and consent.

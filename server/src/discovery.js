@@ -1,6 +1,7 @@
 // The 401 and discovery steps of the personal agent pattern. Muse calls Agent Privilege with no token, reads what the 401
 // says, then reads the resource metadata (RFC 9728) and the authorization-server metadata (RFC 8414).
 // Mock: static, no network. Live: owner-run, read-only GETs and one unauthenticated POST to the one configured gateway.
+import { readFileSync } from 'node:fs';
 const MAX_BYTES = 64 * 1024;
 export const TIMEOUT_MS = 6000;
 const INIT = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'muse', version: '0.1.0' } } };
@@ -55,7 +56,9 @@ export function liveConfig(env) {
   let idp = null;
   if (env.MUSE_P1_ENV_ID && env.MUSE_P1_CLIENT_ID) {
     const base = `https://auth.pingone.${/^[a-z]{2,4}$/.test(env.MUSE_P1_REGION ?? '') ? env.MUSE_P1_REGION : 'com'}`;
-    idp = { clientId: env.MUSE_P1_CLIENT_ID, authorizeEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/authorize`, tokenEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/token`, issuer: `${base}/${env.MUSE_P1_ENV_ID}` };
+    let clientSecret = env.MUSE_P1_CLIENT_SECRET ?? '';
+    if (!clientSecret && env.MUSE_P1_CLIENT_SECRET_FILE) { try { clientSecret = readFileSync(env.MUSE_P1_CLIENT_SECRET_FILE, 'utf8').trim(); } catch { /* none */ } }
+    idp = { clientSecret, actorScope: env.MUSE_P1_ACTOR_SCOPE || 'agent:invoke', gatewayScope: env.MUSE_P1_GATEWAY_SCOPE || 'gateway:mcp:invoke', clientId: env.MUSE_P1_CLIENT_ID, authorizeEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/authorize`, tokenEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/token`, issuer: `${base}/${env.MUSE_P1_ENV_ID}` };
     allow.add(base);
   }
   return { url: u.href, origin: u.origin, allow, idp };

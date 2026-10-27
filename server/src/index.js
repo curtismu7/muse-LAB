@@ -7,7 +7,7 @@ import { createWorkspaces } from './workspaces.js';
 import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
 import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
-import { callGateway, exchangeCode, registerClient, startSignIn } from './liveauth.js';
+import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 
@@ -39,7 +39,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   const live = liveConfig(env);
   const protect = createProtect(env);
   const workspaces = createWorkspaces({ max: Number(env.MUSE_MAX_WORKSPACES) || 200 });
-  // Sign-in state to workspace. The return from the identity provider is a cross-site navigation, so the SameSite=Strict
+  // Sign-in state to workspace. The return from the identity provider is a cross-site navigation, so the SameSite=Lax
   // cookie is not sent; the one-time state value is what ties the return to the visitor who started it.
   const pending = new Map();
   const PENDING_MS = 10 * 60 * 1000;
@@ -80,7 +80,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       ws = workspaces.create();
       if (!ws) return res.status(503).json({ error: 'busy', detail: 'Too many visitors right now. Try again shortly.' });
       const secure = hosted ? '; Secure' : '';
-      res.append('Set-Cookie', `${WS_COOKIE}=${ws.id}; Path=/; HttpOnly; SameSite=Strict${secure}`);
+      res.append('Set-Cookie', `${WS_COOKIE}=${ws.id}; Path=/; HttpOnly; SameSite=Lax${secure}`);
     }
     req.ws = ws;
     next();
@@ -161,9 +161,10 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     if (!liveReady(req, res)) return;
     const ws = req.ws;
     if (!ws.liveClient) return res.status(409).json({ error: 'register Muse first' });
-    const resource = live.idp ? null : live.url;
+    // With a client secret Muse acts on the user's behalf, so the token is minted for the gateway from the start.
+    const resource = live.idp && !live.idp.clientSecret ? null : live.url;
     const learned = live.idp ? { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] } : ws.discovery.learned;
-    const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: Boolean(live.idp) });
+    const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: Boolean(live.idp), scope: live.idp?.clientSecret ? `openid ${live.idp.gatewayScope}` : null });
     for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
     pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, learned, at: Date.now() });
     addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: live.idp ? 'The browser leaves Muse for PingOne. PKCE S256, prompt=login so PingOne always asks the user to sign in.' : 'The browser leaves Muse for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
@@ -179,10 +180,15 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Muse.');
     if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Muse.'); }
     try {
-      const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource }, fetchImpl);
+      const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource, clientSecret: live.idp?.clientSecret }, fetchImpl);
       addStep(ws, r.step);
       ws.liveError = r.error ?? null;
-      if (r.token) { ws.liveToken = r.token; ws.liveClaims = r.claims ?? { opaque: true }; }
+      if (r.token && live.idp?.clientSecret) {
+        const d = await delegate(live, live.idp, r.token, fetchImpl);
+        for (const s of d.steps) addStep(ws, s);
+        ws.liveError = d.error ?? null;
+        if (d.token) { ws.liveToken = d.token; ws.liveClaims = d.claims ?? { opaque: true }; }
+      } else if (r.token) { ws.liveToken = r.token; ws.liveClaims = r.claims ?? { opaque: true }; }
     } catch (e) { ws.liveError = failed(e).error; }
     done('Signed in. Returning to Muse.');
   });
@@ -193,7 +199,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     const ws = req.ws;
     if (!ws.liveToken) return res.status(409).json({ error: 'sign in first' });
     try {
-      for (const s of await callGateway(live, ws.liveToken, fetchImpl)) addStep(ws, s);
+      for (const s of await callGateway(live, ws.liveToken, fetchImpl, { tool: live.idp?.clientSecret ? 'loyalty_balance' : null })) addStep(ws, s);
       res.json({ ok: true });
     } catch (e) { res.status(502).json(failed(e)); }
   });
