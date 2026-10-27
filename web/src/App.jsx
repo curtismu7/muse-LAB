@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
+import PatternFlow from './PatternFlow.jsx';
+import DiscoveryPanel from './DiscoveryPanel.jsx';
 import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
@@ -9,7 +11,7 @@ async function api(method, path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.detail ?? json.error ?? `request failed (${res.status})`);
+  if (!res.ok) throw Object.assign(new Error(json.detail ?? json.error ?? `request failed (${res.status})`), { status: res.status, body: json });
   return json;
 }
 
@@ -34,7 +36,6 @@ const TABS = [
 const OUTCOME_LABEL = {
   allowed: 'Allowed',
   held: 'Held for approval',
-  consent: "Waiting for Sam's consent",
   blocked: 'Blocked',
   approved: 'Approved by a person',
 };
@@ -64,14 +65,13 @@ function Icon({ name, size = 18 }) {
 }
 
 function Outcome({ value }) {
-  return <span className={`badge badge-${value === 'consent' ? 'held' : value}`}>{OUTCOME_LABEL[value] ?? value}</span>;
+  return <span className={`badge badge-${value}`}>{OUTCOME_LABEL[value] ?? value}</span>;
 }
 
 function MuseReply({ entry, onApprove, busy }) {
-  const waiting = entry.outcome === 'held' && entry.consent;
   return (
     <div className="bubble muse">
-      <Outcome value={waiting ? 'consent' : entry.outcome} />
+      <Outcome value={entry.outcome} />
       <p className="small muted">{callerLine(entry.actor)}</p>
       <ul className="rules">
         {entry.rules.map((r) => <li key={r}>{r}</li>)}
@@ -80,9 +80,36 @@ function MuseReply({ entry, onApprove, busy }) {
       {entry.result && <pre>{JSON.stringify(entry.result, null, 2)}</pre>}
       {entry.outcome === 'held' && (
         <button type="button" className="approve" onClick={() => onApprove(entry)} disabled={busy}>
-          {waiting ? "Give Sam's consent (simulated)" : 'Approve (simulated CIBA)'}
+          Approve (simulated CIBA)
         </button>
       )}
+    </div>
+  );
+}
+
+function StepsReply({ title, steps }) {
+  return (
+    <div className="bubble muse steps">
+      <strong className="small">{title}</strong>
+      <ol className="small">{steps.map((t) => <li key={t}>{t}</li>)}</ol>
+    </div>
+  );
+}
+
+function ConsentModal({ ask }) {
+  const allow = useRef(null);
+  useEffect(() => { allow.current?.focus(); }, []);
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+        <h2 id="consent-title">Muse is a bot</h2>
+        <p>{ask.prompt}</p>
+        <p className="small muted">Protect detected the agent client Muse. Simulated: no real PingOne consent is recorded.</p>
+        <div className="modal-actions">
+          <button type="button" onClick={() => ask.resolve(false)}>No, do not allow</button>
+          <button type="button" className="approve" ref={allow} data-default-button onClick={() => ask.resolve(true)}>Yes, I consent</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -98,6 +125,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [via, setVia] = useState('muse');
+  const [consentAsk, setConsentAsk] = useState(null);
   const feedEnd = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -135,18 +163,50 @@ export default function App() {
   const signOut = () => guarded(async () => { await api('POST', '/api/signout'); setTrace(null); setFeed([]); });
   const reset = () => guarded(async () => { await api('POST', '/api/reset'); setTrace(null); setFeed([]); });
 
+  // The gateway answers 401 until the caller has a token. Then the caller asks PingOne, which logs Sam in, asks Protect who is
+  // calling, and for Muse puts up the consent modal. After the token is issued the same call is retried.
+  async function callTool(body) {
+    try {
+      return await api('POST', '/api/request', body);
+    } catch (e) {
+      if (e.status !== 401 || e.body?.error !== 'invalid_token') throw e;
+    }
+    const who = body.via === 'muse' ? 'Muse' : 'Sam';
+    push({ kind: 'steps', title: 'Gateway answered 401: no token', steps: [`${who} asks PingOne for one.`] });
+    let auth;
+    try {
+      auth = await api('POST', '/api/authorize', { client: body.via });
+    } catch (e) {
+      if (e.body?.steps) push({ kind: 'steps', title: 'PingOne refused', steps: e.body.steps });
+      throw e;
+    }
+    push({ kind: 'steps', title: 'PingOne authorization', steps: auth.steps });
+    if (auth.status === 'consent_required') {
+      const approve = await new Promise((resolve) => setConsentAsk({ prompt: auth.prompt, resolve }));
+      setConsentAsk(null);
+      try {
+        const done = await api('POST', '/api/consent', { client: body.via, approve });
+        push({ kind: 'steps', title: 'Consent', steps: done.steps });
+      } catch (e) {
+        push({ kind: 'steps', title: 'Consent declined', steps: e.body?.steps ?? ['No token was issued.'] });
+        return null;
+      }
+    }
+    return api('POST', '/api/request', body);
+  }
+
   const ask = (prompt) => guarded(async () => {
     if (prompt.burst) {
       push({ kind: 'user', text: 'Read my calendar seven times in a row.' });
       for (let i = 0; i < 7; i++) {
-        const entry = await api('POST', '/api/request', { tool: 'calendar.read', args: {}, via });
-        push({ kind: 'muse', entry });
+        const entry = await callTool({ tool: 'calendar.read', args: {}, via });
+        if (entry) push({ kind: 'muse', entry });
       }
       return;
     }
     push({ kind: 'user', text: prompt.label });
-    const entry = await api('POST', '/api/request', { tool: prompt.tool, args: prompt.args, via });
-    push({ kind: 'muse', entry });
+    const entry = await callTool({ tool: prompt.tool, args: prompt.args, via });
+    if (entry) push({ kind: 'muse', entry });
   });
 
   // A typed request goes through the same path as a prompt chip. Text it cannot map gets a reply, not a tool call.
@@ -183,6 +243,7 @@ export default function App() {
 
   return (
     <main className="app">
+      {consentAsk && <ConsentModal ask={consentAsk} />}
       <nav className="rail" aria-label="Sections">
         <span className="rail-logo" aria-hidden="true">M</span>
         <button type="button" className="rail-btn active" aria-label="Chat"><Icon name="chat" /></button>
@@ -195,7 +256,7 @@ export default function App() {
         <header className="chat-top">
           <div>
             <h1>Muse</h1>
-            <p className="muted">A personal agent, guarded by PingOne Privilege</p>
+            <p className="muted">A personal agent, guarded by PingOne Privilege. <a className="how-link" href="/how-muse-works.html">How it works</a></p>
           </div>
           {session.signedIn && (
             <div className="top-actions">
@@ -209,10 +270,16 @@ export default function App() {
           )}
         </header>
 
-        <aside className="banner" role="note">
-          Simulated. PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.
-          {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
-        </aside>
+        {session.mode === 'live' ? (
+          <aside className="banner live" role="note">
+            Real. PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Muse acts on their behalf through the gateway at {session.live.origin}. Nothing in this mode is simulated. Switch to Fake (mock) below for the offline version.
+          </aside>
+        ) : (
+          <aside className="banner" role="note">
+            Simulated. PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.
+            {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
+          </aside>
+        )}
 
         {presenter && session.signedIn && (
           <p className="say">Say: each reply names the gate that decided, and why. Try a payment over 500, then the burst.</p>
@@ -222,7 +289,8 @@ export default function App() {
           <div className="signin">
             <span className="avatar big" aria-hidden="true">M</span>
             <h2>Sign in with PingOne</h2>
-            <p className="muted">The sign-in runs a DaVinci-shaped flow, simulated in this build.</p>
+            <p className="muted">{session.mode === 'live' ? 'Muse only redirects. PingOne runs the login, Protect and consent.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
+            <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
             {session.picker && (
               <label className="field">
                 <span>Persona</span>
@@ -231,9 +299,11 @@ export default function App() {
                 </select>
               </label>
             )}
-            <button type="button" className="primary" onClick={signIn} disabled={busy}>
-              {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
-            </button>
+            {session.mode !== 'live' && (
+              <button type="button" className="primary" onClick={signIn} disabled={busy}>
+                {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -242,6 +312,8 @@ export default function App() {
               {feed.map((m) => (
                 m.kind === 'user'
                   ? <div key={m.id} className="bubble user">{m.text}</div>
+                  : m.kind === 'steps'
+                    ? <StepsReply key={m.id} title={m.title} steps={m.steps} />
                   : m.entry
                     ? <MuseReply key={m.id} entry={m.entry} onApprove={approve} busy={busy} />
                     : <div key={m.id} className="bubble muse">{m.text}</div>
@@ -351,6 +423,7 @@ export default function App() {
       {session.signedIn && (
         <div className="flow-row">
           <PersonalAgentFlow lastEntry={lastEntry} />
+          <PatternFlow />
         </div>
       )}
     </main>

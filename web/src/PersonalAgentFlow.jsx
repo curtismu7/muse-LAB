@@ -12,12 +12,10 @@ const SPEEDS = [0.5, 1, 2];
 export function stopStep(entry) {
   const last = DIAGRAM.steps.length - 1;
   if (!entry) return last;
-  if (entry.detect?.some((s) => s.result === 'block')) return 1;
-  if (entry.coarse?.result === 'deny') return 3;
-  if (entry.fine?.result === 'deny') return 4;
-  if (entry.consent) return 2;
-  if (entry.fine?.result === 'step_up') return 4;
-  if (entry.outcome === 'held') return 1;
+  if (entry.detect?.some((s) => s.result === 'block')) return 5;
+  if (entry.coarse?.result === 'deny') return 5;
+  if (entry.fine?.result === 'deny' || entry.fine?.result === 'step_up') return 6;
+  if (entry.outcome === 'held') return 6;
   return last;
 }
 
