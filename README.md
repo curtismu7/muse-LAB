@@ -43,9 +43,9 @@ Flow: sign in (auth code + PKCE, `prompt=login`, resource and scope for the gate
 
 PingOne needs: an OIDC web app for Muse (auth code, client credentials, token exchange, secret, its callback URI), grants on the gateway resource (`gateway:mcp:invoke`) and the workload resource (`agent:invoke`), and Muse's client id added to the Authorize `HasValidActorChain` list (snapshot import). Verified live 2026-10-27: Authorize PERMIT, `loyalty_balance` returned points. Not yet built: the DaVinci login flow with Protect that detects Muse, and consent.
 
-## Muse as a connector for other agents (for example Meta's Muse at muse.ai)
+## The Airline Connector: Muse as a connector for other agents (for example Meta's Muse at muse.ai)
 
-With `MUSE_CONNECTOR=1`, real mode configured and an https `MUSE_PUBLIC_URL`, Muse also acts as a standard MCP server with OAuth, so another agent can add it as a custom connector (remote streamable HTTP, OAuth).
+With `MUSE_CONNECTOR=1`, real mode configured and an https `MUSE_PUBLIC_URL`, this app also acts as the **Airline Connector**,  a standard MCP server with OAuth, so another agent can add it as a custom connector (remote streamable HTTP, OAuth).
 
 - **MCP endpoint:** `<public address>/mcp` (JSON responses, `initialize`, `tools/list`, `tools/call`). Tools: `loyalty_balance` and `get_loyalty_status`, answered through the gateway.
 - **Sign-in:** `/connector/authorize` sends the user to the same PingOne flow as the app (login, Protect, agent-detected screen, consent). `/connector/callback` does the on-behalf-of exchanges. `/connector/token` gives the agent its own opaque token (PKCE S256, one-use code, no refresh token, at most an hour). The agent never receives the delegated token.

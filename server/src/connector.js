@@ -1,4 +1,4 @@
-// Muse as a custom connector for other agents (for example Meta's Muse at muse.ai). Standard MCP over HTTP with OAuth:
+// The Airline Connector: Muse's server as a custom connector for other agents (for example Meta's Muse at muse.ai). Standard MCP over HTTP with OAuth:
 //   agent -> /mcp (401 + metadata) -> /connector/authorize -> PingOne (the same DaVinci flow: login, Protect, agent-detected, consent)
 //   -> /connector/callback (Muse does the on-behalf-of exchanges) -> /connector/token -> agent calls /mcp with the token.
 // Muse is both the OAuth authorization server the agent talks to and the MCP server. The tools it serves are a fixed list,
@@ -69,7 +69,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
 
   // Discovery (RFC 9728, RFC 8414). Public documents, so a plain CORS header is fine.
   const open = (req, res, next) => { res.set('Access-Control-Allow-Origin', '*').set('Cache-Control', 'public, max-age=60'); next(); };
-  const prm = { resource: `${PUBLIC}/mcp`, authorization_servers: [PUBLIC], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: 'Muse airline points' };
+  const prm = { resource: `${PUBLIC}/mcp`, authorization_servers: [PUBLIC], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: 'Airline Connector' };
   app.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], open, (req, res) => res.json(prm));
   app.get(['/.well-known/oauth-authorization-server', '/.well-known/openid-configuration'], open, (req, res) => res.json({
     issuer: PUBLIC, authorization_endpoint: `${PUBLIC}/connector/authorize`, token_endpoint: `${PUBLIC}/connector/token`,
@@ -104,8 +104,9 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     const back = (error) => { const u = new URL(String(q.redirect_uri)); u.searchParams.set('error', error); if (q.state) u.searchParams.set('state', String(q.state)); return res.redirect(302, u.href); };
     if (q.response_type !== 'code') return back('unsupported_response_type');
     if (!q.code_challenge || q.code_challenge_method !== 'S256') return back('invalid_request');
+    // '.conn' on the login hint tells the PingOne flow this sign-in came through the Airline Connector, so its screens name it.
     const learned = { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] };
-    const r = startSignIn(learned, { clientId: live.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: live.idp.loginHint ?? null });
+    const r = startSignIn(learned, { clientId: live.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: live.idp.loginHint ? `${live.idp.loginHint}.conn` : null });
     capped(pending);
     pending.set(r.state, { client: String(q.client_id), redirectUri: String(q.redirect_uri), state: q.state ? String(q.state) : null, challenge: String(q.code_challenge), verifier: r.verifier, learned, at: Date.now() });
     res.redirect(302, r.url);
@@ -153,7 +154,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   const rpcErr = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
   async function handle(msg, session) {
     const { id, method, params } = msg ?? {};
-    if (method === 'initialize') return rpc(id, { protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[1], capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'muse-connector', version: '0.1.0' } });
+    if (method === 'initialize') return rpc(id, { protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[1], capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'airline-connector', version: '0.1.0' } });
     if (method === 'ping') return rpc(id, {});
     if (method === 'tools/list') return rpc(id, { tools: TOOLS });
     if (method === 'tools/call') {

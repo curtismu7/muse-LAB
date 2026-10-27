@@ -60,7 +60,7 @@ const pkce = () => { const verifier = 'v'.repeat(50); return { verifier, challen
 test('discovery documents point at this server, and registration only appears when redirect hosts are configured', async () => {
   const a = await boot();
   const prm = await (await a.get('/.well-known/oauth-protected-resource/mcp')).json();
-  assert.equal(prm.resource, `${a.base}/mcp`); assert.deepEqual(prm.authorization_servers, [a.base]);
+  assert.equal(prm.resource, `${a.base}/mcp`); assert.deepEqual(prm.authorization_servers, [a.base]); assert.equal(prm.resource_name, 'Airline Connector');
   const as = await (await a.get('/.well-known/oauth-authorization-server')).json();
   assert.equal(as.authorization_endpoint, `${a.base}/connector/authorize`);
   assert.equal(as.registration_endpoint, `${a.base}/connector/register`);
@@ -104,6 +104,7 @@ test('authorize: unknown clients and unmatched redirects are never redirected; a
   const u = new URL(ok.headers.get('location'));
   assert.equal(u.origin + u.pathname, `${P1}/authorize`);
   assert.equal(u.searchParams.get('prompt'), 'login');
+  assert.equal(u.searchParams.get('login_hint'), 'demouser.conn', 'the sign-in is marked as coming through the connector');
   assert.equal(u.searchParams.get('redirect_uri'), `${a.base}/connector/callback`);
   assert.notEqual(u.searchParams.get('state'), 'st', 'PingOne gets Muse\'s own state, not the agent\'s');
   await a.close();
@@ -136,7 +137,7 @@ test('the full flow: sign-in at PingOne, Muse acts for the user, the agent gets 
 
   const auth = { authorization: `Bearer ${tj.access_token}` };
   const init = await (await a.post('/mcp', { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } }, auth)).json();
-  assert.equal(init.result.protocolVersion, '2025-06-18'); assert.equal(init.result.serverInfo.name, 'muse-connector');
+  assert.equal(init.result.protocolVersion, '2025-06-18'); assert.equal(init.result.serverInfo.name, 'airline-connector');
   assert.equal((await a.post('/mcp', { jsonrpc: '2.0', method: 'notifications/initialized' }, auth)).status, 202);
   const list = await (await a.post('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list' }, auth)).json();
   assert.deepEqual(list.result.tools.map((t) => t.name), ['loyalty_balance', 'get_loyalty_status']);
