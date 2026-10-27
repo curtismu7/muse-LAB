@@ -37,7 +37,7 @@ function fakeNet(seen) {
     }
     if (String(url) === GW) {
       const m = JSON.parse(init.body);
-      if (m.method === 'tools/call') return json(200, { result: { content: [{ type: 'text', text: JSON.stringify({ data: { points: 4500, tier: 'Gold' } }) }] } });
+      if (m.method === 'tools/call') return json(200, { result: { content: [{ type: 'text', text: JSON.stringify({ matchedBy: 'subject', loyaltyTier: 'Premier Gold', loyaltyPoints: 52000, passengerRef: 'UA-PAX-0100', name: 'Sam Demo' }) }] } });
       return json(200, { result: { tools: [] } }, { 'mcp-session-id': 's1' });
     }
     throw new Error(`unexpected ${url}`);
@@ -142,10 +142,10 @@ test('the full flow: sign-in at PingOne, Muse acts for the user, the agent gets 
   const list = await (await a.post('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list' }, auth)).json();
   assert.deepEqual(list.result.tools.map((t) => t.name), ['loyalty_balance', 'get_loyalty_status']);
   const call = await (await a.post('/mcp', { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'loyalty_balance', arguments: {} } }, auth)).json();
-  assert.equal(call.result.isError, false); assert.match(call.result.content[0].text, /4500/);
+  assert.equal(call.result.isError, false); assert.deepEqual(a.seen.filter((x) => x.url === GW && x.init.body).map((x) => JSON.parse(x.init.body)).filter((m) => m.method === 'tools/call').map((m) => m.params.name).slice(-1), ['get_loyalty_status'], 'the gateway is asked for the airline record'); assert.equal(JSON.parse(call.result.content[0].text).points, 52000);
   const st = await (await a.post('/mcp', { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_loyalty_status', arguments: {} } }, auth)).json();
   assert.equal(st.result.isError, false);
-  const sj = JSON.parse(st.result.content[0].text); assert.equal(sj.loyaltyPoints, JSON.parse(call.result.content[0].text).data.points, 'status and balance agree');
+  const sj = JSON.parse(st.result.content[0].text); assert.equal(sj.loyaltyPoints, JSON.parse(call.result.content[0].text).points, 'status and balance agree');
   const gw = a.seen.filter((x) => x.url === GW && x.init.headers.authorization);
   assert.ok(gw.length >= 1 && gw.every((x) => x.init.headers.authorization === `Bearer ${DELEGATED}`), 'the gateway gets the delegated token, not the agent\'s');
   const bad = await (await a.post('/mcp', { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'transfer_money', arguments: {} } }, auth)).json();

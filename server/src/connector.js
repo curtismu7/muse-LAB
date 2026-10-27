@@ -161,16 +161,21 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       const name = params?.name;
       if (!TOOLS.some((t) => t.name === name)) return rpcErr(id, -32602, 'Unknown tool');
       try {
-        // Both tools read the same gateway record, so the balance and the status can never disagree.
-        const steps = await callGateway(live, session.delegated, fetchImpl, { tool: 'loyalty_balance' });
+        // Both tools read the airline passenger record (get_loyalty_status) through the gateway, so the balance and the status can never disagree.
+        const steps = await callGateway(live, session.delegated, fetchImpl, { tool: 'get_loyalty_status' });
         const resp = steps.find((s) => s.n === 9)?.response;
         const content = resp?.status === 200 ? resp.body?.result?.content : null;
-        if (name === 'get_loyalty_status' && Array.isArray(content) && content.length) {
+        if (Array.isArray(content) && content.length) {
           let d = null;
-          try { d = JSON.parse(String(content[0].text ?? '')).data; } catch { /* fall through to the plain result */ }
-          if (d) return rpc(id, { content: [{ type: 'text', text: JSON.stringify({ memberId: d.id, loyaltyTier: d.tier, loyaltyPoints: d.points, status: d.status }) }], isError: false });
+          try { d = JSON.parse(String(content[0].text ?? '')); } catch { /* fall through to the plain result */ }
+          if (d && d.loyaltyPoints !== undefined) {
+            const out = name === 'loyalty_balance'
+              ? { points: d.loyaltyPoints, tier: d.loyaltyTier, passenger: d.name, matchedBy: d.matchedBy }
+              : { passengerRef: d.passengerRef, passenger: d.name, loyaltyTier: d.loyaltyTier, loyaltyPoints: d.loyaltyPoints, matchedBy: d.matchedBy };
+            return rpc(id, { content: [{ type: 'text', text: JSON.stringify(out) }], isError: false });
+          }
+          return rpc(id, { content: content.slice(0, 5).map((c) => ({ type: 'text', text: String(c.text ?? '').slice(0, 4000) })), isError: false });
         }
-        if (Array.isArray(content) && content.length) return rpc(id, { content: content.slice(0, 5).map((c) => ({ type: 'text', text: String(c.text ?? '').slice(0, 4000) })), isError: false });
         return rpc(id, { content: [{ type: 'text', text: `The gateway did not allow or complete this call (${resp?.status ?? 'no answer'}).` }], isError: true });
       } catch { return rpc(id, { content: [{ type: 'text', text: 'The gateway could not be reached.' }], isError: true }); }
     }
