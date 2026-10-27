@@ -1,4 +1,5 @@
-# MOCK-ONLY hosted build of Muse for the SE cluster (rule 18). Same image as the local standalone; MODE=mock and MUSE_HOSTED=1
+# Hosted build of Muse for the SE cluster. By default it is MOCK-ONLY (rule 18). Real mode is switched on only when the owner creates the
+# Secret `muse-real` (see k8s/README-real.md): the Secret holds every tenant id, address and credential, so none of them are in this repo. Same image as the local standalone; MODE=mock and MUSE_HOSTED=1
 # switch on the hosted banner, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids, no volumes with data.
 # Placeholders (__IMAGE__, __SE_HOST__) are filled by k8s/deploy.sh. No namespace: deploy.sh takes NAMESPACE.
 apiVersion: apps/v1
@@ -36,6 +37,12 @@ spec:
             - { name: MUSE_BIND, value: 0.0.0.0 }
             # The browser's Origin must match the Host the app sees, so the ingress passes the real host through and the app names it here.
             - { name: MUSE_ALLOWED_HOSTS, value: "__SE_HOST__" }
+            # A public link needs a visitor cap. Workspaces are per visitor and live in memory.
+            - { name: MUSE_MAX_WORKSPACES, value: "60" }
+          # Optional. Absent = the mock-only build. Present = real mode (ALLOW_LIVE, MUSE_ALLOW_LIVE_HOSTED, MUSE_PUBLIC_URL, MUSE_LIVE_GATEWAY_URL,
+          # MUSE_P1_ENV_ID, MUSE_P1_CLIENT_ID, MUSE_P1_CLIENT_SECRET, MUSE_P1_LANE). Created by the owner, never committed.
+          envFrom:
+            - secretRef: { name: muse-real, optional: true }
           readinessProbe:
             httpGet: { path: /api/health, port: http }
             periodSeconds: 10

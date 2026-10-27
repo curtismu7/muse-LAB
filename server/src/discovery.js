@@ -43,7 +43,14 @@ export function mockDiscovery() {
 
 // Live mode needs ALLOW_LIVE=1 and MUSE_LIVE_GATEWAY_URL, and is never available on the hosted build.
 export function liveConfig(env) {
-  if (env.MUSE_HOSTED === '1' || env.ALLOW_LIVE !== '1' || !env.MUSE_LIVE_GATEWAY_URL) return null;
+  // Hosted builds stay mock-only unless the owner turns real mode on deliberately (MUSE_ALLOW_LIVE_HOSTED=1) and names the
+  // public https address the PingOne return comes back to.
+  const hostedLive = env.MUSE_HOSTED === '1' && env.MUSE_ALLOW_LIVE_HOSTED === '1';
+  if ((env.MUSE_HOSTED === '1' && !hostedLive) || env.ALLOW_LIVE !== '1' || !env.MUSE_LIVE_GATEWAY_URL) return null;
+  let publicUrl = null;
+  if (hostedLive) {
+    try { const pu = new URL(env.MUSE_PUBLIC_URL ?? ''); if (pu.protocol !== 'https:') return null; publicUrl = pu.origin; } catch { return null; }
+  }
   let u;
   try { u = new URL(env.MUSE_LIVE_GATEWAY_URL); } catch { return null; }
   const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname);
@@ -63,7 +70,7 @@ export function liveConfig(env) {
     idp = { lane, loginHint: env.MUSE_P1_LOGIN_HINT ?? 'demouser', clientSecret, actorScope: env.MUSE_P1_ACTOR_SCOPE || 'agent:invoke', gatewayScope: env.MUSE_P1_GATEWAY_SCOPE || (lane === 'privilege' ? 'mcp:invoke' : 'gateway:mcp:invoke'), clientId: env.MUSE_P1_CLIENT_ID, authorizeEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/authorize`, tokenEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/token`, issuer: `${base}/${env.MUSE_P1_ENV_ID}` };
     allow.add(base);
   }
-  return { url: u.href, origin: u.origin, allow, idp };
+  return { url: u.href, origin: u.origin, allow, idp, publicUrl };
 }
 
 export async function readCapped(res) {

@@ -39,6 +39,20 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   const live = liveConfig(env);
   const protect = createProtect(env);
   const workspaces = createWorkspaces({ max: Number(env.MUSE_MAX_WORKSPACES) || 200 });
+  // Real flows touch PingOne and the gateway, so starting them is limited per visitor and across everyone.
+  const hits = new Map();
+  const LIMIT_PER_VISITOR = Number(env.MUSE_LIVE_PER_VISITOR_PER_MIN) || 8;
+  const LIMIT_GLOBAL = Number(env.MUSE_LIVE_GLOBAL_PER_MIN) || 60;
+  const tooMany = (key) => {
+    const now = Date.now();
+    for (const [k, v] of hits) { const fresh = v.filter((t) => now - t < 60000); if (fresh.length) hits.set(k, fresh); else hits.delete(k); }
+    const mine = hits.get(key) ?? [];
+    const all = [...hits.values()].reduce((n, v) => n + v.length, 0);
+    if (mine.length >= LIMIT_PER_VISITOR || all >= LIMIT_GLOBAL) return true;
+    hits.set(key, [...mine, now]);
+    return false;
+  };
+  const limited = (req, res, next) => (tooMany(req.ws.id) ? res.status(429).json({ error: 'slow down', detail: 'Too many sign-in attempts. Try again in a minute.' }) : next());
   // Sign-in state to workspace. The return from the identity provider is a cross-site navigation, so the SameSite=Lax
   // cookie is not sent; the one-time state value is what ties the return to the visitor who started it.
   const pending = new Map();
@@ -148,7 +162,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   const failed = (e) => ({ error: 'Agent Privilege could not be reached', detail: String(e?.name ?? 'error').slice(0, 40) });
 
   // The user asks first. With no token Muse calls the gateway, gets the 401 and shows it; PingOne comes after.
-  app.post('/api/live/ask', async (req, res) => {
+  app.post('/api/live/ask', limited, async (req, res) => {
     const ws = req.ws;
     if (!live || ws.gatewayMode !== 'live') return res.status(409).json({ error: 'switch to Real (live) first' });
     const prompt = String(req.body?.prompt ?? '').slice(0, 200);
@@ -167,13 +181,13 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     const ws = req.ws;
     if (live.idp) {
       // PingOne already has Muse's app, so there is nothing to register: Muse only redirects.
-      ws.liveClient = { clientId: live.idp.clientId, redirectUri: `http://${req.headers.host}/api/callback` };
+      ws.liveClient = { clientId: live.idp.clientId, redirectUri: (live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback`) };
       ws.liveError = null;
       addStep(ws, { n: 4, title: "Use Muse's PingOne app", request: { method: 'GET', url: live.idp.authorizeEndpoint }, note: 'No registration. Muse is a PingOne app; PingOne handles login, Protect and consent after the redirect.' });
       return res.json({ registered: true, error: null });
     }
     try {
-      const r = await registerClient(live, ws.discovery.learned, `http://${req.headers.host}/api/callback`, fetchImpl);
+      const r = await registerClient(live, ws.discovery.learned, (live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback`), fetchImpl);
       addStep(ws, r.step);
       ws.liveClient = r.client ?? null;
       ws.liveError = r.error ?? null;
@@ -182,7 +196,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   });
 
   // Step 5. Returns the authorize URL; the page navigates there. Nothing is sent to the gateway yet.
-  app.post('/api/live/signin', (req, res) => {
+  app.post('/api/live/signin', limited, (req, res) => {
     if (!liveReady(req, res)) return;
     const ws = req.ws;
     if (!ws.liveClient) return res.status(409).json({ error: 'register Muse first' });
