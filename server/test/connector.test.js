@@ -183,3 +183,13 @@ test('a pre-registered client id works without registration', async () => {
   assert.equal(r.status, 200);
   await a.close();
 });
+
+test('the session tells the page how to add the connector, and says nothing when it is off', async () => {
+  const a = await boot({ MUSE_CONNECTOR_CLIENT_ID: 'airline-connector', MUSE_CONNECTOR_REDIRECT_URIS: REDIRECT });
+  const on = await (await a.get('/api/session')).json();
+  assert.deepEqual(on.connector, { url: `${a.base}/mcp`, clientId: 'airline-connector', redirectUri: REDIRECT });
+  await a.close();
+  const b = await boot({ MUSE_CONNECTOR: '0' });
+  assert.equal((await (await b.get('/api/session')).json()).connector, null);
+  await b.close();
+});

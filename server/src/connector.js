@@ -194,5 +194,5 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   });
   app.get('/mcp', (req, res) => res.status(405).set('Allow', 'POST').end());
   app.delete('/mcp', (req, res) => res.status(405).set('Allow', 'POST').end());
-  return true;
+  return { url: `${PUBLIC}/mcp`, clientId: cfg.staticClient?.id ?? null, redirectUri: cfg.staticClient?.redirectUris[0] ?? null };
 }

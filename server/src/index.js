@@ -89,7 +89,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   });
 
   // Muse as a connector for other agents (off unless MUSE_CONNECTOR=1 and real mode is configured).
-  mountConnector(app, { env, live, fetchImpl });
+  const connector = mountConnector(app, { env, live, fetchImpl }) || null;
 
   app.use(express.json({ limit: '16kb' }));
 
@@ -114,6 +114,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       persona: ws.user ? { key: ws.user, ...PERSONAS[ws.user] } : null,
       picker,
       hosted,
+      connector,
       mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
       live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp), lane: live.idp?.lane ?? null } : { available: false },
       discovery: ws.discovery ?? null,

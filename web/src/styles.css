@@ -349,3 +349,8 @@ button.approve { border-radius: 8px; width: 100%; }
 
 .how-link { color: var(--accent); }
 .how-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.connector-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.connector-rows li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.connector-rows li > :first-child { flex: 0 1 auto; min-width: 5.5em; }
+.connector-rows code { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
