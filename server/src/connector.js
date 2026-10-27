@@ -11,7 +11,7 @@ const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
 const TOOLS = [
   { name: 'loyalty_balance', description: "The member's airline points balance and tier.", inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
-  { name: 'get_loyalty_status', description: "The member's loyalty status: tier, points and passenger name.", inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
+  { name: 'get_loyalty_status', description: "The member's loyalty status: tier, points and account status.", inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
 ];
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const PENDING_MS = 10 * 60 * 1000;
@@ -161,9 +161,15 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       const name = params?.name;
       if (!TOOLS.some((t) => t.name === name)) return rpcErr(id, -32602, 'Unknown tool');
       try {
-        const steps = await callGateway(live, session.delegated, fetchImpl, { tool: name });
+        // Both tools read the same gateway record, so the balance and the status can never disagree.
+        const steps = await callGateway(live, session.delegated, fetchImpl, { tool: 'loyalty_balance' });
         const resp = steps.find((s) => s.n === 9)?.response;
         const content = resp?.status === 200 ? resp.body?.result?.content : null;
+        if (name === 'get_loyalty_status' && Array.isArray(content) && content.length) {
+          let d = null;
+          try { d = JSON.parse(String(content[0].text ?? '')).data; } catch { /* fall through to the plain result */ }
+          if (d) return rpc(id, { content: [{ type: 'text', text: JSON.stringify({ memberId: d.id, loyaltyTier: d.tier, loyaltyPoints: d.points, status: d.status }) }], isError: false });
+        }
         if (Array.isArray(content) && content.length) return rpc(id, { content: content.slice(0, 5).map((c) => ({ type: 'text', text: String(c.text ?? '').slice(0, 4000) })), isError: false });
         return rpc(id, { content: [{ type: 'text', text: `The gateway did not allow or complete this call (${resp?.status ?? 'no answer'}).` }], isError: true });
       } catch { return rpc(id, { content: [{ type: 'text', text: 'The gateway could not be reached.' }], isError: true }); }

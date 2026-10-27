@@ -143,6 +143,9 @@ test('the full flow: sign-in at PingOne, Muse acts for the user, the agent gets 
   assert.deepEqual(list.result.tools.map((t) => t.name), ['loyalty_balance', 'get_loyalty_status']);
   const call = await (await a.post('/mcp', { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'loyalty_balance', arguments: {} } }, auth)).json();
   assert.equal(call.result.isError, false); assert.match(call.result.content[0].text, /4500/);
+  const st = await (await a.post('/mcp', { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_loyalty_status', arguments: {} } }, auth)).json();
+  assert.equal(st.result.isError, false);
+  const sj = JSON.parse(st.result.content[0].text); assert.equal(sj.loyaltyPoints, JSON.parse(call.result.content[0].text).data.points, 'status and balance agree');
   const gw = a.seen.filter((x) => x.url === GW && x.init.headers.authorization);
   assert.ok(gw.length >= 1 && gw.every((x) => x.init.headers.authorization === `Bearer ${DELEGATED}`), 'the gateway gets the delegated token, not the agent\'s');
   const bad = await (await a.post('/mcp', { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'transfer_money', arguments: {} } }, auth)).json();
