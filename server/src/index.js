@@ -189,7 +189,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     // With a client secret Muse acts on the user's behalf, so the token is minted for the gateway from the start.
     const resource = live.idp && (!live.idp.clientSecret || live.idp.lane === 'privilege') ? null : live.url;
     const learned = live.idp ? { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] } : ws.discovery.learned;
-    const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: Boolean(live.idp), scope: live.idp?.clientSecret && live.idp.lane !== 'privilege' ? `openid ${live.idp.gatewayScope}` : null });
+    const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: Boolean(live.idp), loginHint: live.idp?.loginHint ?? null, scope: live.idp?.clientSecret && live.idp.lane !== 'privilege' ? `openid ${live.idp.gatewayScope}` : null });
     for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
     pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, learned, at: Date.now() });
     addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: live.idp ? 'The browser leaves Muse for PingOne. PKCE S256, prompt=login so PingOne always asks the user to sign in.' : 'The browser leaves Muse for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });

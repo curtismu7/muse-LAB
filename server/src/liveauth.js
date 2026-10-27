@@ -36,12 +36,12 @@ export async function registerClient(cfg, learned, redirectUri, fetchImpl = fetc
   return { step: r.step, client: { clientId: id, redirectUri } };
 }
 
-export function startSignIn(learned, client, resource, { forceLogin = false, scope = null } = {}) {
+export function startSignIn(learned, client, resource, { forceLogin = false, scope = null, loginHint = null } = {}) {
   const verifier = b64u(randomBytes(32));
   const state = b64u(randomBytes(16));
   const u = new URL(learned.authorizeEndpoint);
   u.search = new URLSearchParams({
-    response_type: 'code', client_id: client.clientId, redirect_uri: client.redirectUri, state, ...(resource ? { resource } : {}), ...(forceLogin ? { prompt: 'login' } : {}),
+    response_type: 'code', client_id: client.clientId, redirect_uri: client.redirectUri, state, ...(resource ? { resource } : {}), ...(forceLogin ? { prompt: 'login' } : {}), ...(loginHint ? { login_hint: loginHint } : {}),
     code_challenge: b64u(createHash('sha256').update(verifier).digest()), code_challenge_method: 'S256',
     ...(scope ? { scope } : learned.scopes.includes('openid') ? { scope: 'openid' } : {}),
   }).toString();

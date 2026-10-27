@@ -152,6 +152,7 @@ test('PingOne mode: no registration, redirect to PingOne with prompt=login and n
   const u = new URL((await call('POST', '/api/live/signin')).j.url);
   assert.equal(u.origin + u.pathname, `${P1}/authorize`);
   assert.equal(u.searchParams.get('prompt'), 'login');
+  assert.equal(u.searchParams.get('login_hint'), 'demouser', 'the sign-in page is pre-filled with the user name');
   assert.equal(u.searchParams.get('client_id'), 'client1');
   assert.equal(u.searchParams.has('resource'), false);
   await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
