@@ -3,7 +3,8 @@
 Audience: an SE showing how a personal agent stays inside what it may do. Everything here is simulated.
 
 1. **Set the scene (30 s).** "Muse is a personal agent. It acts for Sam, a finance lead. Every tool call goes through a gateway."
-2. **Sign in (30 s).** Click sign in. Point at the trace: PingOne starts the flow, a DaVinci step checks the risk, then the session is issued. Say that this is simulated.
+2. **The 401 (60 s).** Before signing in, press *Call the gateway with no token*. Open step 1: the gateway answers 401 and its `WWW-Authenticate` header points at the resource metadata. Steps 2 and 3 say which authorization server to use and how. On a local run with live mode on, flip to *Real* and do the same against the real gateway.
+3. **Sign in (30 s).** Click sign in. Point at the trace: PingOne starts the flow, a DaVinci step checks the risk, then the session is issued. Say that this is simulated.
 3. **Allowed call (45 s).** Read the calendar. The call is allowed, and the decision log shows why.
 4. **Coarse check (60 s).** Switch to staff (local build only) and try a payment. "The tool itself is closed to staff. The amount is never looked at."
 5. **Fine check (60 s).** As Sam, send 120: allowed. Send 800: held. "Big payments wait for a person." Approve it, and point out that the approval is simulated CIBA.

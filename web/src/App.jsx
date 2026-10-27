@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 import PatternFlow from './PatternFlow.jsx';
+import DiscoveryPanel from './DiscoveryPanel.jsx';
 import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
@@ -224,6 +225,7 @@ export default function App() {
             <span className="avatar big" aria-hidden="true">M</span>
             <h2>Sign in with PingOne</h2>
             <p className="muted">The sign-in runs a DaVinci-shaped flow, simulated in this build.</p>
+            <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
             {session.picker && (
               <label className="field">
                 <span>Persona</span>
@@ -232,7 +234,7 @@ export default function App() {
                 </select>
               </label>
             )}
-            <button type="button" className="primary" onClick={signIn} disabled={busy}>
+            <button type="button" className="primary" onClick={signIn} disabled={busy || session.mode === 'live'} title={session.mode === 'live' ? 'Live sign-in is not built yet' : undefined}>
               {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
             </button>
           </div>

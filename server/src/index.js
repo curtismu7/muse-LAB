@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createWorkspaces } from './workspaces.js';
 import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
+import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
 import { CHANNELS } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 
@@ -27,13 +28,14 @@ function record(ws, entry) {
   if (ws.decisions.length > 50) ws.decisions.length = 50;
 }
 
-export function createApp(env = process.env) {
+export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   const hosted = env.MUSE_HOSTED === '1';
   const picker = !hosted && env.IDP === 'mock' && env.ALLOW_MOCK_SIGNIN === '1' && env.NODE_ENV !== 'production';
   const allowedHosts = new Set([
     ...LOOPBACK_NAMES,
     ...(env.MUSE_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean),
   ]);
+  const live = liveConfig(env);
   const workspaces = createWorkspaces({ max: Number(env.MUSE_MAX_WORKSPACES) || 200 });
   const app = express();
   app.disable('x-powered-by');
@@ -85,7 +87,9 @@ export function createApp(env = process.env) {
       persona: ws.user ? { key: ws.user, ...PERSONAS[ws.user] } : null,
       picker,
       hosted,
-      mode: 'mock',
+      mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
+      live: live ? { available: true, origin: live.origin } : { available: false },
+      discovery: ws.discovery ?? null,
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
       tools: Object.entries(TOOLS).map(([id, t]) => ({ id, label: t.label, fields: t.fields, personas: t.personas })),
       decisions: ws.decisions,
@@ -93,7 +97,29 @@ export function createApp(env = process.env) {
     });
   });
 
+  // Real or fake gateway. Live is refused unless the owner enabled it for this run, and never on the hosted build.
+  app.post('/api/gateway-mode', (req, res) => {
+    const mode = req.body?.mode;
+    if (mode !== 'mock' && mode !== 'live') return res.status(400).json({ error: 'mode must be mock or live' });
+    if (mode === 'live' && !live) return res.status(403).json({ error: 'live mode is not enabled in this build' });
+    req.ws.gatewayMode = mode;
+    req.ws.discovery = null;
+    res.json({ mode });
+  });
+
+  // Step 1 to 3: the unauthenticated call, then the two metadata reads.
+  app.post('/api/discover', async (req, res) => {
+    const ws = req.ws;
+    if (ws.gatewayMode === 'live') {
+      try { ws.discovery = await liveDiscovery(live, fetchImpl); } catch (e) {
+        return res.status(502).json({ error: 'the gateway could not be reached', detail: String(e?.name ?? 'error').slice(0, 40) });
+      }
+    } else ws.discovery = mockDiscovery();
+    res.json(ws.discovery);
+  });
+
   app.post('/api/signin', (req, res) => {
+    if (req.ws.gatewayMode === 'live') return res.status(409).json({ error: 'live sign-in is not built yet', detail: 'Discovery is real; registration and sign-in with the real gateway come next.' });
     const key = picker ? req.body?.persona : 'finance';
     if (!PERSONAS[key]) return res.status(400).json({ error: 'unknown persona' });
     req.ws.user = key;
@@ -159,6 +185,8 @@ export function createApp(env = process.env) {
   app.post('/api/reset', (req, res) => {
     const ws = req.ws;
     ws.user = null;
+    ws.gatewayMode = 'mock';
+    ws.discovery = null;
     ws.calls = [];
     ws.decisions = [];
     ws.holds.clear();

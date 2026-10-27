@@ -17,5 +17,13 @@ The most restrictive answer wins. Held calls wait for a simulated CIBA approval.
     npm test
     npm run build
 
+## Real or fake gateway (owner-run)
+On the sign-in screen, **Call the gateway with no token** shows the 401 and the two metadata reads. The switch picks the gateway:
+**Fake** is static and never leaves the page; **Real** calls one gateway you name, read-only (one unauthenticated POST and two GETs).
+
+    ALLOW_LIVE=1 MUSE_LIVE_GATEWAY_URL=https://<gateway>/<app>/mcp npm start
+
+Live is refused on the hosted build and unless both variables are set. Only that origin (plus any in `MUSE_LIVE_ALLOW_ORIGINS`) is contacted, no redirects are followed, and nothing is registered or signed in yet.
+
 ## Honest scope
 Simulated: PingOne sign-in, the DaVinci flow, Privilege and approvals. No tenant, no OBO, no real money or mail.
