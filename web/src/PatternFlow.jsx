@@ -1,14 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, Background, Controls, Handle, MarkerType, Position, useNodesState, useEdgesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { loadDiagram } from './diagrams/index.js';
 
 // The personal agent pattern: static story, no server decision. Data is diagram-studio/1; this draws it and plays its steps.
-const DIAGRAM = loadDiagram('personal-agent-pattern');
-const LAST = DIAGRAM.steps.length - 1;
 const STEP_MS = 800;
 const SPEEDS = [0.5, 1, 2];
-const colour = (n) => DIAGRAM.groups[n.group]?.color ?? 'grey';
 
 // A box with a handle on each side, so an arrow can leave toward its target (the default box only has top and bottom).
 const SIDES = [['t', Position.Top], ['b', Position.Bottom], ['l', Position.Left], ['r', Position.Right]];
@@ -26,7 +23,6 @@ function Box({ data }) {
   );
 }
 const nodeTypes = { box: Box };
-const byId = Object.fromEntries(DIAGRAM.nodes.map((n) => [n.id, n]));
 function sides(a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? ['r', 'l'] : ['l', 'r']) : (dy > 0 ? ['b', 't'] : ['t', 'b']);
@@ -38,6 +34,9 @@ const label = (n) => (
     {(n.sub ?? []).map((line) => <small key={line}>{line}</small>)}
   </span>
 );
+const helpers = (DIAGRAM) => {
+const colour = (n) => DIAGRAM.groups[n.group]?.color ?? 'grey';
+const byId = Object.fromEntries(DIAGRAM.nodes.map((n) => [n.id, n]));
 const startNodes = () => DIAGRAM.nodes.map((n) => ({ id: n.id, type: 'box', position: { x: n.x, y: n.y }, data: { label: label(n) }, className: `hop hop-idle grp-${colour(n)}` }));
 const startEdges = () => DIAGRAM.edges.map((e, i) => { const [a, b] = sides(byId[e.source], byId[e.target]); return { id: `e${i}`, source: e.source, target: e.target, sourceHandle: `s-${a}`, targetHandle: `t-${b}`, label: e.label, markerEnd: { type: MarkerType.ArrowClosed }, className: 'hop-edge' }; });
 
@@ -51,7 +50,22 @@ function states(s) {
   return out;
 }
 
+  return { colour, startNodes, startEdges, states, LAST: DIAGRAM.steps.length - 1 };
+};
+
+const PATHS = [
+  { id: 'personal-agent-pattern', label: 'Agent Privilege' },
+  { id: 'personal-agent-pattern-ig', label: 'Agent Gateway (IG)' },
+];
+
+// Pick which product is the MCP gateway; each path is its own diagram, so the canvas restarts when it changes.
 export default function PatternFlow() {
+  const [path, setPath] = useState(PATHS[0].id);
+  return <PatternCanvas key={path} diagram={loadDiagram(path)} path={path} setPath={setPath} />;
+}
+
+function PatternCanvas({ diagram: DIAGRAM, path, setPath }) {
+  const { colour, startNodes, startEdges, states, LAST } = useMemo(() => helpers(DIAGRAM), [DIAGRAM]);
   const [nodes, setNodes, onNodesChange] = useNodesState(startNodes());
   const [edges, , onEdgesChange] = useEdgesState(startEdges());
   const [speed, setSpeed] = useState(1);
@@ -87,6 +101,9 @@ export default function PatternFlow() {
       <div className="flow-top">
         <h3>{DIAGRAM.title}</h3>
         <div className="flow-actions">
+          <div className="seg" role="group" aria-label="MCP gateway path">
+            {PATHS.map((o) => <button key={o.id} type="button" aria-pressed={path === o.id} onClick={() => setPath(o.id)}>{o.label}</button>)}
+          </div>
           <select aria-label="Pattern speed" value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
             {SPEEDS.map((s) => <option key={s} value={s}>{s}x</option>)}
           </select>

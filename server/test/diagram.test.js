@@ -35,8 +35,9 @@ test('steps are cumulative: each step covers the one before, and indexes stay in
   }
 });
 
-test('the personal agent pattern is valid, resolves, and its steps are cumulative', () => {
-  const p = JSON.parse(readFileSync(path.join(here, '../../web/src/diagrams/personal-agent-pattern.json'), 'utf8'));
+for (const id of ['personal-agent-pattern', 'personal-agent-pattern-ig']) test(`${id} is valid, resolves, and its steps are cumulative`, () => {
+  const p = JSON.parse(readFileSync(path.join(here, `../../web/src/diagrams/${id}.json`), 'utf8'));
+  assert.equal(p.id, id);
   assert.equal(p.schema, 'diagram-studio/1');
   const ids = new Set(p.nodes.map((n) => n.id));
   assert.equal(ids.size, p.nodes.length);
