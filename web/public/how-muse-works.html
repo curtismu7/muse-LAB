@@ -123,7 +123,7 @@ a { color: var(--accent); }
       <li><strong>HIGH stops the sign-in.</strong> Sam sees "Sign-in blocked: this login looks high risk."</li>
       <li><strong>MEDIUM asks for MFA.</strong> Muse has a PingOne MFA switch. With it off, the flow skips MFA for that sign-in.</li>
       <li><strong>Protect flags Muse.</strong> A Protect predictor matches Muse's app id, which the flow sends as the target of the risk evaluation, and rates it HIGH. The flow records that verdict on the user and it travels into the final token as <code>protect_agent</code>. The flow also recognizes Muse by its app id on its own. When both agree, Protect's verdict is the one shown.</li>
-      <li><strong>An "AI agent detected" screen comes first.</strong> It shows what the flow knows about the requester, then Sam gives consent.</li>
+      <li><strong>An "AI agent detected" screen comes first.</strong> It shows what the flow knows about the requester, then Sam gives consent. The agent's name is bold and coloured: <strong>red</strong> with the line "PingOne Protect agent check: FLAGGED as an AI agent" when Protect rated it HIGH, and <strong>blue</strong> with "no agent signal, identified from the client ID only" when only the app id gave it away.</li>
     </ul>
     <div class="wide">
       <table>
@@ -149,6 +149,11 @@ a { color: var(--accent); }
     </ul>
     <p class="muted">The final token has Sam as <code>sub</code> and Muse's client id as <code>act.sub</code>. Authorize requires Muse to be on its registered actor list, and Muse is.</p>
     <p>On the Muse page, the name turns <strong>red</strong> ("Detected by Protect") when the token carries Protect's verdict, and <strong>blue</strong> ("Identified from the client id") when only the <code>act</code> claim names Muse. Protect wins when both are present.</p>
+  </section>
+  <section aria-labelledby="user">
+    <h2 id="user">Signing in as just a user</h2>
+    <p>The same page has a second button, "Sign in as Sam (no agent)". Sam signs in as himself, through a different PingOne app (Muse user login), so the flow shows no "AI agent detected" screen and no consent, and nothing is exchanged. Sam's own token then goes straight to the gateway, which refuses it: it carries no <code>act</code> claim and is not for the gateway's audience. Only a token that names an agent acting for Sam gets through.</p>
+    <p class="muted">The flow tells the apps apart by app id: it shows the agent screen and asks for consent only when the sign-in comes from the Muse app.</p>
   </section>
 
   <section aria-labelledby="lanes">
@@ -183,6 +188,7 @@ a { color: var(--accent); }
     <ul>
       <li><span class="tag real">Real</span> The PingOne sign-in, the DaVinci flow, the Protect risk evaluation, MFA, the agent screen and consent.</li>
       <li><span class="tag real">Real</span> The token exchanges, the Agent Gateway, Privilege's identity and key check, and PingOne Authorize.</li>
+      <li><span class="tag real">Real</span> The "just a user" sign-in and the gateway's refusal of Sam's own token.</li>
       <li><span class="tag real">Real</span> The tool call. The points come back from the gateway's tool server, which holds sample data.</li>
       <li><span class="tag sim">Mock</span> The offline Muse. It keeps the same screens with a stub gateway and stub checks, and contacts nothing. It is still there for demos with no network.</li>
       <li><span class="tag sim">Simple</span> Muse reads a request by keyword. In real mode it answers points requests and refuses anything else. There is no language model yet.</li>

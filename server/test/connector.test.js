@@ -28,9 +28,10 @@ test('the connector is off unless asked for, needs real mode with a secret, and 
 
 async function freePort() { const s = net.createServer(); s.listen(0, '127.0.0.1'); await once(s, 'listening'); const p = s.address().port; await new Promise((r) => s.close(r)); return p; }
 
-function fakeNet(seen) {
+function fakeNet(seen, drops = { n: 0 }) {
   return async (url, init) => {
     seen.push({ url: String(url), init });
+    if (String(url) === GW && drops.n > 0) { drops.n -= 1; throw new Error('ECONNRESET'); }
     if (String(url) === `${P1}/token`) {
       const f = new URLSearchParams(init.body);
       return json(200, { access_token: f.get('grant_type') === 'authorization_code' ? jwt({ aud: 'x', sub: 'sam' }) : DELEGATED });
@@ -45,14 +46,14 @@ function fakeNet(seen) {
 }
 
 async function boot(extra = {}) {
-  const port = await freePort(); const seen = [];
+  const port = await freePort(); const seen = []; const drops = { n: 0 };
   const env = { ...BASE, MUSE_PUBLIC_URL: `http://127.0.0.1:${port}`, MUSE_CONNECTOR_REDIRECT_HOSTS: 'agent.example', ...extra };
-  const server = createApp(env, { fetchImpl: fakeNet(seen) }).listen(port, '127.0.0.1');
+  const server = createApp(env, { fetchImpl: fakeNet(seen, drops) }).listen(port, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${port}`;
   const get = (p, init = {}) => fetch(base + p, { redirect: 'manual', ...init });
   const post = (p, body, headers = {}, form = false) => fetch(base + p, { method: 'POST', redirect: 'manual', headers: { 'content-type': form ? 'application/x-www-form-urlencoded' : 'application/json', ...headers }, body: form ? new URLSearchParams(body).toString() : JSON.stringify(body) });
-  return { base, seen, get, post, close: () => new Promise((r) => server.close(r)) };
+  return { base, seen, drops, get, post, close: () => new Promise((r) => server.close(r)) };
 }
 const REDIRECT = 'https://chat.agent.example/oauth/callback';
 const pkce = () => { const verifier = 'v'.repeat(50); return { verifier, challenge: createHash('sha256').update(verifier).digest('base64url') }; };
@@ -201,4 +202,17 @@ test('with an airline named, the tool descriptions and server name say which air
   await a.close();
   assert.ok(toolsFor('United').every((x) => x.description.includes('United')));
   assert.ok(toolsFor('').every((x) => !x.description.includes('United')));
+});
+
+test('a dropped gateway connection is retried once, so the tool call still answers', async () => {
+  const a = await boot();
+  const { reg, verifier, back } = await signedIn(a);
+  const tj = await (await a.post('/connector/token', { grant_type: 'authorization_code', code: back.searchParams.get('code'), redirect_uri: REDIRECT, client_id: reg.client_id, code_verifier: verifier }, {}, true)).json();
+  const auth = { authorization: `Bearer ${tj.access_token}` };
+  const call = () => a.post('/mcp', { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'loyalty_balance', arguments: {} } }, auth).then((r) => r.json());
+  a.drops.n = 1;
+  assert.equal((await call()).result.isError, false, 'one dropped connection is retried');
+  a.drops.n = 2;
+  assert.equal((await call()).result.isError, true, 'two in a row is reported, not hidden');
+  await a.close();
 });
