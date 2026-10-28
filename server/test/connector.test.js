@@ -4,7 +4,7 @@ import net from 'node:net';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { createApp } from '../src/index.js';
-import { connectorConfig } from '../src/connector.js';
+import { connectorConfig, toolsFor } from '../src/connector.js';
 import { liveConfig } from '../src/discovery.js';
 
 const GW = 'https://gw.example/muse-ig/mcp';
@@ -192,4 +192,13 @@ test('the session tells the page how to add the connector, and says nothing when
   const b = await boot({ MUSE_CONNECTOR: '0' });
   assert.equal((await (await b.get('/api/session')).json()).connector, null);
   await b.close();
+});
+
+test('with an airline named, the tool descriptions and server name say which airline, and odd characters are dropped', async () => {
+  const a = await boot({ MUSE_CONNECTOR_AIRLINE: 'United <b>' });
+  const prm = await (await a.get('/.well-known/oauth-protected-resource/mcp')).json();
+  assert.equal(prm.resource_name, 'United b Airline Connector');
+  await a.close();
+  assert.ok(toolsFor('United').every((x) => x.description.includes('United')));
+  assert.ok(toolsFor('').every((x) => !x.description.includes('United')));
 });

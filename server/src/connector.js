@@ -9,9 +9,11 @@ import { callGateway, delegate, exchangeCode, startSignIn } from './liveauth.js'
 
 const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
-const TOOLS = [
-  { name: 'loyalty_balance', description: "The member's airline points balance and tier.", inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
-  { name: 'get_loyalty_status', description: "The member's loyalty status: tier, points and account status.", inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
+const schema = { type: 'object', properties: {}, additionalProperties: false };
+// With an airline named (MUSE_CONNECTOR_AIRLINE), the tool descriptions say whose points these are, so an agent with two airline connectors can tell them apart.
+export const toolsFor = (airline) => [
+  { name: 'loyalty_balance', description: airline ? `The member's ${airline} points balance and tier. Use it for ${airline} points only.` : "The member's airline points balance and tier.", inputSchema: schema },
+  { name: 'get_loyalty_status', description: airline ? `The member's ${airline} loyalty status: tier, points and account status. Use it for ${airline} only.` : "The member's loyalty status: tier, points and account status.", inputSchema: schema },
 ];
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const PENDING_MS = 10 * 60 * 1000;
@@ -50,6 +52,8 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   const cfg = connectorConfig(env, live);
   if (!cfg) return false;
   const PUBLIC = cfg.publicUrl;
+  const airline = (env.MUSE_CONNECTOR_AIRLINE ?? '').trim().slice(0, 40).replace(/[^\p{L}\p{N} .&'-]/gu, '');
+  const TOOLS = toolsFor(airline);
   const clients = new Map();   // client_id -> { redirectUris, name }
   const pending = new Map();   // our state -> { client, redirectUri, state, challenge, verifier, at }
   const codes = new Map();     // our code -> { token, client, redirectUri, challenge, at }
@@ -69,7 +73,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
 
   // Discovery (RFC 9728, RFC 8414). Public documents, so a plain CORS header is fine.
   const open = (req, res, next) => { res.set('Access-Control-Allow-Origin', '*').set('Cache-Control', 'public, max-age=60'); next(); };
-  const prm = { resource: `${PUBLIC}/mcp`, authorization_servers: [PUBLIC], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: 'Airline Connector' };
+  const prm = { resource: `${PUBLIC}/mcp`, authorization_servers: [PUBLIC], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: airline ? `${airline} Airline Connector` : 'Airline Connector' };
   app.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], open, (req, res) => res.json(prm));
   app.get(['/.well-known/oauth-authorization-server', '/.well-known/openid-configuration'], open, (req, res) => res.json({
     issuer: PUBLIC, authorization_endpoint: `${PUBLIC}/connector/authorize`, token_endpoint: `${PUBLIC}/connector/token`,
@@ -154,7 +158,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   const rpcErr = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
   async function handle(msg, session) {
     const { id, method, params } = msg ?? {};
-    if (method === 'initialize') return rpc(id, { protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[1], capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'airline-connector', version: '0.1.0' } });
+    if (method === 'initialize') return rpc(id, { protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[1], capabilities: { tools: { listChanged: false } }, serverInfo: { name: airline ? `${airline.toLowerCase().replace(/ +/g, '-')}-airline-connector` : 'airline-connector', version: '0.1.0' } });
     if (method === 'ping') return rpc(id, {});
     if (method === 'tools/list') return rpc(id, { tools: TOOLS });
     if (method === 'tools/call') {
