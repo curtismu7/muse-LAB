@@ -2,7 +2,7 @@
 export default function UserLoginPanel({ session, api, guarded, mfaOff }) {
   if (session.mode !== 'live' || !session.live?.userLogin) return null;
   const u = session.userLogin;
-  const start = () => guarded(async () => { const r = await api('POST', '/api/live/signin', { as: 'user', mfa: mfaOff ? 'off' : 'on' }); window.location.assign(r.url); });
+  const start = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); const r = await api('POST', '/api/live/signin', { as: 'user', mfa: mfaOff ? 'off' : 'on' }); window.location.assign(r.url); });
   const last = u?.steps?.filter((s) => s.response).slice(-1)[0];
   return (
     <section className="disco userlogin" aria-label="Sign in as a user" data-testid="user-login-panel">
