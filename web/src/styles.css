@@ -368,3 +368,27 @@ button.approve { border-radius: 8px; width: 100%; }
 h2.detected, .agent-note.detected { color: var(--detected-text); }
 h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .agent-note { margin: 0; font-weight: 600; }
+
+/* How Muse works: two-tab ReactFlow diagram */
+.mflow { gap: 10px; }
+.flow-canvas--xl { height: min(94vh, 1010px); }
+.lane { background: var(--panel) !important; border: 1px solid var(--line) !important; border-radius: 10px !important; pointer-events: none; }
+.lane-title { position: absolute; top: 8px; left: 14px; font-weight: 700; font-size: 14px; color: var(--text); }
+.mflow .hop { padding: 8px 10px; }
+.pill { position: absolute; pointer-events: none; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 3px; font-size: 11px; white-space: nowrap; }
+.pill b { display: inline-block; background: var(--warn); color: var(--surface); border-radius: 999px; padding: 0 7px; margin-right: 3px; }
+.pill-future { opacity: 0.35; }
+.pill-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.mf-edge { stroke: var(--muted); stroke-width: 1.6; }
+.mf-future { opacity: 0.3; }
+.mf-active .mf-edge, path.mf-active { stroke: var(--accent); stroke-width: 2.6; }
+.mf-done .mf-edge, path.mf-done { stroke: var(--ok); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow: auto; }
+.chip { font: inherit; font-size: 12px; text-align: left; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 4px; cursor: pointer; }
+.chip b { background: var(--warn); color: var(--surface); border-radius: 999px; padding: 0 7px; margin-right: 3px; }
+.chip.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.step-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 14px; display: grid; gap: 4px; }
+.step-card h4 { margin: 0; font-size: 15px; }
+.step-card p { margin: 0; font-size: 14px; }
+.diagram-page { max-width: none; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 32px; display: grid; gap: 12px; }
+.diagram-page h1 { margin: 0; font-size: 26px; }

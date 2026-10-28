@@ -1,0 +1,552 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-config",
+ "title": "Config: set up once",
+ "lede": "What has to exist before the demo runs: the PingOne apps and flow, the gateway, the Muse pod, and the connector in Meta’s Muse. Arrows are the setup, in order.",
+ "groups": {
+  "green": {
+   "label": "PingOne",
+   "color": "green"
+  },
+  "amber": {
+   "label": "Gateway and policy",
+   "color": "amber"
+  },
+  "dark": {
+   "label": "Muse",
+   "color": "dark"
+  },
+  "blue": {
+   "label": "Meta's Muse",
+   "color": "blue"
+  },
+  "red": {
+   "label": "Stops or flags",
+   "color": "red"
+  }
+ },
+ "lanes": [
+  {
+   "id": "lane0",
+   "label": "PingOne: who signs in, and how an agent is recognised",
+   "x": 10,
+   "y": 30,
+   "w": 1168,
+   "h": 310
+  },
+  {
+   "id": "lane1",
+   "label": "Agent Privilege and Agent Gateway: what the agent may reach",
+   "x": 10,
+   "y": 376,
+   "w": 1168,
+   "h": 156
+  },
+  {
+   "id": "lane2",
+   "label": "Muse (hosted on the US SE cluster)",
+   "x": 10,
+   "y": 568,
+   "w": 1168,
+   "h": 156
+  },
+  {
+   "id": "lane3",
+   "label": "Meta's Muse: adding the Airline Connector",
+   "x": 10,
+   "y": 760,
+   "w": 1168,
+   "h": 156
+  }
+ ],
+ "nodes": [
+  {
+   "id": "p_app",
+   "group": "green",
+   "label": "Muse agent login (app)",
+   "sub": [
+    "confidential: auth code + PKCE, token exchange, client credentials"
+   ],
+   "x": 326,
+   "y": 74
+  },
+  {
+   "id": "p_user",
+   "group": "green",
+   "label": "Muse user login (app)",
+   "sub": [
+    "public: auth code + PKCE. Not the Muse app, so never flagged as an agent"
+   ],
+   "x": 612,
+   "y": 74
+  },
+  {
+   "id": "p_flow",
+   "group": "green",
+   "label": "Muse Login (DaVinci flow policy)",
+   "sub": [
+    "assigned to both apps. Branches on the app id"
+   ],
+   "x": 326,
+   "y": 228
+  },
+  {
+   "id": "p_prot",
+   "group": "green",
+   "label": "Protect predictor museAgentClient",
+   "sub": [
+    "Muse app id = HIGH, in the default risk policy set"
+   ],
+   "x": 612,
+   "y": 228
+  },
+  {
+   "id": "p_res",
+   "group": "green",
+   "label": "Muse Privilege MCP (resource)",
+   "sub": [
+    "puts protect_agent = HIGH into the token"
+   ],
+   "x": 40,
+   "y": 74
+  },
+  {
+   "id": "p_cons",
+   "group": "green",
+   "label": "Agreements",
+   "sub": [
+    "Muse Consent, and Airline Connector Consent"
+   ],
+   "x": 40,
+   "y": 228
+  },
+  {
+   "id": "p_mfa",
+   "group": "green",
+   "label": "MFA policy",
+   "sub": [
+    "required on medium risk; login hint .nomfa turns it off for the demo"
+   ],
+   "x": 898,
+   "y": 228
+  },
+  {
+   "id": "g_priv",
+   "group": "amber",
+   "label": "P1 Privilege Agent App",
+   "sub": [
+    "fronts the gateway and passes the token through"
+   ],
+   "x": 40,
+   "y": 420
+  },
+  {
+   "id": "g_gw",
+   "group": "amber",
+   "label": "Agent Gateway",
+   "sub": [
+    "checks signature, audience and scope; 401 with metadata when no token"
+   ],
+   "x": 326,
+   "y": 420
+  },
+  {
+   "id": "g_az",
+   "group": "amber",
+   "label": "PingOne Authorize",
+   "sub": [
+    "allows only: right audience, Muse as actor, this tool"
+   ],
+   "x": 612,
+   "y": 420
+  },
+  {
+   "id": "m_sec",
+   "group": "dark",
+   "label": "Secret muse-real",
+   "sub": [
+    "tenant ids, client secret, airline name, user app id. Written by the owner script"
+   ],
+   "x": 40,
+   "y": 612
+  },
+  {
+   "id": "m_pod",
+   "group": "dark",
+   "label": "Muse pod",
+   "sub": [
+    "UI, /api, and the Airline Connector at /mcp"
+   ],
+   "x": 326,
+   "y": 612
+  },
+  {
+   "id": "m_ing",
+   "group": "dark",
+   "label": "Ingress + certificate",
+   "sub": [
+    "https://muse.ai-demo.ping-devops.com"
+   ],
+   "x": 612,
+   "y": 612
+  },
+  {
+   "id": "x_add",
+   "group": "blue",
+   "label": "1. Add a custom connector",
+   "sub": [],
+   "x": 40,
+   "y": 804
+  },
+  {
+   "id": "x_url",
+   "group": "blue",
+   "label": "2. Server URL",
+   "sub": [
+    "https://muse.ai-demo.ping-devops.com/mcp"
+   ],
+   "x": 326,
+   "y": 804
+  },
+  {
+   "id": "x_cid",
+   "group": "blue",
+   "label": "3. Client ID airline-connector",
+   "sub": [
+    "client secret left blank"
+   ],
+   "x": 612,
+   "y": 804
+  },
+  {
+   "id": "x_cb",
+   "group": "blue",
+   "label": "4. Callback",
+   "sub": [
+    "agent.meta.ai/api/hatch/oauth/callback",
+    "(host allowed on Muse)"
+   ],
+   "x": 898,
+   "y": 804
+  }
+ ],
+ "edges": [
+  {
+   "source": "p_prot",
+   "target": "p_flow",
+   "label": "1",
+   "name": "Protect rule"
+  },
+  {
+   "source": "p_cons",
+   "target": "p_flow",
+   "label": "2",
+   "name": "Consent screens"
+  },
+  {
+   "source": "p_flow",
+   "target": "p_app",
+   "label": "3",
+   "name": "Flow on Muse app"
+  },
+  {
+   "source": "p_flow",
+   "target": "p_user",
+   "label": "4",
+   "name": "Flow on user app"
+  },
+  {
+   "source": "p_res",
+   "target": "p_app",
+   "label": "5",
+   "name": "protect_agent claim"
+  },
+  {
+   "source": "g_priv",
+   "target": "g_gw",
+   "label": "6",
+   "name": "Fronts the gateway"
+  },
+  {
+   "source": "g_gw",
+   "target": "g_az",
+   "label": "7",
+   "name": "Asks Authorize"
+  },
+  {
+   "source": "m_sec",
+   "target": "m_pod",
+   "label": "8",
+   "name": "Secret to env"
+  },
+  {
+   "source": "m_ing",
+   "target": "m_pod",
+   "label": "9",
+   "name": "Ingress to pod"
+  },
+  {
+   "source": "m_pod",
+   "target": "p_app",
+   "label": "10",
+   "name": "Pod signs in"
+  },
+  {
+   "source": "m_pod",
+   "target": "g_priv",
+   "label": "11",
+   "name": "Pod calls gateway"
+  },
+  {
+   "source": "x_add",
+   "target": "x_url",
+   "label": "12",
+   "name": "Add connector"
+  },
+  {
+   "source": "x_url",
+   "target": "x_cid",
+   "label": "13",
+   "name": "Client ID"
+  },
+  {
+   "source": "x_cid",
+   "target": "x_cb",
+   "label": "14",
+   "name": "Callback host"
+  },
+  {
+   "source": "x_url",
+   "target": "m_pod",
+   "label": "15",
+   "name": "Reaches /mcp"
+  }
+ ],
+ "steps": [
+  {
+   "title": "Protect rule",
+   "what": "A Protect predictor recognises the Muse app id and rates it HIGH.",
+   "why": "Sign-in learns an agent is asking without trusting the agent to say so.",
+   "edges": [
+    0
+   ]
+  },
+  {
+   "title": "Consent screens",
+   "what": "Two agreements exist: Muse Consent and Airline Connector Consent.",
+   "why": "Sam sees consent that names who is acting.",
+   "edges": [
+    0,
+    1
+   ]
+  },
+  {
+   "title": "Flow on Muse app",
+   "what": "The Muse Login flow policy is assigned to the Muse agent login app.",
+   "why": "Sign-ins from Muse show the agent screen and ask for consent.",
+   "edges": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "title": "Flow on user app",
+   "what": "The same flow policy is assigned to Muse user login.",
+   "why": "The flow compares the app id, so this app skips the agent screen and consent.",
+   "edges": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "title": "protect_agent claim",
+   "what": "The Muse Privilege MCP resource copies protect_agent from the user into the token.",
+   "why": "The Muse page can show Protect’s verdict, red or blue.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "title": "Fronts the gateway",
+   "what": "The P1 Privilege Agent App fronts Agent Gateway and passes the token through.",
+   "why": "Agents reach the tools only through it.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "title": "Asks Authorize",
+   "what": "Agent Gateway asks PingOne Authorize before each tool call.",
+   "why": "Audience, actor and tool are checked. Sam’s own token has no actor.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "title": "Secret to env",
+   "what": "The muse-real Secret holds tenant ids, the client secret, the airline name and the user app id. The pod reads it as environment.",
+   "why": "No credential lives in the repo.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  {
+   "title": "Ingress to pod",
+   "what": "Ingress and the certificate send https://muse.ai-demo.ping-devops.com to the pod.",
+   "why": "One public host serves the UI, the API and the connector.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ]
+  },
+  {
+   "title": "Pod signs in",
+   "what": "Muse redirects Sam to PingOne using the Muse agent login app.",
+   "why": "Muse never handles passwords.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "title": "Pod calls gateway",
+   "what": "With the delegated token the pod calls the P1 Privilege Agent App.",
+   "why": "It is the only route to the tools.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "title": "Add connector",
+   "what": "In Meta’s Muse, add a custom connector.",
+   "why": "Meta’s Muse then treats Muse as one more tool server.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ]
+  },
+  {
+   "title": "Client ID",
+   "what": "Enter client id airline-connector and leave the client secret blank.",
+   "why": "Meta’s Muse is a public client; PKCE protects the code.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ]
+  },
+  {
+   "title": "Callback host",
+   "what": "Meta’s callback is agent.meta.ai/api/hatch/oauth/callback. Muse allows only that host.",
+   "why": "Codes go only to a host the owner approved.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ]
+  },
+  {
+   "title": "Reaches /mcp",
+   "what": "The server URL points at the Muse pod’s /mcp endpoint.",
+   "why": "That endpoint answers 401 and tells Meta’s Muse where to sign in.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ]
+  }
+ ]
+}

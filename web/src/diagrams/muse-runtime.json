@@ -1,0 +1,760 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-runtime",
+ "title": "Runtime: what happens on a request",
+ "lede": "Three paths: A, Muse acts for Sam. B, Meta’s Muse asks through the Airline Connector. C, Sam signs in as himself with no agent and is denied.",
+ "groups": {
+  "green": {
+   "label": "PingOne",
+   "color": "green"
+  },
+  "amber": {
+   "label": "Gateway and policy",
+   "color": "amber"
+  },
+  "dark": {
+   "label": "Muse",
+   "color": "dark"
+  },
+  "blue": {
+   "label": "Meta's Muse",
+   "color": "blue"
+  },
+  "red": {
+   "label": "Stops or flags",
+   "color": "red"
+  }
+ },
+ "lanes": [
+  {
+   "id": "lane0",
+   "label": "A. Muse in this demo, real mode: the agent acts for Sam",
+   "x": 10,
+   "y": 30,
+   "w": 1168,
+   "h": 464
+  },
+  {
+   "id": "lane1",
+   "label": "B. Through the Airline Connector: Meta's Muse asks Muse",
+   "x": 10,
+   "y": 530,
+   "w": 1168,
+   "h": 464
+  },
+  {
+   "id": "lane2",
+   "label": "C. Just a user, no agent: Sam signs in as himself",
+   "x": 10,
+   "y": 1030,
+   "w": 1168,
+   "h": 156
+  }
+ ],
+ "nodes": [
+  {
+   "id": "a1",
+   "group": "dark",
+   "label": "1. Sam asks",
+   "sub": [
+    "\"Show my airline points\""
+   ],
+   "x": 40,
+   "y": 74
+  },
+  {
+   "id": "a2",
+   "group": "amber",
+   "label": "2. Muse calls the gateway",
+   "sub": [
+    "no token on purpose: 401 + where to sign in"
+   ],
+   "x": 326,
+   "y": 74
+  },
+  {
+   "id": "a3",
+   "group": "green",
+   "label": "3. PingOne sign-in",
+   "sub": [
+    "DaVinci: password, Protect, MFA on medium risk"
+   ],
+   "x": 612,
+   "y": 74
+  },
+  {
+   "id": "a4",
+   "group": "red",
+   "label": "4. Agent detected",
+   "sub": [
+    "Muse turns RED if Protect flagged it, BLUE if only the client id did"
+   ],
+   "x": 898,
+   "y": 74
+  },
+  {
+   "id": "a5",
+   "group": "green",
+   "label": "5. Sam consents",
+   "sub": [
+    "Muse Consent screen"
+   ],
+   "x": 40,
+   "y": 228
+  },
+  {
+   "id": "a6",
+   "group": "dark",
+   "label": "6. Code back to Muse",
+   "sub": [
+    "swapped for Sam's token, kept on the server"
+   ],
+   "x": 326,
+   "y": 228
+  },
+  {
+   "id": "a7",
+   "group": "green",
+   "label": "7. Muse acts for Sam",
+   "sub": [
+    "agent token + 2 token exchanges: sub = Sam, act = Muse"
+   ],
+   "x": 612,
+   "y": 228
+  },
+  {
+   "id": "a8",
+   "group": "amber",
+   "label": "8. Muse asks again",
+   "sub": [
+    "with the delegated token"
+   ],
+   "x": 898,
+   "y": 228
+  },
+  {
+   "id": "a9",
+   "group": "amber",
+   "label": "9. PingOne Authorize",
+   "sub": [
+    "audience, actor and tool checked"
+   ],
+   "x": 612,
+   "y": 382
+  },
+  {
+   "id": "a10",
+   "group": "green",
+   "label": "10. Tool runs",
+   "sub": [
+    "4,500 points, Gold"
+   ],
+   "x": 898,
+   "y": 382
+  },
+  {
+   "id": "b1",
+   "group": "blue",
+   "label": "1. User asks in Meta's Muse",
+   "sub": [
+    "\"How many United points do I have?\""
+   ],
+   "x": 40,
+   "y": 574
+  },
+  {
+   "id": "b2",
+   "group": "blue",
+   "label": "2. Meta's Muse picks the connector",
+   "sub": [
+    "reads tool names and descriptions; the airline name in them decides"
+   ],
+   "x": 326,
+   "y": 574
+  },
+  {
+   "id": "b3",
+   "group": "dark",
+   "label": "3. /mcp answers 401",
+   "sub": [
+    "with metadata: sign in at Muse's own authorize endpoint"
+   ],
+   "x": 612,
+   "y": 574
+  },
+  {
+   "id": "b4",
+   "group": "green",
+   "label": "4. PingOne sign-in",
+   "sub": [
+    "same DaVinci flow; login hint ends .conn"
+   ],
+   "x": 898,
+   "y": 574
+  },
+  {
+   "id": "b5",
+   "group": "green",
+   "label": "5. Airline Connector Consent",
+   "sub": [
+    "PingOne screen names the connector"
+   ],
+   "x": 40,
+   "y": 728
+  },
+  {
+   "id": "b6",
+   "group": "green",
+   "label": "6. Muse does the exchanges",
+   "sub": [
+    "same agent token + 2 exchanges as part A"
+   ],
+   "x": 326,
+   "y": 728
+  },
+  {
+   "id": "b7",
+   "group": "dark",
+   "label": "7. Muse gives Meta its own token",
+   "sub": [
+    "the PingOne token never leaves Muse"
+   ],
+   "x": 612,
+   "y": 728
+  },
+  {
+   "id": "b8",
+   "group": "amber",
+   "label": "8. Meta calls /mcp with it",
+   "sub": [
+    "Muse calls the gateway for it"
+   ],
+   "x": 898,
+   "y": 728
+  },
+  {
+   "id": "b9",
+   "group": "green",
+   "label": "9. Answer comes back",
+   "sub": [
+    "points and tier, shown in Meta's Muse"
+   ],
+   "x": 898,
+   "y": 882
+  },
+  {
+   "id": "c1",
+   "group": "dark",
+   "label": "1. Sign in as Sam (no agent)",
+   "sub": [
+    "button on Muse"
+   ],
+   "x": 40,
+   "y": 1074
+  },
+  {
+   "id": "c2",
+   "group": "green",
+   "label": "2. PingOne sign-in",
+   "sub": [
+    "the Muse user login app: no agent screen, no consent"
+   ],
+   "x": 326,
+   "y": 1074
+  },
+  {
+   "id": "c3",
+   "group": "dark",
+   "label": "3. Sam's own token",
+   "sub": [
+    "no act claim, nothing exchanged"
+   ],
+   "x": 612,
+   "y": 1074
+  },
+  {
+   "id": "c4",
+   "group": "red",
+   "label": "4. Straight to the gateway",
+   "sub": [
+    "DENIED: no agent acting for him"
+   ],
+   "x": 898,
+   "y": 1074
+  }
+ ],
+ "edges": [
+  {
+   "source": "a1",
+   "target": "a2",
+   "label": "A1",
+   "name": "Ask"
+  },
+  {
+   "source": "a2",
+   "target": "a3",
+   "label": "A2",
+   "name": "401, sign in"
+  },
+  {
+   "source": "a3",
+   "target": "a4",
+   "label": "A3",
+   "name": "Protect check"
+  },
+  {
+   "source": "a4",
+   "target": "a5",
+   "label": "A4",
+   "name": "Agent screen"
+  },
+  {
+   "source": "a5",
+   "target": "a6",
+   "label": "A5",
+   "name": "Consent"
+  },
+  {
+   "source": "a6",
+   "target": "a7",
+   "label": "A6",
+   "name": "Code to token"
+  },
+  {
+   "source": "a7",
+   "target": "a8",
+   "label": "A7",
+   "name": "Delegation"
+  },
+  {
+   "source": "a8",
+   "target": "a9",
+   "label": "A8",
+   "name": "Authorize check"
+  },
+  {
+   "source": "a9",
+   "target": "a10",
+   "label": "A9",
+   "name": "Tool runs"
+  },
+  {
+   "source": "b1",
+   "target": "b2",
+   "label": "B1",
+   "name": "Ask"
+  },
+  {
+   "source": "b2",
+   "target": "b3",
+   "label": "B2",
+   "name": "Picks connector"
+  },
+  {
+   "source": "b3",
+   "target": "b4",
+   "label": "B3",
+   "name": "401, sign in"
+  },
+  {
+   "source": "b4",
+   "target": "b5",
+   "label": "B4",
+   "name": "Sign-in"
+  },
+  {
+   "source": "b5",
+   "target": "b6",
+   "label": "B5",
+   "name": "Consent"
+  },
+  {
+   "source": "b6",
+   "target": "b7",
+   "label": "B6",
+   "name": "Exchanges"
+  },
+  {
+   "source": "b7",
+   "target": "b8",
+   "label": "B7",
+   "name": "Muse token"
+  },
+  {
+   "source": "b8",
+   "target": "b9",
+   "label": "B8",
+   "name": "Answer"
+  },
+  {
+   "source": "c1",
+   "target": "c2",
+   "label": "C1",
+   "name": "Sign in"
+  },
+  {
+   "source": "c2",
+   "target": "c3",
+   "label": "C2",
+   "name": "Own token"
+  },
+  {
+   "source": "c3",
+   "target": "c4",
+   "label": "C3",
+   "name": "Denied"
+  }
+ ],
+ "steps": [
+  {
+   "title": "Ask",
+   "what": "Sam asks Muse: \"Show my airline points\".",
+   "why": "Muse acts only when asked.",
+   "edges": [
+    0
+   ]
+  },
+  {
+   "title": "401, sign in",
+   "what": "Muse calls the gateway with no token, on purpose. The 401 says where to sign in.",
+   "why": "Nothing authenticated has been sent yet.",
+   "edges": [
+    0,
+    1
+   ]
+  },
+  {
+   "title": "Protect check",
+   "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect also checks whether the app is an agent.",
+   "why": "The agent is recognised by PingOne, not by its own word.",
+   "edges": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "title": "Agent screen",
+   "what": "Sam sees \"AI agent detected\". The agent name is red if Protect flagged it, blue if only the client id did.",
+   "why": "Sam knows an agent is asking before he consents.",
+   "edges": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "title": "Consent",
+   "what": "Sam allows Muse to act for him. PingOne returns a code to Muse.",
+   "why": "Consent is recorded before any token is issued.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "title": "Code to token",
+   "what": "Muse swaps the code for Sam’s token. It stays on the Muse server.",
+   "why": "The browser never sees a token.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "title": "Delegation",
+   "what": "Muse gets its own agent token, then makes two token exchanges. The result has sub = Sam and act = Muse.",
+   "why": "The gateway can tell who acts for whom.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "title": "Authorize check",
+   "what": "Muse asks again with the delegated token. The gateway checks it, then asks PingOne Authorize: right audience, Muse a registered actor, tool allowed.",
+   "why": "Policy decides every tool call.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  {
+   "title": "Tool runs",
+   "what": "Allowed, so the tool runs and returns 4,500 points, Gold.",
+   "why": "The answer exists only because every check passed.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ]
+  },
+  {
+   "title": "Ask",
+   "what": "The user asks in Meta’s Muse: \"How many United points do I have?\"",
+   "why": "The user never leaves Meta’s Muse.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "title": "Picks connector",
+   "what": "Meta’s Muse reads each connector’s tool names and descriptions and picks the one for the airline.",
+   "why": "The airline name in the descriptions tells two airline connectors apart.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "title": "401, sign in",
+   "what": "/mcp answers 401 with metadata pointing at Muse’s own authorize endpoint. Meta’s Muse sends the user to PingOne.",
+   "why": "Standard MCP OAuth discovery.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ]
+  },
+  {
+   "title": "Sign-in",
+   "what": "The same DaVinci flow runs. The login hint ends .conn, so its screens name the Airline Connector.",
+   "why": "Sam sees which connector is asking.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ]
+  },
+  {
+   "title": "Consent",
+   "what": "Sam allows the Airline Connector. PingOne returns a code to Muse.",
+   "why": "Consent names the connector, not just Muse.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ]
+  },
+  {
+   "title": "Exchanges",
+   "what": "Muse does the agent token and the two exchanges, as in path A.",
+   "why": "Authorize treats a connector call like any agent call.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ]
+  },
+  {
+   "title": "Muse token",
+   "what": "Muse gives Meta’s Muse its own token. The PingOne token never leaves Muse.",
+   "why": "Meta never holds a PingOne token.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ]
+  },
+  {
+   "title": "Answer",
+   "what": "Meta’s Muse calls /mcp. Muse calls the gateway with the delegated token and returns the points and tier.",
+   "why": "The answer comes back through the same checks as path A.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+   ]
+  },
+  {
+   "title": "Sign in",
+   "what": "Sam clicks \"Sign in as Sam (no agent)\".",
+   "why": "A human login, shown next to the agent login.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ]
+  },
+  {
+   "title": "Own token",
+   "what": "The Muse user login app is not the Muse app, so there is no agent screen and no consent. PingOne issues Sam’s own token.",
+   "why": "The flow decides by app id.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+   ]
+  },
+  {
+   "title": "Denied",
+   "what": "Muse sends Sam’s own token straight to the gateway. No act claim and the wrong audience: 401.",
+   "why": "Only a token that names an agent acting for Sam gets through.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+   ]
+  }
+ ]
+}

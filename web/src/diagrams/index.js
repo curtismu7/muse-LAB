@@ -2,11 +2,15 @@
 import personalAgentFlow from './personal-agent-flow.json';
 import personalAgentPattern from './personal-agent-pattern.json';
 import personalAgentPatternIg from './personal-agent-pattern-ig.json';
+import museConfig from './muse-config.json';
+import museRuntime from './muse-runtime.json';
 
 const REGISTRY = {
   'personal-agent-flow': personalAgentFlow,
   'personal-agent-pattern': personalAgentPattern,
   'personal-agent-pattern-ig': personalAgentPatternIg,
+  'muse-config': museConfig,
+  'muse-runtime': museRuntime,
 };
 
 export function loadDiagram(id) {
