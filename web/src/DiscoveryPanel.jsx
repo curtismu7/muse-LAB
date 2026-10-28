@@ -64,7 +64,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
             )}
             {la.answer && (
               <div className="msg">
-                <span className={`avatar sm ${la.claims?.protect_caller === 'agent' ? 'detected' : la.claims?.act ? 'undetected' : ''}`} aria-hidden="true">M</span>
+                <span className={`avatar sm ${la.claims?.protect_agent === 'HIGH' ? 'detected' : la.claims?.act ? 'undetected' : ''}`} aria-hidden="true">M</span>
                 <div className="bubble muse" data-testid="answer">You have <strong>{Number(la.answer.points).toLocaleString()} points</strong> ({la.answer.tier}).</div>
               </div>
             )}

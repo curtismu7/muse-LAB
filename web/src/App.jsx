@@ -34,7 +34,7 @@ const TABS = [
   { id: 'trace', label: 'Sign-in trace', icon: 'clock' },
 ];
 
-const detectedBy = (claims) => (claims?.protect_caller === 'agent' ? 'detected' : claims?.act ? 'undetected' : 'neither');
+const detectedBy = (claims) => (claims?.protect_agent === 'HIGH' ? 'detected' : claims?.act ? 'undetected' : 'neither');
 const AGENT_NOTE = { detected: 'Detected by Protect', undetected: 'Identified from the client id', neither: 'No agent signal' };
 
 const OUTCOME_LABEL = {
@@ -242,7 +242,7 @@ export default function App() {
     );
   }
 
-  // Red: PingOne's Protect check called the caller an agent (protect_caller claim on the token). Blue: only the client id says it
+  // Red: PingOne's Protect (the Muse agent predictor) rated the caller HIGH (protect_agent claim on the token). Blue: only the client id says it
   // is Muse (act claim). Neither: no agent signal at all.
   const agentState = session.mode === 'live' && session.liveAuth?.signedIn ? detectedBy(session.liveAuth.claims) : null;
   const decisions = session.decisions ?? [];

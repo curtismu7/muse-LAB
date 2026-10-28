@@ -53,7 +53,7 @@ function claimsOf(token) {
   if (token.split('.').length !== 3 || !part) return null;
   try {
     const c = JSON.parse(Buffer.from(part, 'base64url').toString());
-    return { iss: c.iss, aud: c.aud, sub: c.sub, scope: c.scope ?? c.scp, exp: c.exp, ...(c.act ? { act: c.act } : {}), ...(c.protect_caller ? { protect_caller: c.protect_caller } : {}), ...(c.protect_risk ? { protect_risk: c.protect_risk } : {}) };
+    return { iss: c.iss, aud: c.aud, sub: c.sub, scope: c.scope ?? c.scp, exp: c.exp, ...(c.act ? { act: c.act } : {}), ...(c.protect_agent ? { protect_agent: c.protect_agent } : {}) };
   } catch { return null; }
 }
 

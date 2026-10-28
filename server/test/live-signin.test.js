@@ -178,7 +178,7 @@ test('acting for the user: sign-in, agent token, two exchanges, then Agent Gatew
       const g = f.get('grant_type');
       if (g === 'authorization_code') return json(200, { access_token: jwt({ aud: GW, sub: 'sam' }) });
       if (g === 'client_credentials') return json(200, { access_token: jwt({ aud: 'workload', sub: 'client1' }) });
-      return json(200, { access_token: jwt({ aud: f.get('actor_token') ? 'workload' : GW, sub: 'sam', act, protect_caller: 'agent', protect_risk: 'MEDIUM' }) });
+      return json(200, { access_token: jwt({ aud: f.get('actor_token') ? 'workload' : GW, sub: 'sam', act, protect_agent: 'HIGH' }) });
     },
   });
   const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1', MUSE_P1_CLIENT_SECRET: 'sekret' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
@@ -197,8 +197,7 @@ test('acting for the user: sign-in, agent token, two exchanges, then Agent Gatew
   assert.equal(bodies[3].actor_token, undefined, 'exchange 2 carries act on from the first token');
   const s = await call('GET', '/api/session');
   assert.deepEqual(s.j.liveAuth.claims.act, act);
-  assert.equal(s.j.liveAuth.claims.protect_caller, 'agent', 'the page can tell a Protect verdict from a client id match');
-  assert.equal(s.j.liveAuth.claims.protect_risk, 'MEDIUM');
+  assert.equal(s.j.liveAuth.claims.protect_agent, 'HIGH', 'the page can tell a Protect verdict from a client id match');
   assert.ok(!s.t.includes('sekret'));
   await call('POST', '/api/live/call');
   const authed = n.seen.filter((x) => x.url === GW && x.init.headers.authorization);
