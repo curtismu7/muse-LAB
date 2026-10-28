@@ -112,7 +112,7 @@ code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: br
   min-width: 0;
   padding: 16px 24px 24px;
   gap: 12px;
-  max-width: 900px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
 }
@@ -190,7 +190,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .presenter { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
 
 .signin {
-  margin: auto;
+  margin: auto; width: 100%;
   display: grid;
   justify-items: center;
   gap: 10px;
@@ -302,7 +302,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* The personal agent flow sits in its own full-width row, outside the conversation and the identity panel. */
-.flow-row { grid-column: 1 / -1; padding: 0 24px 24px; max-width: 1040px; width: 100%; margin: 0 auto; }
+.flow-row { grid-column: 1 / -1; padding: 0 24px 24px; max-width: 1600px; width: 100%; margin: 0 auto; }
 @media (max-width: 480px) {
   .flow-row { padding: 0 16px 20px; }
 }
@@ -314,7 +314,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .callers { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
-.disco { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 12px; display: grid; gap: 8px; text-align: left; width: 100%; max-width: 720px; }
+.disco { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 12px; display: grid; gap: 8px; text-align: left; width: 100%; max-width: 1400px; }
 .disco-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; }

@@ -3,6 +3,7 @@ import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 import PatternFlow from './PatternFlow.jsx';
 import DiscoveryPanel from './DiscoveryPanel.jsx';
 import ConnectorPanel from './ConnectorPanel.jsx';
+import UserLoginPanel from './UserLoginPanel.jsx';
 import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
@@ -298,6 +299,7 @@ export default function App() {
             <h2>Sign in with PingOne</h2>
             <p className="muted">{session.mode === 'live' ? 'Muse only redirects. PingOne runs the login, Protect and consent.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
             <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
+            <UserLoginPanel session={session} api={api} guarded={guarded} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
             <ConnectorPanel connector={session.connector} />
             {session.picker && (
               <label className="field">
