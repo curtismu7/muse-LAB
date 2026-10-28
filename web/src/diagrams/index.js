@@ -3,14 +3,18 @@ import personalAgentFlow from './personal-agent-flow.json';
 import personalAgentPattern from './personal-agent-pattern.json';
 import personalAgentPatternIg from './personal-agent-pattern-ig.json';
 import museConfig from './muse-config.json';
-import museRuntime from './muse-runtime.json';
+import museRuntimeA from './muse-runtime-a.json';
+import museRuntimeB from './muse-runtime-b.json';
+import museRuntimeC from './muse-runtime-c.json';
 
 const REGISTRY = {
   'personal-agent-flow': personalAgentFlow,
   'personal-agent-pattern': personalAgentPattern,
   'personal-agent-pattern-ig': personalAgentPatternIg,
   'muse-config': museConfig,
-  'muse-runtime': museRuntime,
+  'muse-runtime-a': museRuntimeA,
+  'muse-runtime-b': museRuntimeB,
+  'muse-runtime-c': museRuntimeC,
 };
 
 export function loadDiagram(id) {

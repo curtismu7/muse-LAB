@@ -392,3 +392,10 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .step-card p { margin: 0; font-size: 14px; }
 .diagram-page { max-width: none; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 32px; display: grid; gap: 12px; }
 .diagram-page h1 { margin: 0; font-size: 26px; }
+
+/* Zoom buttons: the app's round white buttons hid the icons in dark mode. */
+.mflow .react-flow__controls { box-shadow: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.mflow .react-flow__controls-button { background: var(--surface) !important; color: var(--text) !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; width: 30px; height: 30px; padding: 0; }
+.mflow .react-flow__controls-button:hover { background: var(--panel) !important; }
+.mflow .react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
+.mflow .seg { flex-wrap: wrap; border-radius: 14px; }

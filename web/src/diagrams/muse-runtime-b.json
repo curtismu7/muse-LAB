@@ -1,0 +1,274 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-runtime-b",
+ "title": "Runtime B: through the Airline Connector",
+ "lede": "Meta’s Muse asks Muse through the Airline Connector. Same sign-in and delegation; Meta only ever holds a Muse token.",
+ "groups": {
+  "green": {
+   "label": "PingOne",
+   "color": "green"
+  },
+  "amber": {
+   "label": "Gateway and policy",
+   "color": "amber"
+  },
+  "dark": {
+   "label": "Muse",
+   "color": "dark"
+  },
+  "blue": {
+   "label": "Meta's Muse",
+   "color": "blue"
+  },
+  "red": {
+   "label": "Stops or flags",
+   "color": "red"
+  }
+ },
+ "lanes": [
+  {
+   "id": "lane0",
+   "label": "B. Through the Airline Connector: Meta's Muse asks Muse",
+   "x": 10,
+   "y": 30,
+   "w": 1168,
+   "h": 464
+  }
+ ],
+ "nodes": [
+  {
+   "id": "b1",
+   "group": "blue",
+   "label": "1. User asks in Meta's Muse",
+   "sub": [
+    "\"How many United points do I have?\""
+   ],
+   "x": 40,
+   "y": 74
+  },
+  {
+   "id": "b2",
+   "group": "blue",
+   "label": "2. Meta's Muse picks the connector",
+   "sub": [
+    "reads tool names and descriptions; the airline name in them decides"
+   ],
+   "x": 326,
+   "y": 74
+  },
+  {
+   "id": "b3",
+   "group": "dark",
+   "label": "3. /mcp answers 401",
+   "sub": [
+    "with metadata: sign in at Muse's own authorize endpoint"
+   ],
+   "x": 612,
+   "y": 74
+  },
+  {
+   "id": "b4",
+   "group": "green",
+   "label": "4. PingOne sign-in",
+   "sub": [
+    "same DaVinci flow; login hint ends .conn"
+   ],
+   "x": 898,
+   "y": 74
+  },
+  {
+   "id": "b5",
+   "group": "green",
+   "label": "5. Airline Connector Consent",
+   "sub": [
+    "PingOne screen names the connector"
+   ],
+   "x": 40,
+   "y": 228
+  },
+  {
+   "id": "b6",
+   "group": "green",
+   "label": "6. Muse does the exchanges",
+   "sub": [
+    "same agent token + 2 exchanges as part A"
+   ],
+   "x": 326,
+   "y": 228
+  },
+  {
+   "id": "b7",
+   "group": "dark",
+   "label": "7. Muse gives Meta its own token",
+   "sub": [
+    "the PingOne token never leaves Muse"
+   ],
+   "x": 612,
+   "y": 228
+  },
+  {
+   "id": "b8",
+   "group": "amber",
+   "label": "8. Meta calls /mcp with it",
+   "sub": [
+    "Muse calls the gateway for it"
+   ],
+   "x": 898,
+   "y": 228
+  },
+  {
+   "id": "b9",
+   "group": "green",
+   "label": "9. Answer comes back",
+   "sub": [
+    "points and tier, shown in Meta's Muse"
+   ],
+   "x": 898,
+   "y": 382
+  }
+ ],
+ "edges": [
+  {
+   "source": "b1",
+   "target": "b2",
+   "label": "B1",
+   "name": "Ask"
+  },
+  {
+   "source": "b2",
+   "target": "b3",
+   "label": "B2",
+   "name": "Picks connector"
+  },
+  {
+   "source": "b3",
+   "target": "b4",
+   "label": "B3",
+   "name": "401, sign in"
+  },
+  {
+   "source": "b4",
+   "target": "b5",
+   "label": "B4",
+   "name": "Sign-in"
+  },
+  {
+   "source": "b5",
+   "target": "b6",
+   "label": "B5",
+   "name": "Consent"
+  },
+  {
+   "source": "b6",
+   "target": "b7",
+   "label": "B6",
+   "name": "Exchanges"
+  },
+  {
+   "source": "b7",
+   "target": "b8",
+   "label": "B7",
+   "name": "Muse token"
+  },
+  {
+   "source": "b8",
+   "target": "b9",
+   "label": "B8",
+   "name": "Answer"
+  }
+ ],
+ "steps": [
+  {
+   "title": "Ask",
+   "what": "The user asks in Meta’s Muse: \"How many United points do I have?\"",
+   "why": "The user never leaves Meta’s Muse.",
+   "edges": [
+    0
+   ]
+  },
+  {
+   "title": "Picks connector",
+   "what": "Meta’s Muse reads each connector’s tool names and descriptions and picks the one for the airline.",
+   "why": "The airline name in the descriptions tells two airline connectors apart.",
+   "edges": [
+    0,
+    1
+   ]
+  },
+  {
+   "title": "401, sign in",
+   "what": "/mcp answers 401 with metadata pointing at Muse’s own authorize endpoint. Meta’s Muse sends the user to PingOne.",
+   "why": "Standard MCP OAuth discovery.",
+   "edges": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "title": "Sign-in",
+   "what": "The same DaVinci flow runs. The login hint ends .conn, so its screens name the Airline Connector.",
+   "why": "Sam sees which connector is asking.",
+   "edges": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "title": "Consent",
+   "what": "Sam allows the Airline Connector. PingOne returns a code to Muse.",
+   "why": "Consent names the connector, not just Muse.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "title": "Exchanges",
+   "what": "Muse does the agent token and the two exchanges, as in path A.",
+   "why": "Authorize treats a connector call like any agent call.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "title": "Muse token",
+   "what": "Muse gives Meta’s Muse its own token. The PingOne token never leaves Muse.",
+   "why": "Meta never holds a PingOne token.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "title": "Answer",
+   "what": "Meta’s Muse calls /mcp. Muse calls the gateway with the delegated token and returns the points and tier.",
+   "why": "The answer comes back through the same checks as path A.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  }
+ ]
+}
