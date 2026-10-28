@@ -25,21 +25,21 @@
   --line: #2a2f38; --accent: #3fb4c0; --accent-soft: #1b2b2e;
   --ok: #6fd08c; --ok-soft: #17291d; --warn: #f0c060; --warn-soft: #2b2415; --bad: #ff8a80; color-scheme: dark;
 }
-body { background: var(--bg); color: var(--fg); margin: 0; font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { background: var(--bg); color: var(--fg); margin: 0; font: 18px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
 main { max-width: min(1600px, 96vw); margin: 0 auto; padding-block: 32px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
-h1 { font-size: 30px; line-height: 1.2; margin: 0; text-wrap: balance; }
-h2 { font-size: 20px; margin: 0 0 8px; text-wrap: balance; }
+h1 { font-size: 33px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 23px; margin: 0 0 8px; text-wrap: balance; }
 p, li { margin: 0; }
 ul, ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
-.lede { font-size: 18px; color: var(--muted); }
-.muted { color: var(--muted); font-size: 14px; }
+.lede { font-size: 21px; color: var(--muted); }
+.muted { color: var(--muted); font-size: 16px; }
 section { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 12px; min-width: 0; }
-.note { border: 1px solid var(--line); border-left: 3px solid var(--warn); padding: 10px 14px; background: var(--surface); border-radius: 8px; font-size: 14px; }
+.note { border: 1px solid var(--line); border-left: 3px solid var(--warn); padding: 10px 14px; background: var(--surface); border-radius: 8px; font-size: 16px; }
 .wide { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 16px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--muted); font-weight: 600; }
-.tag { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; font-size: 12px; white-space: nowrap; }
+.tag { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; font-size: 14px; white-space: nowrap; }
 .sim { color: var(--warn); }
 .real { color: var(--ok); }
 .todo { color: var(--muted); }
@@ -55,9 +55,9 @@ svg .arrow { stroke: var(--muted); stroke-width: 1.6; fill: none; }
 svg .dash { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
 svg .head { fill: var(--muted); }
 a { color: var(--accent); }
-.back { max-width: min(1600px, 96vw); margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 0; font-size: 14px; }
+.back { max-width: min(1600px, 96vw); margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 0; font-size: 16px; }
 .back { display: flex; justify-content: space-between; align-items: center; }
-.pdf-btn { font: inherit; font-size: 14px; color: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.pdf-btn { font: inherit; font-size: 16px; color: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
 .pdf-btn:hover { border-color: var(--accent); }
 @media print {
   .back-actions { display: none; }

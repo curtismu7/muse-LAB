@@ -8,7 +8,7 @@ import { loadDiagram } from './diagrams/index.js';
 const STEP_MS = 1600;
 const SPEEDS = [0.5, 1, 2];
 const TABS = [{ id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Muse acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }];
-const BOX_W = 230;
+const BOX_W = 300;
 
 const SIDES = [['t', Position.Top], ['b', Position.Bottom], ['l', Position.Left], ['r', Position.Right]];
 function Box({ data }) {
@@ -63,19 +63,29 @@ export default function MuseFlow() {
 function Canvas({ diagram: D }) {
   const colour = (n) => D.groups[n.group]?.color ?? 'grey';
   const byId = useMemo(() => Object.fromEntries(D.nodes.map((n) => [n.id, n])), [D]);
-  // Spread the boxes so the diagram's shape matches the canvas's: wider gaps sideways (also room for the arrow pills) or taller rows, so fit-to-view fills the page.
-  const { sx, sy } = useMemo(() => {
-    const cw = Math.max(600, window.innerWidth * 0.98 - 60), ch = Math.min(window.innerHeight * 0.94, 1010);
-    const w = Math.max(...D.lanes.map((l) => l.x + l.w)), h = Math.max(...D.lanes.map((l) => l.y + l.h));
-    const k = cw / ch / (w / h);
-    return k >= 1 ? { sx: Math.min(2.8, Math.max(1.3, k)), sy: 1 } : { sx: 1.3, sy: Math.min(2.4, 1.3 / k) };
+  // Lay the boxes out at full size: in each lane they wrap, in reading order, into as many columns as the width allows (room between columns for
+  // the arrow pills). The canvas is as tall as the content and the page scrolls, so text is never shrunk to fit.
+  const lay = useMemo(() => {
+    const PAD = 30, HEAD = 64, PITCH_Y = 200;
+    const cw = Math.max(300, Math.min(window.innerWidth * 0.98, 1900) - 64);
+    const bw = Math.min(BOX_W, Math.max(180, cw - PAD * 2 - 24)); // narrow screens: boxes shrink so the page never scrolls sideways
+    const PITCH_X = bw + 170;
+    const cols = Math.max(1, Math.min(4, Math.floor((cw - PAD * 2 + 170) / PITCH_X)));
+    const pos = {}, lanes = []; let y = 10;
+    for (const l of [...D.lanes].sort((p, q) => p.y - q.y)) {
+      const inLane = D.nodes.filter((n) => n.y >= l.y - 2 && n.y < l.y + l.h).sort((p, q) => p.y - q.y || p.x - q.x);
+      const c = Math.min(cols, Math.max(1, inLane.length)), rows = Math.ceil(inLane.length / c);
+      const h = HEAD + rows * PITCH_Y - (PITCH_Y - 150) + PAD;
+      inLane.forEach((n, i) => { pos[n.id] = { x: 10 + PAD + (i % c) * PITCH_X, y: y + HEAD + Math.floor(i / c) * PITCH_Y }; });
+      lanes.push({ id: l.id, label: l.label, x: 10, y, w: PAD * 2 + c * PITCH_X - 170, h });
+      y += h + 30;
+    }
+    return { pos, lanes, height: y + 10, bw };
   }, [D]);
-  const X = (x) => Math.round(10 + (x - 10) * sx);
-  const Y = (y) => Math.round(30 + (y - 30) * sy);
   const startNodes = useCallback(() => [
-    ...D.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: Y(l.y) }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: Math.round(l.w * sx), height: Math.round(l.h * sy) }, className: 'lane' })),
-    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: { x: X(n.x), y: Y(n.y) }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: BOX_W }, className: `hop grp-${colour(n)}` })),
-  ], [D, sx, sy]); // eslint-disable-line react-hooks/exhaustive-deps
+    ...lay.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: l.y }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: l.w, height: l.h }, className: 'lane' })),
+    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: lay.pos[n.id] ?? { x: n.x, y: n.y }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: lay.bw }, className: `hop grp-${colour(n)}` })),
+  ], [D, lay]); // eslint-disable-line react-hooks/exhaustive-deps
   const [nodes, setNodes, onNodesChange] = useNodesState(startNodes());
   const [current, setCurrent] = useState(null); // null = not started; otherwise the step shown
   const [playing, setPlaying] = useState(false);
@@ -131,8 +141,8 @@ function Canvas({ diagram: D }) {
         </div>
       </div>
       <p className="small muted">{D.lede}</p>
-      <div className="flow-canvas flow-canvas--xl">
-        <ReactFlow nodeTypes={nodeTypes} edgeTypes={edgeTypes} nodes={shown} edges={edges} onNodesChange={onNodesChange} nodesDraggable nodesConnectable={false} fitView fitViewOptions={{ padding: 0.04 }} minZoom={0.2} proOptions={{ hideAttribution: true }}>
+      <div className="flow-canvas" style={{ height: lay.height }}>
+        <ReactFlow nodeTypes={nodeTypes} edgeTypes={edgeTypes} nodes={shown} edges={edges} onNodesChange={onNodesChange} nodesDraggable nodesConnectable={false} defaultViewport={{ x: 0, y: 0, zoom: 1 }} zoomOnScroll={false} preventScrolling={false} minZoom={0.3} maxZoom={2} proOptions={{ hideAttribution: true }}>
           <Background gap={18} />
           <Controls showInteractive={false} />
         </ReactFlow>
