@@ -8,7 +8,7 @@ import { useTextSize } from './TextSize.jsx';
 // Standard: movable boxes, Simulate with Prev/Next/Pause, Reset, a speed control, every arrow numbered AND named, a card per step.
 const STEP_MS = 1600;
 const SPEEDS = [0.5, 1, 2];
-const TABS = [{ id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Muse acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }];
+const TABS = [{ id: 'muse-overview', label: 'Overview' }, { id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Muse acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }];
 const BOX_W = 300;
 
 const SIDES = [['t', Position.Top], ['b', Position.Bottom], ['l', Position.Left], ['r', Position.Right]];
@@ -46,6 +46,8 @@ const edgeTypes = { pill: Pill };
 
 function sides(a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
+  // A return arrow along the same row that would run behind the boxes in between loops under them instead.
+  if (Math.abs(dy) < 40 && Math.abs(dx) > 600) return ['b', 'b'];
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? ['r', 'l'] : ['l', 'r']) : (dy > 0 ? ['b', 't'] : ['t', 'b']);
 }
 
@@ -76,17 +78,21 @@ function Canvas({ diagram: D, fs }) {
     const pos = {}, lanes = []; let y = 10;
     for (const l of [...D.lanes].sort((p, q) => p.y - q.y)) {
       const inLane = D.nodes.filter((n) => n.y >= l.y - 2 && n.y < l.y + l.h).sort((p, q) => p.y - q.y || p.x - q.x);
-      const c = Math.min(cols, Math.max(1, inLane.length)), rows = Math.ceil(inLane.length / c);
+      // A short lane (four boxes or fewer) stays on one row when the boxes can narrow a little to fit: a simple left-to-right story reads best.
+      const n = inLane.length, gapC = 150, fitW = Math.floor((cw - PAD * 2 - gapC * (n - 1)) / Math.max(1, n));
+      const compact = n >= 2 && n <= 4 && fitW >= 210;
+      const c = compact ? n : Math.min(cols, Math.max(1, n)), rows = Math.ceil(n / c);
+      const bwL = compact ? Math.min(bw, fitW) : bw, pitchX = bwL + (compact ? gapC : 170);
       const h = HEAD + rows * PITCH_Y - (PITCH_Y - 150 * fs) + PAD;
-      inLane.forEach((n, i) => { pos[n.id] = { x: 10 + PAD + (i % c) * PITCH_X, y: y + HEAD + Math.floor(i / c) * PITCH_Y }; });
-      lanes.push({ id: l.id, label: l.label, x: 10, y, w: PAD * 2 + c * PITCH_X - 170, h });
+      inLane.forEach((nd, i) => { pos[nd.id] = { x: 10 + PAD + (i % c) * pitchX, y: y + HEAD + Math.floor(i / c) * PITCH_Y, w: bwL }; });
+      lanes.push({ id: l.id, label: l.label, x: 10, y, w: PAD * 2 + c * pitchX - (compact ? gapC : 170), h });
       y += h + 30;
     }
     return { pos, lanes, height: y + 10, bw };
   }, [D, fs]);
   const startNodes = useCallback(() => [
     ...lay.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: l.y }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: l.w, height: l.h }, className: 'lane' })),
-    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: lay.pos[n.id] ?? { x: n.x, y: n.y }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: lay.bw }, className: `hop grp-${colour(n)}` })),
+    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: lay.pos[n.id] ? { x: lay.pos[n.id].x, y: lay.pos[n.id].y } : { x: n.x, y: n.y }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: lay.pos[n.id]?.w ?? lay.bw }, className: `hop grp-${colour(n)}` })),
   ], [D, lay]); // eslint-disable-line react-hooks/exhaustive-deps
   const [nodes, setNodes, onNodesChange] = useNodesState(startNodes());
   const [current, setCurrent] = useState(null); // null = not started; otherwise the step shown

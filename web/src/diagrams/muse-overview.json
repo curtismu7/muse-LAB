@@ -1,0 +1,31 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-overview",
+ "title": "Overview: user, Muse, Authorize, MCP server",
+ "lede": "The whole idea in four boxes. The user asks Muse, Muse acts for the user, PingOne Authorize decides, and only then does the MCP server run the tool.",
+ "groups": {
+  "green": { "label": "PingOne", "color": "green" },
+  "amber": { "label": "Gateway and policy", "color": "amber" },
+  "dark": { "label": "Muse", "color": "dark" },
+  "blue": { "label": "Person", "color": "blue" }
+ },
+ "lanes": [{ "id": "lane0", "label": "One request, end to end", "x": 10, "y": 30, "w": 1100, "h": 190 }],
+ "nodes": [
+  { "id": "user", "group": "blue", "label": "1. User", "sub": ["Sam asks: \"Show my airline points\""], "x": 40, "y": 100 },
+  { "id": "muse", "group": "dark", "label": "2. Muse", "sub": ["The personal agent. Signs Sam in at PingOne and acts for him."], "x": 330, "y": 100 },
+  { "id": "authorize", "group": "amber", "label": "3. PingOne Authorize", "sub": ["Checks the audience, that Muse is a registered actor, and that the tool is allowed."], "x": 620, "y": 100 },
+  { "id": "mcp", "group": "green", "label": "4. MCP server", "sub": ["Runs the tool and returns 4,500 points, Gold."], "x": 910, "y": 100 }
+ ],
+ "edges": [
+  { "source": "user", "target": "muse", "label": "1", "name": "Ask" },
+  { "source": "muse", "target": "authorize", "label": "2", "name": "Delegated token" },
+  { "source": "authorize", "target": "mcp", "label": "3", "name": "Allowed, run tool" },
+  { "source": "mcp", "target": "muse", "label": "4", "name": "Points back" }
+ ],
+ "steps": [
+  { "title": "Ask", "what": "Sam asks Muse for his airline points. Muse acts only when asked.", "why": "The request starts with a person, never with the agent.", "edges": [0] },
+  { "title": "Delegated token", "what": "Muse signs Sam in at PingOne and gets a delegated token: Sam is the subject and Muse is the actor. It presents that token at the gateway, which asks PingOne Authorize.", "why": "Authorize can see who is asking and on whose behalf.", "edges": [0, 1] },
+  { "title": "Allowed, run tool", "what": "Authorize checks the audience, that Muse is a registered actor, and that this tool is allowed. Only then does the request reach the MCP server.", "why": "Policy decides every tool call. Without the actor, the call is refused.", "edges": [0, 1, 2] },
+  { "title": "Points back", "what": "The MCP server runs the tool and returns the points and tier. Muse shows them to Sam.", "why": "The answer exists only because every check passed.", "edges": [0, 1, 2, 3] }
+ ]
+}
