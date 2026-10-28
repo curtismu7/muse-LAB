@@ -1,19 +1,21 @@
 :root {
   color-scheme: light dark;
-  --bg: #f4f4f2;
+  --bg: #f6f7f9;
   --surface: #ffffff;
-  --panel: #fafaf8;
-  --bubble-muse: #ffffff;
-  --bubble-user: #e8eef0;
-  --text: #1c1d21;
-  --muted: #6b6f78;
-  --line: #e2e2dd;
-  --accent: #0a6e78;
+  --panel: #eff0f1;
+  --bubble-muse: #eff0f1;
+  --bubble-user: #16325c;
+  --text: #051727;
+  --muted: #4d5d6c;
+  --line: #dbe2ea;
+  --accent: #16325c;
   --accent-text: #ffffff;
   --ok: #1d6b35;
   --warn: #8a5a00;
   --bad: #a1211c;
   --radius: 14px;
+  --band: linear-gradient(90deg, #051727 58%, #12538d);
+  --font-primary: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   --detected: #c8102e;
   --undetected: #1f5fbf;
   --detected-text: #c8102e;
@@ -28,12 +30,12 @@
     --surface: #181b21;
     --panel: #15181d;
     --bubble-muse: #1d2128;
-    --bubble-user: #1f3136;
+    --bubble-user: #1b3a66;
     --text: #e9ebef;
     --muted: #9aa0ab;
     --line: #2a2f38;
-    --accent: #3fb4c0;
-    --accent-text: #0b0d10;
+    --accent: #6ea8e6;
+    --accent-text: #051727;
     --ok: #6fd08c;
     --warn: #f0c060;
     --bad: #ff8a80;
@@ -47,12 +49,12 @@
   --surface: #181b21;
   --panel: #15181d;
   --bubble-muse: #1d2128;
-  --bubble-user: #1f3136;
+  --bubble-user: #1b3a66;
   --text: #e9ebef;
   --muted: #9aa0ab;
   --line: #2a2f38;
-  --accent: #3fb4c0;
-  --accent-text: #0b0d10;
+  --accent: #6ea8e6;
+  --accent-text: #051727;
   --ok: #6fd08c;
   --warn: #f0c060;
   --bad: #ff8a80;
@@ -64,7 +66,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 15px/1.5 var(--font-primary);
 }
 
 h1 { margin: 0; font-size: 22px; font-weight: 600; }
@@ -399,3 +401,32 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .mflow .react-flow__controls-button:hover { background: var(--panel) !important; }
 .mflow .react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
 .mflow .seg { flex-wrap: wrap; border-radius: 14px; }
+
+/* AI-DEMO2 look: Core Dark gradient band, navy emphasis, pill controls. */
+.page-band { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; padding: 28px 32px; background: var(--band); color: #ffffff; }
+.page-band h1 { font-size: 28px; font-weight: 700; color: #ffffff; }
+.page-band__eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+.page-band__summary { margin-top: 6px; max-width: 70ch; color: rgba(255,255,255,.88); }
+.page-band__links { display: flex; gap: 10px; margin-top: 12px; }
+.page-band__links a { color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; padding: 4px 14px; }
+.page-band__links a:hover, .page-band__links a:focus-visible { background: rgba(255,255,255,.14); outline: none; }
+.page-band .top-actions { display: flex; gap: 8px; align-items: center; color: #ffffff; }
+.page-band .top-actions button { background: transparent; color: #ffffff; border-color: rgba(255,255,255,.55); border-radius: 999px; }
+.page-band .top-actions button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+.bubble.user { color: #ffffff; }
+.chip, .seg button, button.primary { border-radius: 999px; }
+.chat-top { display: none; }
+
+.page-band { padding: 22px 32px; }
+.page-band__summary { max-width: none; }
+.page-band__links { margin-top: 10px; }
+/* Real mode is one column, like the AI-DEMO2 Muse page: no rail, no empty side panel. */
+.app--live { grid-template-columns: 1fr; }
+.app--live .rail, .app--live .side { display: none; }
+.banner.live { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); }
+
+.theme-toggle { font: inherit; font-size: 13px; font-weight: 600; border-radius: 999px; padding: 4px 14px; cursor: pointer; background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+.theme-toggle.on-band { background: transparent; color: #ffffff; border-color: rgba(255,255,255,.55); }
+.theme-toggle.on-band:hover { background: rgba(255,255,255,.14); }
+.diagram-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.diagram-nav a, .diagram-page a { color: var(--accent); }

@@ -4,6 +4,7 @@ import PatternFlow from './PatternFlow.jsx';
 import DiscoveryPanel from './DiscoveryPanel.jsx';
 import ConnectorPanel from './ConnectorPanel.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
@@ -250,8 +251,27 @@ export default function App() {
   const lastEntry = [...feed].reverse().find((m) => m.entry)?.entry ?? null;
 
   return (
-    <main className="app">
+    <main className={session.mode === 'live' ? 'app app--live' : 'app'}>
       {consentAsk && <ConsentModal ask={consentAsk} />}
+      <header className="page-band">
+        <div className="page-band__copy">
+          <p className="page-band__eyebrow">Personal Agents</p>
+          <h1>Muse</h1>
+          <p className="page-band__summary">A personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
+          <p className="page-band__links"><a href="/how-muse-works.html">How it works</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /></p>
+        </div>
+        {session.signedIn && (
+          <div className="top-actions">
+            <label className="presenter">
+              <input type="checkbox" checked={presenter} onChange={(e) => setPresenter(e.target.checked)} />
+              Presenter
+            </label>
+            <button type="button" onClick={reset} disabled={busy}>Reset</button>
+            <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
+          </div>
+        )}
+      </header>
+
       <nav className="rail" aria-label="Sections">
         <span className="rail-logo" aria-hidden="true">M</span>
         <button type="button" className="rail-btn active" aria-label="Chat"><Icon name="chat" /></button>
@@ -261,22 +281,6 @@ export default function App() {
       </nav>
 
       <section className="chat">
-        <header className="chat-top">
-          <div>
-            <h1>Muse</h1>
-            <p className="muted">A personal agent, guarded by PingOne Privilege. <a className="how-link" href="/how-muse-works.html">How it works</a> &middot; <a className="how-link" href="/diagram">Diagram</a></p>
-          </div>
-          {session.signedIn && (
-            <div className="top-actions">
-              <label className="presenter">
-                <input type="checkbox" checked={presenter} onChange={(e) => setPresenter(e.target.checked)} />
-                Presenter
-              </label>
-              <button type="button" onClick={reset} disabled={busy}>Reset</button>
-              <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
-            </div>
-          )}
-        </header>
 
         {session.mode === 'live' ? (
           <aside className="banner live" role="note">
