@@ -55,11 +55,23 @@ svg .dash { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharra
 svg .head { fill: var(--muted); }
 a { color: var(--accent); }
 .back { max-width: min(1600px, 96vw); margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 0; font-size: 14px; }
+.back { display: flex; justify-content: space-between; align-items: center; }
+.pdf-btn { font: inherit; font-size: 14px; color: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.pdf-btn:hover { border-color: var(--accent); }
+@media print {
+  :root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+    --bg: #ffffff; --surface: #ffffff; --fg: #1d1f23; --muted: #5d636d; --line: #dfe1dc; --accent: #0a6e78; --accent-soft: #e3f0f1;
+    --ok: #1d6b35; --ok-soft: #e7f5ea; --warn: #8a5a00; --warn-soft: #fff6e0; --bad: #a1211c; color-scheme: light;
+  }
+  .back { display: none; }
+  main { max-width: none; padding-block: 0; }
+  section, svg, table { break-inside: avoid; }
+}
 </style>
 
 </head>
 <body>
-<p class="back"><a href="/">Back to Muse</a></p>
+<p class="back"><a href="/">Back to Muse</a><button type="button" class="pdf-btn" onclick="window.print()">Create PDF</button></p>
 <main>
   <header>
     <h1>How Muse works</h1>
