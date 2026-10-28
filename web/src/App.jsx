@@ -5,6 +5,7 @@ import DiscoveryPanel from './DiscoveryPanel.jsx';
 import ConnectorPanel from './ConnectorPanel.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
+import TextSize from './TextSize.jsx';
 import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
@@ -258,7 +259,7 @@ export default function App() {
           <p className="page-band__eyebrow">Personal Agents</p>
           <h1>Muse</h1>
           <p className="page-band__summary">A personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
-          <p className="page-band__links"><a href="/how-muse-works.html">How it works</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /></p>
+          <p className="page-band__links"><a href="/how-muse-works.html">How it works</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
         </div>
         {session.signedIn && (
           <div className="top-actions">

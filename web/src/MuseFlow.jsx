@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, Background, Controls, Handle, Position, BaseEdge, EdgeLabelRenderer, getBezierPath, useNodesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { loadDiagram } from './diagrams/index.js';
+import { useTextSize } from './TextSize.jsx';
 
 // How Muse works, one tab per diagram: Config (set up once) and three Runtime paths (what happens on a request).
 // Standard: movable boxes, Simulate with Prev/Next/Pause, Reset, a speed control, every arrow numbered AND named, a card per step.
@@ -50,38 +51,39 @@ function sides(a, b) {
 
 export default function MuseFlow() {
   const [tab, setTab] = useState(TABS[0].id);
+  const fs = useTextSize();
   return (
     <section className="flow mflow" aria-label="How Muse works" data-testid="muse-flow">
       <div className="seg" role="tablist" aria-label="Diagram">
         {TABS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
       </div>
-      <Canvas key={tab} diagram={loadDiagram(tab)} />
+      <Canvas key={`${tab}-${fs}`} diagram={loadDiagram(tab)} fs={fs} />
     </section>
   );
 }
 
-function Canvas({ diagram: D }) {
+function Canvas({ diagram: D, fs }) {
   const colour = (n) => D.groups[n.group]?.color ?? 'grey';
   const byId = useMemo(() => Object.fromEntries(D.nodes.map((n) => [n.id, n])), [D]);
   // Lay the boxes out at full size: in each lane they wrap, in reading order, into as many columns as the width allows (room between columns for
   // the arrow pills). The canvas is as tall as the content and the page scrolls, so text is never shrunk to fit.
   const lay = useMemo(() => {
-    const PAD = 30, HEAD = 64, PITCH_Y = 200;
+    const PAD = 30, HEAD = 64 * fs, PITCH_Y = 200 * fs;
     const cw = Math.max(300, Math.min(window.innerWidth * 0.98, 1900) - 64);
-    const bw = Math.min(BOX_W, Math.max(180, cw - PAD * 2 - 24)); // narrow screens: boxes shrink so the page never scrolls sideways
+    const bw = Math.min(BOX_W * fs, Math.max(180, cw - PAD * 2 - 24)); // narrow screens: boxes shrink so the page never scrolls sideways
     const PITCH_X = bw + 170;
     const cols = Math.max(1, Math.min(4, Math.floor((cw - PAD * 2 + 170) / PITCH_X)));
     const pos = {}, lanes = []; let y = 10;
     for (const l of [...D.lanes].sort((p, q) => p.y - q.y)) {
       const inLane = D.nodes.filter((n) => n.y >= l.y - 2 && n.y < l.y + l.h).sort((p, q) => p.y - q.y || p.x - q.x);
       const c = Math.min(cols, Math.max(1, inLane.length)), rows = Math.ceil(inLane.length / c);
-      const h = HEAD + rows * PITCH_Y - (PITCH_Y - 150) + PAD;
+      const h = HEAD + rows * PITCH_Y - (PITCH_Y - 150 * fs) + PAD;
       inLane.forEach((n, i) => { pos[n.id] = { x: 10 + PAD + (i % c) * PITCH_X, y: y + HEAD + Math.floor(i / c) * PITCH_Y }; });
       lanes.push({ id: l.id, label: l.label, x: 10, y, w: PAD * 2 + c * PITCH_X - 170, h });
       y += h + 30;
     }
     return { pos, lanes, height: y + 10, bw };
-  }, [D]);
+  }, [D, fs]);
   const startNodes = useCallback(() => [
     ...lay.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: l.y }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: l.w, height: l.h }, className: 'lane' })),
     ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: lay.pos[n.id] ?? { x: n.x, y: n.y }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: lay.bw }, className: `hop grp-${colour(n)}` })),
