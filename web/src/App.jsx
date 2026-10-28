@@ -34,6 +34,9 @@ const TABS = [
   { id: 'trace', label: 'Sign-in trace', icon: 'clock' },
 ];
 
+const detectedBy = (claims) => (claims?.protect_caller === 'agent' ? 'detected' : claims?.act ? 'undetected' : 'neither');
+const AGENT_NOTE = { detected: 'Detected by Protect', undetected: 'Identified from the client id', neither: 'No agent signal' };
+
 const OUTCOME_LABEL = {
   allowed: 'Allowed',
   held: 'Held for approval',
@@ -239,8 +242,9 @@ export default function App() {
     );
   }
 
-  // Red when the token PingOne issued names an agent (act claim); blue when it signed the user in with no agent in it.
-  const agentState = session.mode === 'live' && session.liveAuth?.signedIn ? (session.liveAuth.claims?.act ? 'detected' : 'undetected') : null;
+  // Red: PingOne's Protect check called the caller an agent (protect_caller claim on the token). Blue: only the client id says it
+  // is Muse (act claim). Neither: no agent signal at all.
+  const agentState = session.mode === 'live' && session.liveAuth?.signedIn ? detectedBy(session.liveAuth.claims) : null;
   const decisions = session.decisions ?? [];
   const lastEntry = [...feed].reverse().find((m) => m.entry)?.entry ?? null;
 
@@ -362,7 +366,7 @@ export default function App() {
         <div className="identity">
           <span className={`avatar ${agentState ?? ''}`} aria-hidden="true">M</span>
           <h2 className={agentState ?? ''} data-testid="muse-name" data-agent={agentState ?? ''}>Muse</h2>
-          {agentState && <p className={`small agent-note ${agentState}`}>{agentState === 'detected' ? 'Detected as an AI agent' : 'Not detected as an AI agent'}</p>}
+          {agentState && <p className={`small agent-note ${agentState}`}>{AGENT_NOTE[agentState]}</p>}
           <p className={session.signedIn ? 'status ok' : 'status'}>
             <span className="dot" aria-hidden="true" />
             {session.signedIn ? 'Connected' : 'Not connected'}
