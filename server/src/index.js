@@ -116,9 +116,10 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       hosted,
       connector,
       mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
-      live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp), lane: live.idp?.lane ?? null } : { available: false },
+      live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp), lane: live.idp?.lane ?? null, userLogin: Boolean(live.idp?.userClientId) } : { available: false },
       discovery: ws.discovery ?? null,
       liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null, ask: ws.liveAsk ?? null, answer: ws.liveAnswer ?? null },
+      userLogin: ws.userLogin ?? null,
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
       tools: Object.entries(TOOLS).map(([id, t]) => ({ id, label: t.label, fields: t.fields, personas: t.personas })),
       decisions: ws.decisions,
@@ -148,7 +149,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     res.json(ws.discovery);
   });
 
-  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; };
+  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; };
   // The tool result comes back as MCP text content holding JSON; Muse reads the points out of it.
   const answerFrom = (steps) => {
     const r = steps.find((x) => x.n === 9)?.response;
@@ -205,6 +206,17 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   app.post('/api/live/signin', limited, (req, res) => {
     if (!liveReady(req, res)) return;
     const ws = req.ws;
+    if (req.body?.as === 'user') {
+      // Sam signs in as himself: a different PingOne app, so the flow shows no agent screen and no consent, and nothing is exchanged.
+      if (!live.idp?.userClientId) return res.status(409).json({ error: 'the user sign-in is not configured' });
+      const learned = { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] };
+      const client = { clientId: live.idp.userClientId, redirectUri: live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback` };
+      const r = startSignIn(learned, client, null, { forceLogin: true, loginHint: live.idp.loginHint ? (req.body?.mfa === 'off' ? `${live.idp.loginHint}.nomfa` : live.idp.loginHint) : null });
+      for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
+      pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource: null, learned, client, as: 'user', at: Date.now() });
+      ws.userLogin = null;
+      return res.json({ url: r.url });
+    }
     if (!ws.liveClient) return res.status(409).json({ error: 'register Muse first' });
     // With a client secret Muse acts on the user's behalf, so the token is minted for the gateway from the start.
     const resource = live.idp && (!live.idp.clientSecret || live.idp.lane === 'privilege') ? null : live.url;
@@ -224,6 +236,20 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     const done = (msg) => res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Muse</title><p>${msg}</p><script>location.replace('/')</script>`);
     if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Muse.');
     if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Muse.'); }
+    if (p.as === 'user') {
+      try {
+        const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: p.client, resource: null }, fetchImpl);
+        ws.userLogin = { claims: r.claims ?? null, steps: [r.step].filter(Boolean), error: r.error ?? null, denied: null };
+        if (r.token) {
+          // The user's own token, straight to the gateway. No act claim, no exchange: this is what a non-agent caller gets.
+          const steps = await callGateway(live, r.token, fetchImpl, { tool: 'loyalty_balance' });
+          const first = steps[0]?.response?.status;
+          ws.userLogin.steps.push(...steps);
+          ws.userLogin.denied = first == null ? null : first >= 400 || steps.some((x) => x.response?.status >= 400);
+        }
+      } catch (e) { ws.userLogin = { claims: null, steps: [], error: failed(e).error, denied: null }; }
+      return done('Signed in. Returning to Muse.');
+    }
     try {
       const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource, clientSecret: live.idp?.clientSecret }, fetchImpl);
       addStep(ws, r.step);
