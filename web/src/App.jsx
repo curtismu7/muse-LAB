@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 import PatternFlow from './PatternFlow.jsx';
 import DiscoveryPanel from './DiscoveryPanel.jsx';
+import ConnectorPanel from './ConnectorPanel.jsx';
 import { parseIntent } from './intent.js';
 
 async function api(method, path, body) {
@@ -32,6 +33,9 @@ const TABS = [
   { id: 'policy', label: 'Policy', icon: 'shield' },
   { id: 'trace', label: 'Sign-in trace', icon: 'clock' },
 ];
+
+const detectedBy = (claims) => (claims?.protect_agent === 'HIGH' ? 'detected' : claims?.act ? 'undetected' : 'neither');
+const AGENT_NOTE = { detected: 'Detected by Protect', undetected: 'Identified from the client id', neither: 'No agent signal' };
 
 const OUTCOME_LABEL = {
   allowed: 'Allowed',
@@ -238,6 +242,9 @@ export default function App() {
     );
   }
 
+  // Red: PingOne's Protect (the Muse agent predictor) rated the caller HIGH (protect_agent claim on the token). Blue: only the client id says it
+  // is Muse (act claim). Neither: no agent signal at all.
+  const agentState = session.mode === 'live' && session.liveAuth?.signedIn ? detectedBy(session.liveAuth.claims) : null;
   const decisions = session.decisions ?? [];
   const lastEntry = [...feed].reverse().find((m) => m.entry)?.entry ?? null;
 
@@ -291,6 +298,7 @@ export default function App() {
             <h2>Sign in with PingOne</h2>
             <p className="muted">{session.mode === 'live' ? 'Muse only redirects. PingOne runs the login, Protect and consent.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
             <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
+            <ConnectorPanel connector={session.connector} />
             {session.picker && (
               <label className="field">
                 <span>Persona</span>
@@ -356,8 +364,9 @@ export default function App() {
 
       <aside className="side" aria-label="Muse identity and activity">
         <div className="identity">
-          <span className="avatar" aria-hidden="true">M</span>
-          <h2>Muse</h2>
+          <span className={`avatar ${agentState ?? ''}`} aria-hidden="true">M</span>
+          <h2 className={agentState ?? ''} data-testid="muse-name" data-agent={agentState ?? ''}>Muse</h2>
+          {agentState && <p className={`small agent-note ${agentState}`}>{AGENT_NOTE[agentState]}</p>}
           <p className={session.signedIn ? 'status ok' : 'status'}>
             <span className="dot" aria-hidden="true" />
             {session.signedIn ? 'Connected' : 'Not connected'}
