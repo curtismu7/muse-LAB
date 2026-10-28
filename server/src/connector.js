@@ -166,7 +166,9 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       if (!TOOLS.some((t) => t.name === name)) return rpcErr(id, -32602, 'Unknown tool');
       try {
         // Both tools read the airline passenger record (get_loyalty_status) through the gateway, so the balance and the status can never disagree.
-        const steps = await callGateway(live, session.delegated, fetchImpl, { tool: 'get_loyalty_status' });
+        // The gateway sits behind a load balancer and now and then drops a connection; one retry covers it.
+        const ask = () => callGateway(live, session.delegated, fetchImpl, { tool: 'get_loyalty_status' });
+        const steps = await ask().catch(() => ask());
         const resp = steps.find((s) => s.n === 9)?.response;
         const content = resp?.status === 200 ? resp.body?.result?.content : null;
         if (Array.isArray(content) && content.length) {
