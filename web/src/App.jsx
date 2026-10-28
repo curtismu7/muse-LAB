@@ -239,6 +239,8 @@ export default function App() {
     );
   }
 
+  // Red when the token PingOne issued names an agent (act claim); blue when it signed the user in with no agent in it.
+  const agentState = session.mode === 'live' && session.liveAuth?.signedIn ? (session.liveAuth.claims?.act ? 'detected' : 'undetected') : null;
   const decisions = session.decisions ?? [];
   const lastEntry = [...feed].reverse().find((m) => m.entry)?.entry ?? null;
 
@@ -358,8 +360,9 @@ export default function App() {
 
       <aside className="side" aria-label="Muse identity and activity">
         <div className="identity">
-          <span className="avatar" aria-hidden="true">M</span>
-          <h2>Muse</h2>
+          <span className={`avatar ${agentState ?? ''}`} aria-hidden="true">M</span>
+          <h2 className={agentState ?? ''} data-testid="muse-name" data-agent={agentState ?? ''}>Muse</h2>
+          {agentState && <p className={`small agent-note ${agentState}`}>{agentState === 'detected' ? 'Detected as an AI agent' : 'Not detected as an AI agent'}</p>}
           <p className={session.signedIn ? 'status ok' : 'status'}>
             <span className="dot" aria-hidden="true" />
             {session.signedIn ? 'Connected' : 'Not connected'}
