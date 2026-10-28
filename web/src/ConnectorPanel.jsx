@@ -22,6 +22,7 @@ export default function ConnectorPanel({ connector }) {
     <section className="disco connector" aria-label="Airline Connector" data-testid="connector-panel">
       <strong>Try it in Meta's Muse</strong>
       <p className="muted small">Add this as a custom connector, sign in at PingOne, then paste a prompt below. Leave the client secret blank.</p>
+      <p className="muted small">Meta's Muse picks a connector by reading each tool's name and description. If you also have another airline connected, name the airline in your prompt. <a href="/how-muse-works.html#pick">More</a></p>
       <ul className="connector-rows">
         {rows.map(([k, v]) => (
           <li key={k}><span className="muted small">{k}</span><code>{v}</code><Copy text={v} label={k} /></li>

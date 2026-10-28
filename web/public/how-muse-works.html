@@ -153,6 +153,18 @@ a { color: var(--accent); }
     <p class="muted">The Privilege lane needed Privilege's own audience to be accepted by the gateway and by Authorize. Both now allow it as an extra audience, and nothing changes for other callers.</p>
   </section>
 
+  <section aria-labelledby="pick">
+    <h2 id="pick">Using it from another agent: which connector gets picked</h2>
+    <p>The Airline Connector lets an agent such as Meta's Muse reach the same tools. The agent reads the tool names and descriptions from every connector you have added, and its model decides which tool fits your request. The server is never asked whether a request is for it. It only sees a call after the agent has chosen it.</p>
+    <ul>
+      <li>With one airline connected, "How many airline points do I have?" goes to it.</li>
+      <li>With two airlines connected, such as United and American, and tools described only as "airline points", the agent may pick either, call both, or ask you which airline you mean. That is the agent's choice, not the connector's.</li>
+      <li>To steer it, name the airline in the prompt ("How many United points do I have?"), and put the airline in the connector name and in each tool description.</li>
+      <li>Each connector signs you in on its own, and it only ever holds your token for its own airline. One airline's server never sees another's token.</li>
+    </ul>
+    <p class="note">How an agent chooses between tools is up to that agent, and this page can only describe the general behaviour of MCP clients. The tool descriptions are the part you control.</p>
+  </section>
+
   <section aria-labelledby="real">
     <h2 id="real">What is real and what is not</h2>
     <ul>
