@@ -31,7 +31,7 @@
    "label": "PingOne: who signs in, and how an agent is recognised",
    "x": 10,
    "y": 30,
-   "w": 1694,
+   "w": 1168,
    "h": 310
   },
   {
@@ -39,7 +39,7 @@
    "label": "Agent Privilege and Agent Gateway: what the agent may reach",
    "x": 10,
    "y": 376,
-   "w": 1694,
+   "w": 1168,
    "h": 156
   },
   {
@@ -47,7 +47,7 @@
    "label": "Muse (hosted on the US SE cluster)",
    "x": 10,
    "y": 568,
-   "w": 1694,
+   "w": 1168,
    "h": 156
   },
   {
@@ -55,7 +55,7 @@
    "label": "Meta's Muse: adding the Airline Connector",
    "x": 10,
    "y": 760,
-   "w": 1694,
+   "w": 1168,
    "h": 156
   }
  ],
@@ -67,7 +67,7 @@
    "sub": [
     "confidential: auth code + PKCE, token exchange, client credentials"
    ],
-   "x": 468,
+   "x": 326,
    "y": 74
   },
   {
@@ -77,7 +77,7 @@
    "sub": [
     "public: auth code + PKCE. Not the Muse app, so never flagged as an agent"
    ],
-   "x": 883,
+   "x": 612,
    "y": 74
   },
   {
@@ -87,7 +87,7 @@
    "sub": [
     "assigned to both apps. Branches on the app id"
    ],
-   "x": 468,
+   "x": 326,
    "y": 228
   },
   {
@@ -97,7 +97,7 @@
    "sub": [
     "Muse app id = HIGH, in the default risk policy set"
    ],
-   "x": 883,
+   "x": 612,
    "y": 228
   },
   {
@@ -107,7 +107,7 @@
    "sub": [
     "puts protect_agent = HIGH into the token"
    ],
-   "x": 54,
+   "x": 40,
    "y": 74
   },
   {
@@ -117,7 +117,7 @@
    "sub": [
     "Muse Consent, and Airline Connector Consent"
    ],
-   "x": 54,
+   "x": 40,
    "y": 228
   },
   {
@@ -127,7 +127,7 @@
    "sub": [
     "required on medium risk; login hint .nomfa turns it off for the demo"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 228
   },
   {
@@ -137,7 +137,7 @@
    "sub": [
     "fronts the gateway and passes the token through"
    ],
-   "x": 54,
+   "x": 40,
    "y": 420
   },
   {
@@ -147,7 +147,7 @@
    "sub": [
     "checks signature, audience and scope; 401 with metadata when no token"
    ],
-   "x": 468,
+   "x": 326,
    "y": 420
   },
   {
@@ -157,7 +157,7 @@
    "sub": [
     "allows only: right audience, Muse as actor, this tool"
    ],
-   "x": 883,
+   "x": 612,
    "y": 420
   },
   {
@@ -167,7 +167,7 @@
    "sub": [
     "tenant ids, client secret, airline name, user app id. Written by the owner script"
    ],
-   "x": 54,
+   "x": 40,
    "y": 612
   },
   {
@@ -177,7 +177,7 @@
    "sub": [
     "UI, /api, and the Airline Connector at /mcp"
    ],
-   "x": 468,
+   "x": 326,
    "y": 612
   },
   {
@@ -187,7 +187,7 @@
    "sub": [
     "https://muse.ai-demo.ping-devops.com"
    ],
-   "x": 883,
+   "x": 612,
    "y": 612
   },
   {
@@ -195,7 +195,7 @@
    "group": "blue",
    "label": "1. Add a custom connector",
    "sub": [],
-   "x": 54,
+   "x": 40,
    "y": 804
   },
   {
@@ -205,7 +205,7 @@
    "sub": [
     "https://muse.ai-demo.ping-devops.com/mcp"
    ],
-   "x": 468,
+   "x": 326,
    "y": 804
   },
   {
@@ -215,7 +215,7 @@
    "sub": [
     "client secret left blank"
    ],
-   "x": 883,
+   "x": 612,
    "y": 804
   },
   {
@@ -226,7 +226,7 @@
     "agent.meta.ai/api/hatch/oauth/callback",
     "(host allowed on Muse)"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 804
   }
  ],

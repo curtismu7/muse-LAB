@@ -63,10 +63,17 @@ export default function MuseFlow() {
 function Canvas({ diagram: D }) {
   const colour = (n) => D.groups[n.group]?.color ?? 'grey';
   const byId = useMemo(() => Object.fromEntries(D.nodes.map((n) => [n.id, n])), [D]);
+  // Spread the boxes sideways so the diagram's shape matches the canvas's, then fit-to-view fills the page width. Gaps also leave room for the arrow pills.
+  const sx = useMemo(() => {
+    const cw = Math.max(600, window.innerWidth * 0.98 - 60), ch = Math.min(window.innerHeight * 0.94, 1010);
+    const w = Math.max(...D.lanes.map((l) => l.x + l.w)), h = Math.max(...D.lanes.map((l) => l.y + l.h));
+    return Math.min(2.8, Math.max(1.3, cw / ch / (w / h)));
+  }, [D]);
+  const X = (x) => Math.round(10 + (x - 10) * sx);
   const startNodes = useCallback(() => [
-    ...D.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: l.y }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: l.w, height: l.h }, className: 'lane' })),
-    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: { x: n.x, y: n.y }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: BOX_W }, className: `hop grp-${colour(n)}` })),
-  ], [D]);
+    ...D.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: l.y }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: Math.round(l.w * sx), height: l.h }, className: 'lane' })),
+    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: { x: X(n.x), y: n.y }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: BOX_W }, className: `hop grp-${colour(n)}` })),
+  ], [D, sx]); // eslint-disable-line react-hooks/exhaustive-deps
   const [nodes, setNodes, onNodesChange] = useNodesState(startNodes());
   const [current, setCurrent] = useState(null); // null = not started; otherwise the step shown
   const [playing, setPlaying] = useState(false);

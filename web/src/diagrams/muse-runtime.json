@@ -31,7 +31,7 @@
    "label": "A. Muse in this demo, real mode: the agent acts for Sam",
    "x": 10,
    "y": 30,
-   "w": 1694,
+   "w": 1168,
    "h": 464
   },
   {
@@ -39,7 +39,7 @@
    "label": "B. Through the Airline Connector: Meta's Muse asks Muse",
    "x": 10,
    "y": 530,
-   "w": 1694,
+   "w": 1168,
    "h": 464
   },
   {
@@ -47,7 +47,7 @@
    "label": "C. Just a user, no agent: Sam signs in as himself",
    "x": 10,
    "y": 1030,
-   "w": 1694,
+   "w": 1168,
    "h": 156
   }
  ],
@@ -59,7 +59,7 @@
    "sub": [
     "\"Show my airline points\""
    ],
-   "x": 54,
+   "x": 40,
    "y": 74
   },
   {
@@ -69,7 +69,7 @@
    "sub": [
     "no token on purpose: 401 + where to sign in"
    ],
-   "x": 468,
+   "x": 326,
    "y": 74
   },
   {
@@ -79,7 +79,7 @@
    "sub": [
     "DaVinci: password, Protect, MFA on medium risk"
    ],
-   "x": 883,
+   "x": 612,
    "y": 74
   },
   {
@@ -89,7 +89,7 @@
    "sub": [
     "Muse turns RED if Protect flagged it, BLUE if only the client id did"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 74
   },
   {
@@ -99,7 +99,7 @@
    "sub": [
     "Muse Consent screen"
    ],
-   "x": 54,
+   "x": 40,
    "y": 228
   },
   {
@@ -109,7 +109,7 @@
    "sub": [
     "swapped for Sam's token, kept on the server"
    ],
-   "x": 468,
+   "x": 326,
    "y": 228
   },
   {
@@ -119,7 +119,7 @@
    "sub": [
     "agent token + 2 token exchanges: sub = Sam, act = Muse"
    ],
-   "x": 883,
+   "x": 612,
    "y": 228
   },
   {
@@ -129,7 +129,7 @@
    "sub": [
     "with the delegated token"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 228
   },
   {
@@ -139,7 +139,7 @@
    "sub": [
     "audience, actor and tool checked"
    ],
-   "x": 883,
+   "x": 612,
    "y": 382
   },
   {
@@ -149,7 +149,7 @@
    "sub": [
     "4,500 points, Gold"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 382
   },
   {
@@ -159,7 +159,7 @@
    "sub": [
     "\"How many United points do I have?\""
    ],
-   "x": 54,
+   "x": 40,
    "y": 574
   },
   {
@@ -169,7 +169,7 @@
    "sub": [
     "reads tool names and descriptions; the airline name in them decides"
    ],
-   "x": 468,
+   "x": 326,
    "y": 574
   },
   {
@@ -179,7 +179,7 @@
    "sub": [
     "with metadata: sign in at Muse's own authorize endpoint"
    ],
-   "x": 883,
+   "x": 612,
    "y": 574
   },
   {
@@ -189,7 +189,7 @@
    "sub": [
     "same DaVinci flow; login hint ends .conn"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 574
   },
   {
@@ -199,7 +199,7 @@
    "sub": [
     "PingOne screen names the connector"
    ],
-   "x": 54,
+   "x": 40,
    "y": 728
   },
   {
@@ -209,7 +209,7 @@
    "sub": [
     "same agent token + 2 exchanges as part A"
    ],
-   "x": 468,
+   "x": 326,
    "y": 728
   },
   {
@@ -219,7 +219,7 @@
    "sub": [
     "the PingOne token never leaves Muse"
    ],
-   "x": 883,
+   "x": 612,
    "y": 728
   },
   {
@@ -229,7 +229,7 @@
    "sub": [
     "Muse calls the gateway for it"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 728
   },
   {
@@ -239,7 +239,7 @@
    "sub": [
     "points and tier, shown in Meta's Muse"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 882
   },
   {
@@ -249,7 +249,7 @@
    "sub": [
     "button on Muse"
    ],
-   "x": 54,
+   "x": 40,
    "y": 1074
   },
   {
@@ -259,7 +259,7 @@
    "sub": [
     "the Muse user login app: no agent screen, no consent"
    ],
-   "x": 468,
+   "x": 326,
    "y": 1074
   },
   {
@@ -269,7 +269,7 @@
    "sub": [
     "no act claim, nothing exchanged"
    ],
-   "x": 883,
+   "x": 612,
    "y": 1074
   },
   {
@@ -279,7 +279,7 @@
    "sub": [
     "DENIED: no agent acting for him"
    ],
-   "x": 1298,
+   "x": 898,
    "y": 1074
   }
  ],
