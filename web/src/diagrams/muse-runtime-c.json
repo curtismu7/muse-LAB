@@ -1,0 +1,129 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-runtime-c",
+ "title": "Runtime C: just a user, no agent",
+ "lede": "Sam signs in as himself through a different PingOne app: no agent screen, no consent, and his own token is denied at the gateway.",
+ "groups": {
+  "green": {
+   "label": "PingOne",
+   "color": "green"
+  },
+  "amber": {
+   "label": "Gateway and policy",
+   "color": "amber"
+  },
+  "dark": {
+   "label": "Muse",
+   "color": "dark"
+  },
+  "blue": {
+   "label": "Meta's Muse",
+   "color": "blue"
+  },
+  "red": {
+   "label": "Stops or flags",
+   "color": "red"
+  }
+ },
+ "lanes": [
+  {
+   "id": "lane0",
+   "label": "C. Just a user, no agent: Sam signs in as himself",
+   "x": 10,
+   "y": 30,
+   "w": 1168,
+   "h": 156
+  }
+ ],
+ "nodes": [
+  {
+   "id": "c1",
+   "group": "dark",
+   "label": "1. Sign in as Sam (no agent)",
+   "sub": [
+    "button on Muse"
+   ],
+   "x": 40,
+   "y": 74
+  },
+  {
+   "id": "c2",
+   "group": "green",
+   "label": "2. PingOne sign-in",
+   "sub": [
+    "the Muse user login app: no agent screen, no consent"
+   ],
+   "x": 326,
+   "y": 74
+  },
+  {
+   "id": "c3",
+   "group": "dark",
+   "label": "3. Sam's own token",
+   "sub": [
+    "no act claim, nothing exchanged"
+   ],
+   "x": 612,
+   "y": 74
+  },
+  {
+   "id": "c4",
+   "group": "red",
+   "label": "4. Straight to the gateway",
+   "sub": [
+    "DENIED: no agent acting for him"
+   ],
+   "x": 898,
+   "y": 74
+  }
+ ],
+ "edges": [
+  {
+   "source": "c1",
+   "target": "c2",
+   "label": "C1",
+   "name": "Sign in"
+  },
+  {
+   "source": "c2",
+   "target": "c3",
+   "label": "C2",
+   "name": "Own token"
+  },
+  {
+   "source": "c3",
+   "target": "c4",
+   "label": "C3",
+   "name": "Denied"
+  }
+ ],
+ "steps": [
+  {
+   "title": "Sign in",
+   "what": "Sam clicks \"Sign in as Sam (no agent)\".",
+   "why": "A human login, shown next to the agent login.",
+   "edges": [
+    0
+   ]
+  },
+  {
+   "title": "Own token",
+   "what": "The Muse user login app is not the Muse app, so there is no agent screen and no consent. PingOne issues Sam’s own token.",
+   "why": "The flow decides by app id.",
+   "edges": [
+    0,
+    1
+   ]
+  },
+  {
+   "title": "Denied",
+   "what": "Muse sends Sam’s own token straight to the gateway. No act claim and the wrong audience: 401.",
+   "why": "Only a token that names an agent acting for Sam gets through.",
+   "edges": [
+    0,
+    1,
+    2
+   ]
+  }
+ ]
+}

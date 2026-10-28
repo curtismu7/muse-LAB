@@ -14,11 +14,17 @@
   --warn: #8a5a00;
   --bad: #a1211c;
   --radius: 14px;
+  --detected: #c8102e;
+  --undetected: #1f5fbf;
+  --detected-text: #c8102e;
+  --undetected-text: #1f5fbf;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #111317;
+    --detected-text: #ff7a85;
+    --undetected-text: #7fb0ff;
     --surface: #181b21;
     --panel: #15181d;
     --bubble-muse: #1d2128;
@@ -36,6 +42,8 @@
 
 :root[data-theme="dark"] {
   --bg: #111317;
+  --detected-text: #ff7a85;
+  --undetected-text: #7fb0ff;
   --surface: #181b21;
   --panel: #15181d;
   --bubble-muse: #1d2128;
@@ -104,7 +112,7 @@ code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: br
   min-width: 0;
   padding: 16px 24px 24px;
   gap: 12px;
-  max-width: 900px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
 }
@@ -182,7 +190,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .presenter { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
 
 .signin {
-  margin: auto;
+  margin: auto; width: 100%;
   display: grid;
   justify-items: center;
   gap: 10px;
@@ -294,7 +302,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* The personal agent flow sits in its own full-width row, outside the conversation and the identity panel. */
-.flow-row { grid-column: 1 / -1; padding: 0 24px 24px; max-width: 1040px; width: 100%; margin: 0 auto; }
+.flow-row { grid-column: 1 / -1; padding: 0 24px 24px; max-width: 1600px; width: 100%; margin: 0 auto; }
 @media (max-width: 480px) {
   .flow-row { padding: 0 16px 20px; }
 }
@@ -306,7 +314,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .callers { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
-.disco { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 12px; display: grid; gap: 8px; text-align: left; width: 100%; max-width: 720px; }
+.disco { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 12px; display: grid; gap: 8px; text-align: left; width: 100%; max-width: 1400px; }
 .disco-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; }
@@ -349,3 +357,45 @@ button.approve { border-radius: 8px; width: 100%; }
 
 .how-link { color: var(--accent); }
 .how-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.connector-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.connector-rows li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.connector-rows li > :first-child { flex: 0 1 auto; min-width: 5.5em; }
+.connector-rows code { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+
+.avatar.detected { background: var(--detected); color: #fff; }
+.avatar.undetected { background: var(--undetected); color: #fff; }
+h2.detected, .agent-note.detected { color: var(--detected-text); }
+h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
+.agent-note { margin: 0; font-weight: 600; }
+
+/* How Muse works: two-tab ReactFlow diagram */
+.mflow { gap: 10px; }
+.flow-canvas--xl { height: min(94vh, 1010px); }
+.lane { background: var(--panel) !important; border: 1px solid var(--line) !important; border-radius: 10px !important; pointer-events: none; }
+.lane-title { position: absolute; top: 8px; left: 14px; font-weight: 700; font-size: 14px; color: var(--text); }
+.mflow .hop { padding: 8px 10px; }
+.pill { position: absolute; pointer-events: none; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 3px; font-size: 11px; white-space: nowrap; }
+.pill b { display: inline-block; background: var(--warn); color: var(--surface); border-radius: 999px; padding: 0 7px; margin-right: 3px; }
+.pill-future { opacity: 0.35; }
+.pill-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.mf-edge { stroke: var(--muted); stroke-width: 1.6; }
+.mf-future { opacity: 0.3; }
+.mf-active .mf-edge, path.mf-active { stroke: var(--accent); stroke-width: 2.6; }
+.mf-done .mf-edge, path.mf-done { stroke: var(--ok); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow: auto; }
+.chip { font: inherit; font-size: 12px; text-align: left; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 4px; cursor: pointer; }
+.chip b { background: var(--warn); color: var(--surface); border-radius: 999px; padding: 0 7px; margin-right: 3px; }
+.chip.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.step-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 14px; display: grid; gap: 4px; }
+.step-card h4 { margin: 0; font-size: 15px; }
+.step-card p { margin: 0; font-size: 14px; }
+.diagram-page { max-width: none; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 32px; display: grid; gap: 12px; }
+.diagram-page h1 { margin: 0; font-size: 26px; }
+
+/* Zoom buttons: the app's round white buttons hid the icons in dark mode. */
+.mflow .react-flow__controls { box-shadow: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.mflow .react-flow__controls-button { background: var(--surface) !important; color: var(--text) !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; width: 30px; height: 30px; padding: 0; }
+.mflow .react-flow__controls-button:hover { background: var(--panel) !important; }
+.mflow .react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
+.mflow .seg { flex-wrap: wrap; border-radius: 14px; }

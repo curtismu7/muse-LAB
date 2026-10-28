@@ -25,7 +25,7 @@
   --ok: #6fd08c; --ok-soft: #17291d; --warn: #f0c060; --warn-soft: #2b2415; --bad: #ff8a80; color-scheme: dark;
 }
 body { background: var(--bg); color: var(--fg); margin: 0; font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 760px; margin: 0 auto; padding-block: 32px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+main { max-width: min(1600px, 96vw); margin: 0 auto; padding-block: 32px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
 h1 { font-size: 30px; line-height: 1.2; margin: 0; text-wrap: balance; }
 h2 { font-size: 20px; margin: 0 0 8px; text-wrap: balance; }
 p, li { margin: 0; }
@@ -54,12 +54,24 @@ svg .arrow { stroke: var(--muted); stroke-width: 1.6; fill: none; }
 svg .dash { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
 svg .head { fill: var(--muted); }
 a { color: var(--accent); }
-.back { max-width: 760px; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 0; font-size: 14px; }
+.back { max-width: min(1600px, 96vw); margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 0; font-size: 14px; }
+.back { display: flex; justify-content: space-between; align-items: center; }
+.pdf-btn { font: inherit; font-size: 14px; color: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.pdf-btn:hover { border-color: var(--accent); }
+@media print {
+  :root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+    --bg: #ffffff; --surface: #ffffff; --fg: #1d1f23; --muted: #5d636d; --line: #dfe1dc; --accent: #0a6e78; --accent-soft: #e3f0f1;
+    --ok: #1d6b35; --ok-soft: #e7f5ea; --warn: #8a5a00; --warn-soft: #fff6e0; --bad: #a1211c; color-scheme: light;
+  }
+  .back { display: none; }
+  main { max-width: none; padding-block: 0; }
+  section, svg, table { break-inside: avoid; }
+}
 </style>
 
 </head>
 <body>
-<p class="back"><a href="/">Back to Muse</a></p>
+<p class="back"><a href="/">Back to Muse</a><button type="button" class="pdf-btn" onclick="window.print()">Create PDF</button></p>
 <main>
   <header>
     <h1>How Muse works</h1>
@@ -110,8 +122,8 @@ a { color: var(--accent); }
       <li><strong>Protect scores the sign-in.</strong> The flow sends the user, the address, the browser and the app to a risk evaluation. The level comes back as LOW, MEDIUM or HIGH.</li>
       <li><strong>HIGH stops the sign-in.</strong> Sam sees "Sign-in blocked: this login looks high risk."</li>
       <li><strong>MEDIUM asks for MFA.</strong> Muse has a PingOne MFA switch. With it off, the flow skips MFA for that sign-in.</li>
-      <li><strong>The flow recognizes Muse by its app id.</strong> Protect only receives that id as the target. It does not know Muse is an agent. The flow makes that call.</li>
-      <li><strong>An "AI agent detected" screen comes first.</strong> It shows what the flow knows about the requester, then Sam gives consent.</li>
+      <li><strong>Protect flags Muse.</strong> A Protect predictor matches Muse's app id, which the flow sends as the target of the risk evaluation, and rates it HIGH. The flow records that verdict on the user and it travels into the final token as <code>protect_agent</code>. The flow also recognizes Muse by its app id on its own. When both agree, Protect's verdict is the one shown.</li>
+      <li><strong>An "AI agent detected" screen comes first.</strong> It shows what the flow knows about the requester, then Sam gives consent. The agent's name is bold and coloured: <strong>red</strong> with the line "PingOne Protect agent check: FLAGGED as an AI agent" when Protect rated it HIGH, and <strong>blue</strong> with "no agent signal, identified from the client ID only" when only the app id gave it away.</li>
     </ul>
     <div class="wide">
       <table>
@@ -136,6 +148,12 @@ a { color: var(--accent); }
       <li><strong>Exchange 2.</strong> The same token is re-issued for the gateway's audience, and <code>act</code> carries over.</li>
     </ul>
     <p class="muted">The final token has Sam as <code>sub</code> and Muse's client id as <code>act.sub</code>. Authorize requires Muse to be on its registered actor list, and Muse is.</p>
+    <p>On the Muse page, the name turns <strong>red</strong> ("Detected by Protect") when the token carries Protect's verdict, and <strong>blue</strong> ("Identified from the client id") when only the <code>act</code> claim names Muse. Protect wins when both are present.</p>
+  </section>
+  <section aria-labelledby="user">
+    <h2 id="user">Signing in as just a user</h2>
+    <p>The same page has a second button, "Sign in as Sam (no agent)". Sam signs in as himself, through a different PingOne app (Muse user login), so the flow shows no "AI agent detected" screen and no consent, and nothing is exchanged. Sam's own token then goes straight to the gateway, which refuses it: it carries no <code>act</code> claim and is not for the gateway's audience. Only a token that names an agent acting for Sam gets through.</p>
+    <p class="muted">The flow tells the apps apart by app id: it shows the agent screen and asks for consent only when the sign-in comes from the Muse app.</p>
   </section>
 
   <section aria-labelledby="lanes">
@@ -153,18 +171,32 @@ a { color: var(--accent); }
     <p class="muted">The Privilege lane needed Privilege's own audience to be accepted by the gateway and by Authorize. Both now allow it as an extra audience, and nothing changes for other callers.</p>
   </section>
 
+  <section aria-labelledby="pick">
+    <h2 id="pick">Using it from another agent: which connector gets picked</h2>
+    <p>The Airline Connector lets an agent such as Meta's Muse reach the same tools. The agent reads the tool names and descriptions from every connector you have added, and its model decides which tool fits your request. The server is never asked whether a request is for it. It only sees a call after the agent has chosen it.</p>
+    <ul>
+      <li>With one airline connected, "How many airline points do I have?" goes to it.</li>
+      <li>With two airlines connected, such as United and American, and tools described only as "airline points", the agent may pick either, call both, or ask you which airline you mean. That is the agent's choice, not the connector's.</li>
+      <li>To steer it, name the airline in the prompt ("How many United points do I have?"), and put the airline in the connector name and in each tool description.</li>
+      <li>Each connector signs you in on its own, and it only ever holds your token for its own airline. One airline's server never sees another's token.</li>
+    </ul>
+    <p class="note">How an agent chooses between tools is up to that agent, and this page can only describe the general behaviour of MCP clients. The tool descriptions are the part you control.</p>
+  </section>
+
   <section aria-labelledby="real">
     <h2 id="real">What is real and what is not</h2>
     <ul>
       <li><span class="tag real">Real</span> The PingOne sign-in, the DaVinci flow, the Protect risk evaluation, MFA, the agent screen and consent.</li>
       <li><span class="tag real">Real</span> The token exchanges, the Agent Gateway, Privilege's identity and key check, and PingOne Authorize.</li>
+      <li><span class="tag real">Real</span> The "just a user" sign-in and the gateway's refusal of Sam's own token.</li>
       <li><span class="tag real">Real</span> The tool call. The points come back from the gateway's tool server, which holds sample data.</li>
       <li><span class="tag sim">Mock</span> The offline Muse. It keeps the same screens with a stub gateway and stub checks, and contacts nothing. It is still there for demos with no network.</li>
       <li><span class="tag real">Real</span> On a local run Muse can use a llama.cpp model. The model picks one tool from Muse's own short list before the 401 and words the reply after the tool runs. It never writes tool arguments and never sees a token, and Muse checks that every number in its reply comes from the result.</li>
       <li><span class="tag sim">Simple</span> Without a model, and always on the hosted site, Muse reads a request by keyword and answers points requests only.</li>
-      <li><span class="tag todo">Open</span> Protect does not score Muse differently from a person, and the device fingerprint is not passed in yet, so demouser lands on MEDIUM.</li>
+      <li><span class="tag sim">Simple</span> Protect's signal for Muse is its app id fed into a custom predictor. It is not behavioural bot detection from the device.</li>
+      <li><span class="tag todo">Open</span> The device fingerprint is not passed in yet, so demouser lands on MEDIUM.</li>
     </ul>
-    <p class="note">Real mode is owner-run. It needs the PingOne app's secret and the local gateway, and it does not run on the hosted mock build.</p>
+    <p class="note">The hosted site runs Real mode with its own PingOne app. A local run needs the PingOne app's secret and the gateway, and the offline Mock is local only.</p>
   </section>
 </main>
 

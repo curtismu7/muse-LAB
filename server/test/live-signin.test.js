@@ -178,7 +178,7 @@ test('acting for the user: sign-in, agent token, two exchanges, then Agent Gatew
       const g = f.get('grant_type');
       if (g === 'authorization_code') return json(200, { access_token: jwt({ aud: GW, sub: 'sam' }) });
       if (g === 'client_credentials') return json(200, { access_token: jwt({ aud: 'workload', sub: 'client1' }) });
-      return json(200, { access_token: jwt({ aud: f.get('actor_token') ? 'workload' : GW, sub: 'sam', act }) });
+      return json(200, { access_token: jwt({ aud: f.get('actor_token') ? 'workload' : GW, sub: 'sam', act, protect_agent: 'HIGH' }) });
     },
   });
   const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1', MUSE_P1_CLIENT_SECRET: 'sekret' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
@@ -197,6 +197,7 @@ test('acting for the user: sign-in, agent token, two exchanges, then Agent Gatew
   assert.equal(bodies[3].actor_token, undefined, 'exchange 2 carries act on from the first token');
   const s = await call('GET', '/api/session');
   assert.deepEqual(s.j.liveAuth.claims.act, act);
+  assert.equal(s.j.liveAuth.claims.protect_agent, 'HIGH', 'the page can tell a Protect verdict from a client id match');
   assert.ok(!s.t.includes('sekret'));
   await call('POST', '/api/live/call');
   const authed = n.seen.filter((x) => x.url === GW && x.init.headers.authorization);
@@ -275,5 +276,36 @@ test('the PingOne MFA switch: off adds the .nomfa flag to the login hint, on lea
   const off = new URL((await call('POST', '/api/live/signin', { mfa: 'off' })).j.url);
   assert.equal(on.searchParams.get('login_hint'), 'demouser');
   assert.equal(off.searchParams.get('login_hint'), 'demouser.nomfa');
+  await new Promise((r) => server.close(r));
+});
+
+test('just a user: separate PingOne app, no exchange, own token to the gateway is refused', async () => {
+  const P1 = 'https://auth.pingone.com/env1/as';
+  const UID = '2e73d4ff-8164-4c9c-849f-55f1180a94e7';
+  const bodies = [];
+  const n = net({
+    [GW]: (init) => (init.headers.authorization ? json(401, { error: 'invalid_token' }) : json(401, {}, { 'www-authenticate': 'Bearer resource_metadata="https://gw.example/.well-known/oauth-protected-resource/pft/mcp"' })),
+    [`${P1}/token`]: (init) => { bodies.push(Object.fromEntries(new URLSearchParams(init.body))); return json(200, { access_token: jwt({ iss: 'https://auth.pingone.com/env1', aud: UID, sub: 'FF1' }) }); },
+  });
+  const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1', MUSE_P1_CLIENT_SECRET: 'sekret', MUSE_USER_CLIENT_ID: UID }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let cookie = null;
+  const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { s: r.status, j: await r.json().catch(() => null) }; };
+  await call('POST', '/api/gateway-mode', { mode: 'live' }); await call('POST', '/api/discover');
+  assert.equal((await call('GET', '/api/session')).j.live.userLogin, true);
+  const su = await call('POST', '/api/live/signin', { as: 'user', mfa: 'off' });
+  assert.ok(su.j?.url, JSON.stringify(su));
+  const u = new URL(su.j.url);
+  assert.equal(u.searchParams.get('client_id'), UID, 'a different app from Muse, so the flow skips the agent screen and consent');
+  assert.equal(u.searchParams.get('login_hint'), 'demouser.nomfa');
+  assert.equal(u.searchParams.has('resource'), false);
+  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  assert.deepEqual(bodies.map((b) => b.grant_type), ['authorization_code'], 'no agent token, no exchange');
+  assert.equal(bodies[0].client_secret, undefined, 'public client');
+  const s = (await call('GET', '/api/session')).j;
+  assert.equal(s.userLogin.denied, true);
+  assert.equal(s.userLogin.claims.act, undefined);
+  assert.equal(s.liveAuth.signedIn, false, 'the agent sign-in is untouched');
   await new Promise((r) => server.close(r));
 });
