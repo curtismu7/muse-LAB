@@ -264,7 +264,7 @@ export default function App() {
         <header className="chat-top">
           <div>
             <h1>Muse</h1>
-            <p className="muted">A personal agent, guarded by PingOne Privilege. <a className="how-link" href="/how-muse-works.html">How it works</a></p>
+            <p className="muted">A personal agent, guarded by PingOne Privilege. <a className="how-link" href="/how-muse-works.html">How it works</a> &middot; <a className="how-link" href="/diagram">Diagram</a></p>
           </div>
           {session.signedIn && (
             <div className="top-actions">
