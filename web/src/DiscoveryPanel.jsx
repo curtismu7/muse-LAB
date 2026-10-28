@@ -12,7 +12,9 @@ const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
 export default function DiscoveryPanel({ session, api, onChange, busy, guarded }) {
   const [open, setOpen] = useState(null);
   const live = session.mode === 'live';
-  const d = session.discovery && { ...session.discovery, steps: [...session.discovery.steps, ...(live ? (session.liveAuth?.steps ?? []) : [])] };
+  const liveSteps = live ? (session.liveAuth?.steps ?? []) : [];
+  // Without discovery (a declined request) the model's own step is still shown.
+  const d = !session.discovery && liveSteps.length ? { steps: [...liveSteps].sort((a, b) => a.n - b.n), learned: null, stopped: null } : session.discovery && { ...session.discovery, steps: [...session.discovery.steps, ...(live ? (session.liveAuth?.steps ?? []) : [])].sort((a, b) => a.n - b.n) };
 
   const setMode = (mode) => guarded(async () => { await api('POST', '/api/gateway-mode', { mode }); await onChange(); setOpen(null); });
   const la = session.liveAuth ?? { steps: [] };
@@ -53,7 +55,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
           <div className="feed live-feed" role="log" aria-live="polite">
             {!la.ask && <p className="muted center">Ask Muse for something, for example: {POINTS_PROMPT.toLowerCase()}.</p>}
             {la.ask && <div className="bubble user">{la.ask.prompt}</div>}
-            {la.ask && d && (
+            {la.ask && session.discovery && (
               <div className="msg">
                 <span className="avatar sm" aria-hidden="true">M</span>
                 <div className="bubble muse">
@@ -65,7 +67,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
             {la.answer && (
               <div className="msg">
                 <span className={`avatar sm ${la.claims?.protect_agent === 'HIGH' ? 'detected' : la.claims?.act ? 'undetected' : ''}`} aria-hidden="true">M</span>
-                <div className="bubble muse" data-testid="answer">You have <strong>{Number(la.answer.points).toLocaleString()} points</strong> ({la.answer.tier}).</div>
+                <div className="bubble muse" data-testid="answer">{la.answer.reply ?? <>You have <strong>{Number(la.answer.points).toLocaleString()} points</strong> ({la.answer.tier}).</>}</div>
               </div>
             )}
           </div>

@@ -191,7 +191,8 @@ a { color: var(--accent); }
       <li><span class="tag real">Real</span> The "just a user" sign-in and the gateway's refusal of Sam's own token.</li>
       <li><span class="tag real">Real</span> The tool call. The points come back from the gateway's tool server, which holds sample data.</li>
       <li><span class="tag sim">Mock</span> The offline Muse. It keeps the same screens with a stub gateway and stub checks, and contacts nothing. It is still there for demos with no network.</li>
-      <li><span class="tag sim">Simple</span> Muse reads a request by keyword. In real mode it answers points requests and refuses anything else. There is no language model yet.</li>
+      <li><span class="tag real">Real</span> On a local run Muse can use a llama.cpp model. The model picks one tool from Muse's own short list before the 401 and words the reply after the tool runs. It never writes tool arguments and never sees a token, and Muse checks that every number in its reply comes from the result.</li>
+      <li><span class="tag sim">Simple</span> Without a model, and always on the hosted site, Muse reads a request by keyword and answers points requests only.</li>
       <li><span class="tag sim">Simple</span> Protect's signal for Muse is its app id fed into a custom predictor. It is not behavioural bot detection from the device.</li>
       <li><span class="tag todo">Open</span> The device fingerprint is not passed in yet, so demouser lands on MEDIUM.</li>
     </ul>

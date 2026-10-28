@@ -7,6 +7,7 @@ import { createWorkspaces } from './workspaces.js';
 import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
 import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
+import { agentConfig, agentTools, normaliseResult, plan, reply } from './agent.js';
 import { mountConnector } from './connector.js';
 import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
@@ -38,6 +39,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     ...(env.MUSE_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean),
   ]);
   const live = liveConfig(env);
+  const agent = agentConfig(env);
   const protect = createProtect(env);
   const workspaces = createWorkspaces({ max: Number(env.MUSE_MAX_WORKSPACES) || 200 });
   // Real flows touch PingOne and the gateway, so starting them is limited per visitor and across everyone.
@@ -117,6 +119,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       connector,
       mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
       live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp), lane: live.idp?.lane ?? null, userLogin: Boolean(live.idp?.userClientId) } : { available: false },
+      agent: agent ? { enabled: true, model: agent.model } : { enabled: false },
       discovery: ws.discovery ?? null,
       liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null, ask: ws.liveAsk ?? null, answer: ws.liveAnswer ?? null },
       userLogin: ws.userLogin ?? null,
@@ -153,12 +156,16 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   // The tool result comes back as MCP text content holding JSON; Muse reads the points out of it.
   const answerFrom = (steps) => {
     const r = steps.find((x) => x.n === 9)?.response;
-    try { const d = JSON.parse(r.body.result.content[0].text).data; return { points: d.points, tier: d.tier }; } catch { return null; }
+    try { return normaliseResult(r.body.result.content[0].text); } catch { return null; }
   };
   const runAsk = async (ws) => {
     const steps = await callGateway(live, ws.liveToken, fetchImpl, { tool: ws.liveAsk?.tool ?? (live.idp?.clientSecret ? 'loyalty_balance' : null) });
     for (const st of steps) addStep(ws, st);
-    ws.liveAnswer = answerFrom(steps);
+    const result = answerFrom(steps);
+    if (!result) { ws.liveAnswer = null; return; }
+    const said = await reply(agent, ws.liveAsk?.prompt, result, fetchImpl);
+    if (agent) addStep(ws, { n: 10, title: 'Muse writes the reply', request: { method: 'POST', url: agent.endpoint, body: { model: agent.model, facts: 'the tool result' } }, response: { status: 200, body: { via: said.via, model: said.model ?? agent.model } }, note: said.note ?? 'The model words the answer from the tool result. Muse checks that every number in it comes from the result.' });
+    ws.liveAnswer = { ...result, reply: said.text };
   };
   const liveReady = (req, res) => {
     if (req.ws.gatewayMode !== 'live' || !live) { res.status(409).json({ error: 'switch to Real (live) first' }); return false; }
@@ -173,8 +180,15 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     const ws = req.ws;
     if (!live || ws.gatewayMode !== 'live') return res.status(409).json({ error: 'switch to Real (live) first' });
     const prompt = String(req.body?.prompt ?? '').slice(0, 200);
-    if (!/point|mile|balance|loyal/i.test(prompt)) return res.status(400).json({ error: 'In Real mode Muse can answer one thing so far: your airline points.' });
-    ws.liveAsk = { prompt, tool: 'loyalty_balance' }; ws.liveAnswer = null; ws.liveError = null;
+    // Step 0: Muse's model picks the tool (or declines). Without a model, keywords decide.
+    const chosen = await plan(agent, prompt, fetchImpl);
+    if (agent) addStep(ws, { n: 0, title: 'Muse asks its model which tool to use', request: { method: 'POST', url: agent.endpoint, body: { model: agent.model, tools: agentTools().map((t) => t.name) } }, response: { status: 200, body: { tool: chosen.tool ?? 'none', via: chosen.via, ...(chosen.model ? { model: chosen.model } : {}) } }, note: chosen.note ?? 'The model chooses one tool from Muse\'s own list, or none. It never writes arguments and never sees a token.' });
+    if (!chosen.tool) {
+      if (!agent) return res.status(400).json({ error: 'In Real mode Muse can answer one thing so far: your airline points.' });
+      ws.liveAsk = { prompt }; ws.liveAnswer = { reply: chosen.reply }; ws.liveError = null;
+      return res.json({ state: 'declined', reply: chosen.reply });
+    }
+    ws.liveAsk = { prompt, tool: chosen.tool }; ws.liveAnswer = null; ws.liveError = null;
     try {
       if (ws.liveToken) { await runAsk(ws); return res.json({ state: 'done' }); }
       ws.discovery = await liveDiscovery(live, fetchImpl);

@@ -259,7 +259,7 @@ test('the user asks first: 401 from the gateway, then PingOne, then Muse retries
   const u = new URL((await call('POST', '/api/live/signin')).j.url);
   await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
   const after = (await call('GET', '/api/session')).j;
-  assert.deepEqual(after.liveAuth.answer, { points: 4500, tier: 'Gold' }, 'Muse finished the request after the redirect');
+  assert.deepEqual([after.liveAuth.answer.points, after.liveAuth.answer.tier, after.liveAuth.answer.reply], [4500, 'Gold', 'You have 4,500 points (Gold).'], 'Muse finished the request after the redirect');
   assert.ok(after.liveAuth.steps.some((x) => x.n === 9));
   await new Promise((r) => server.close(r));
 });
