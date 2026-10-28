@@ -1,0 +1,306 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-runtime-a",
+ "title": "Runtime A: Muse acts for Sam",
+ "lede": "Real mode. Sam asks, PingOne signs him in and flags the agent, Sam consents, Muse gets a delegated token, and the gateway and Authorize let the tool run.",
+ "groups": {
+  "green": {
+   "label": "PingOne",
+   "color": "green"
+  },
+  "amber": {
+   "label": "Gateway and policy",
+   "color": "amber"
+  },
+  "dark": {
+   "label": "Muse",
+   "color": "dark"
+  },
+  "blue": {
+   "label": "Meta's Muse",
+   "color": "blue"
+  },
+  "red": {
+   "label": "Stops or flags",
+   "color": "red"
+  }
+ },
+ "lanes": [
+  {
+   "id": "lane0",
+   "label": "A. Muse in this demo, real mode: the agent acts for Sam",
+   "x": 10,
+   "y": 30,
+   "w": 1168,
+   "h": 464
+  }
+ ],
+ "nodes": [
+  {
+   "id": "a1",
+   "group": "dark",
+   "label": "1. Sam asks",
+   "sub": [
+    "\"Show my airline points\""
+   ],
+   "x": 40,
+   "y": 74
+  },
+  {
+   "id": "a2",
+   "group": "amber",
+   "label": "2. Muse calls the gateway",
+   "sub": [
+    "no token on purpose: 401 + where to sign in"
+   ],
+   "x": 326,
+   "y": 74
+  },
+  {
+   "id": "a3",
+   "group": "green",
+   "label": "3. PingOne sign-in",
+   "sub": [
+    "DaVinci: password, Protect, MFA on medium risk"
+   ],
+   "x": 612,
+   "y": 74
+  },
+  {
+   "id": "a4",
+   "group": "red",
+   "label": "4. Agent detected",
+   "sub": [
+    "Muse turns RED if Protect flagged it, BLUE if only the client id did"
+   ],
+   "x": 898,
+   "y": 74
+  },
+  {
+   "id": "a5",
+   "group": "green",
+   "label": "5. Sam consents",
+   "sub": [
+    "Muse Consent screen"
+   ],
+   "x": 40,
+   "y": 228
+  },
+  {
+   "id": "a6",
+   "group": "dark",
+   "label": "6. Code back to Muse",
+   "sub": [
+    "swapped for Sam's token, kept on the server"
+   ],
+   "x": 326,
+   "y": 228
+  },
+  {
+   "id": "a7",
+   "group": "green",
+   "label": "7. Muse acts for Sam",
+   "sub": [
+    "agent token + 2 token exchanges: sub = Sam, act = Muse"
+   ],
+   "x": 612,
+   "y": 228
+  },
+  {
+   "id": "a8",
+   "group": "amber",
+   "label": "8. Muse asks again",
+   "sub": [
+    "with the delegated token"
+   ],
+   "x": 898,
+   "y": 228
+  },
+  {
+   "id": "a9",
+   "group": "amber",
+   "label": "9. PingOne Authorize",
+   "sub": [
+    "audience, actor and tool checked"
+   ],
+   "x": 612,
+   "y": 382
+  },
+  {
+   "id": "a10",
+   "group": "green",
+   "label": "10. Tool runs",
+   "sub": [
+    "4,500 points, Gold"
+   ],
+   "x": 898,
+   "y": 382
+  }
+ ],
+ "edges": [
+  {
+   "source": "a1",
+   "target": "a2",
+   "label": "A1",
+   "name": "Ask"
+  },
+  {
+   "source": "a2",
+   "target": "a3",
+   "label": "A2",
+   "name": "401, sign in"
+  },
+  {
+   "source": "a3",
+   "target": "a4",
+   "label": "A3",
+   "name": "Protect check"
+  },
+  {
+   "source": "a4",
+   "target": "a5",
+   "label": "A4",
+   "name": "Agent screen"
+  },
+  {
+   "source": "a5",
+   "target": "a6",
+   "label": "A5",
+   "name": "Consent"
+  },
+  {
+   "source": "a6",
+   "target": "a7",
+   "label": "A6",
+   "name": "Code to token"
+  },
+  {
+   "source": "a7",
+   "target": "a8",
+   "label": "A7",
+   "name": "Delegation"
+  },
+  {
+   "source": "a8",
+   "target": "a9",
+   "label": "A8",
+   "name": "Authorize check"
+  },
+  {
+   "source": "a9",
+   "target": "a10",
+   "label": "A9",
+   "name": "Tool runs"
+  }
+ ],
+ "steps": [
+  {
+   "title": "Ask",
+   "what": "Sam asks Muse: \"Show my airline points\".",
+   "why": "Muse acts only when asked.",
+   "edges": [
+    0
+   ]
+  },
+  {
+   "title": "401, sign in",
+   "what": "Muse calls the gateway with no token, on purpose. The 401 says where to sign in.",
+   "why": "Nothing authenticated has been sent yet.",
+   "edges": [
+    0,
+    1
+   ]
+  },
+  {
+   "title": "Protect check",
+   "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect also checks whether the app is an agent.",
+   "why": "The agent is recognised by PingOne, not by its own word.",
+   "edges": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "title": "Agent screen",
+   "what": "Sam sees \"AI agent detected\". The agent name is red if Protect flagged it, blue if only the client id did.",
+   "why": "Sam knows an agent is asking before he consents.",
+   "edges": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "title": "Consent",
+   "what": "Sam allows Muse to act for him. PingOne returns a code to Muse.",
+   "why": "Consent is recorded before any token is issued.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "title": "Code to token",
+   "what": "Muse swaps the code for Sam’s token. It stays on the Muse server.",
+   "why": "The browser never sees a token.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "title": "Delegation",
+   "what": "Muse gets its own agent token, then makes two token exchanges. The result has sub = Sam and act = Muse.",
+   "why": "The gateway can tell who acts for whom.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "title": "Authorize check",
+   "what": "Muse asks again with the delegated token. The gateway checks it, then asks PingOne Authorize: right audience, Muse a registered actor, tool allowed.",
+   "why": "Policy decides every tool call.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  {
+   "title": "Tool runs",
+   "what": "Allowed, so the tool runs and returns 4,500 points, Gold.",
+   "why": "The answer exists only because every check passed.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ]
+  }
+ ]
+}

@@ -3,11 +3,11 @@ import { ReactFlow, Background, Controls, Handle, Position, BaseEdge, EdgeLabelR
 import '@xyflow/react/dist/style.css';
 import { loadDiagram } from './diagrams/index.js';
 
-// How Muse works, as two tabs: Config (set up once) and Runtime (what happens on a request).
+// How Muse works, one tab per diagram: Config (set up once) and three Runtime paths (what happens on a request).
 // Standard: movable boxes, Simulate with Prev/Next/Pause, Reset, a speed control, every arrow numbered AND named, a card per step.
 const STEP_MS = 1600;
 const SPEEDS = [0.5, 1, 2];
-const TABS = [{ id: 'muse-config', label: 'Config' }, { id: 'muse-runtime', label: 'Runtime' }];
+const TABS = [{ id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Muse acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }];
 const BOX_W = 230;
 
 const SIDES = [['t', Position.Top], ['b', Position.Bottom], ['l', Position.Left], ['r', Position.Right]];
@@ -63,17 +63,19 @@ export default function MuseFlow() {
 function Canvas({ diagram: D }) {
   const colour = (n) => D.groups[n.group]?.color ?? 'grey';
   const byId = useMemo(() => Object.fromEntries(D.nodes.map((n) => [n.id, n])), [D]);
-  // Spread the boxes sideways so the diagram's shape matches the canvas's, then fit-to-view fills the page width. Gaps also leave room for the arrow pills.
-  const sx = useMemo(() => {
+  // Spread the boxes so the diagram's shape matches the canvas's: wider gaps sideways (also room for the arrow pills) or taller rows, so fit-to-view fills the page.
+  const { sx, sy } = useMemo(() => {
     const cw = Math.max(600, window.innerWidth * 0.98 - 60), ch = Math.min(window.innerHeight * 0.94, 1010);
     const w = Math.max(...D.lanes.map((l) => l.x + l.w)), h = Math.max(...D.lanes.map((l) => l.y + l.h));
-    return Math.min(2.8, Math.max(1.3, cw / ch / (w / h)));
+    const k = cw / ch / (w / h);
+    return k >= 1 ? { sx: Math.min(2.8, Math.max(1.3, k)), sy: 1 } : { sx: 1.3, sy: Math.min(2.4, 1.3 / k) };
   }, [D]);
   const X = (x) => Math.round(10 + (x - 10) * sx);
+  const Y = (y) => Math.round(30 + (y - 30) * sy);
   const startNodes = useCallback(() => [
-    ...D.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: l.y }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: Math.round(l.w * sx), height: l.h }, className: 'lane' })),
-    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: { x: X(n.x), y: n.y }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: BOX_W }, className: `hop grp-${colour(n)}` })),
-  ], [D, sx]); // eslint-disable-line react-hooks/exhaustive-deps
+    ...D.lanes.map((l) => ({ id: l.id, type: 'lane', position: { x: l.x, y: Y(l.y) }, data: { label: l.label }, draggable: false, selectable: false, focusable: false, zIndex: -1, style: { width: Math.round(l.w * sx), height: Math.round(l.h * sy) }, className: 'lane' })),
+    ...D.nodes.map((n) => ({ id: n.id, type: 'box', position: { x: X(n.x), y: Y(n.y) }, data: { label: n.label, sub: n.sub ?? [] }, style: { width: BOX_W }, className: `hop grp-${colour(n)}` })),
+  ], [D, sx, sy]); // eslint-disable-line react-hooks/exhaustive-deps
   const [nodes, setNodes, onNodesChange] = useNodesState(startNodes());
   const [current, setCurrent] = useState(null); // null = not started; otherwise the step shown
   const [playing, setPlaying] = useState(false);
