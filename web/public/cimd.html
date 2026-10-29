@@ -248,14 +248,22 @@ location: https://api.notion.com/v1/oauth/authorize?client_id=1f8d872b-594c-80a4
 
     <section aria-labelledby="r7">
       <details>
-        <summary id="r7">Also tried: a local PingFederate 13.1.3 with client.dev's example document</summary>
+        <summary id="r7">Also tried: real PingFederate with client.dev's example document</summary>
         <div class="step">
-        <p>PingFederate 13.1 added CIMD. This local one advertises <code>client_id_metadata_document_supported: true</code> and lists <code>none</code>. An authorize request with <code>client_id=https://client.dev/oauth/metadata.json</code> returned <code>400 - Invalid client_id</code>. PingFederate's documentation says it rejects a CIMD request when no enabled CIMD policy matches. I have not read this server's policies, so the cause is unconfirmed. A policy that allows client.dev, or ChatGPT's and Codex's addresses, would be the next step to capture the accepted path on PingFederate.</p>
+        <p>PingFederate 13.1 added CIMD. Both a local 13.1.3 and the SE one (<code>cmuir-pf.ping-devops.com</code>) advertise <code>client_id_metadata_document_supported: true</code> and list <code>none</code> and <code>private_key_jwt</code>.</p>
+        <p><strong>First try: refused.</strong> An authorize request with <code>client_id=https://client.dev/oauth/metadata.json</code> returned <code>400 - Invalid client_id</code>. Reading the SE server's configuration showed why: CIMD was on, but only three policies existed, each allowing one exact metadata URL (PKCE required), and client.dev was in none of them. PingFederate rejects a CIMD request when no enabled policy matches.</p>
 <pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
 Host: local.ping-devops.com:9031
 
 HTTP/2 400
 400 - Invalid client_id</pre>
+        <p><strong>After adding a policy for client.dev only</strong> (one new policy and an opaque-token access token manager, with the owner's approval; the other three untouched), the same request on the SE server:</p>
+<pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
+Host: cmuir-pf.ping-devops.com
+
+HTTP/2 302
+location: https://client.dev/oauth/callback?error=server_error&amp;error_description=There+are+no+authentication+methods+available+for+OAuth.&amp;state=x</pre>
+        <p>The 400 is gone, so PingFederate fetched and accepted the document: the client is valid. It then could not sign anyone in, because the default authentication policy's two selectors do not match this client, and it sent the error back to the callback the document lists. Still open: an authentication path for CIMD clients, which is a shared default-policy change and the owner's decision. Not captured: the sign-in and the code. The Acme PingFederate (<code>cmuir-pf-acme.ping-devops.com</code>) does not advertise CIMD at all.</p>
         </div>
       </details>
     </section>
@@ -358,7 +366,7 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
     <h2 id="after">What each side does</h2>
     <ul>
       <li><span class="tag real">Real</span> ChatGPT, Codex and Claude Code host their own documents. Linear and Notion accept ChatGPT's and Codex's, and refuse a callback that is not in the document.</li>
-      <li><span class="tag real">Real</span> A local PingFederate 13.1.3 advertises CIMD. It refused client.dev (cause unconfirmed).</li>
+      <li><span class="tag real">Real</span> PingFederate 13.1.x advertises CIMD. It refused client.dev until a policy allowed it, then fetched and accepted the document but had no sign-in path for it yet.</li>
       <li><span class="tag sim">Mock</span> Muse's connector accepting a document address. <strong>Not built.</strong> Muse does not do CIMD today.</li>
       <li><span class="tag todo">Open</span> The token step with a real signed-in user, for ChatGPT (<code>private_key_jwt</code>) and Codex. Whether ChatGPT falls back to <code>none</code> when a server lacks <code>private_key_jwt</code> is not verified.</li>
     </ul>
