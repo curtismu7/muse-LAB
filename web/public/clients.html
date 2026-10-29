@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One back end, any agent</title>
+<script>try{var t=localStorage.getItem('muse.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<style>
+/* /clients: one back end, four client skins. The steps are scripted; "Sign in live" runs the real PingOne sign-in and shows the real answer.
+   Logos: brands/claude-symbol.svg (CC0) and brands/openai-symbol.svg (public domain), from Wikimedia Commons, unchanged. */
+:root {
+  --bg: #eef1f6; --surface: #ffffff; --fg: #14213d; --muted: #5b6577; --line: #d9dee8;
+  --band-a: #0b1f44; --band-b: #1c3f7a; --accent: #b3261e; --accent-soft: #fbe9e7;
+  --ok: #1d6b35; --warn: #8a5a00; --warn-soft: #fff6e0;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: Montserrat, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1220; --surface: #141c2e; --fg: #e8ecf4; --muted: #9aa5ba; --line: #26324a;
+    --band-a: #08142c; --band-b: #16315f; --accent: #ff8a80; --accent-soft: #3a1e1e;
+    --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1220; --surface: #141c2e; --fg: #e8ecf4; --muted: #9aa5ba; --line: #26324a;
+  --band-a: #08142c; --band-b: #16315f; --accent: #ff8a80; --accent-soft: #3a1e1e;
+  --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); }
+code { font: 13px var(--mono); overflow-wrap: anywhere; }
+button { font: inherit; cursor: pointer; color: inherit; }
+img { display: block; }
+
+/* ---------- Page chrome (Muse look) ---------- */
+.topnav { max-width: 1440px; margin: 0 auto; padding: 12px 16px 0; font-size: 14px; }
+.topnav a { color: var(--fg); }
+.real-box { border: 1px solid var(--line); border-left: 4px solid var(--ok); background: var(--surface); border-radius: 8px; padding: 8px 12px; font-size: 13px; display: grid; gap: 4px; }
+.real-box.bad { border-left-color: var(--accent); }
+.band { background: linear-gradient(120deg, var(--band-a), var(--band-b)); color: #fff; padding: 22px 16px 18px; }
+.band__in { max-width: 1440px; margin: 0 auto; display: grid; gap: 12px; }
+.eyebrow { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .75; }
+.band h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); line-height: 1.15; }
+.band p { margin: 0; max-width: 72ch; opacity: .88; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.picker { display: inline-flex; flex-wrap: wrap; gap: 4px; background: rgba(255,255,255,.1); padding: 4px; border-radius: 12px; }
+.picker button { border: 0; background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; display: inline-flex; gap: 7px; align-items: center; }
+.picker button img { width: 16px; height: 16px; }
+.picker button .inv { filter: invert(1); }
+.picker button[aria-pressed="true"] { background: #fff; color: var(--band-a); font-weight: 600; }
+.picker button[aria-pressed="true"] .inv { filter: none; }
+.picker .m { width: 16px; height: 16px; border-radius: 5px; background: #fff; color: var(--band-a); font: 700 11px/16px var(--sans); text-align: center; }
+.picker button[aria-pressed="true"] .m { background: var(--band-a); color: #fff; }
+.ctl { border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; }
+.ctl:disabled { opacity: .4; cursor: default; }
+.stepname { font-size: 14px; opacity: .85; }
+.ribbon { max-width: 1440px; margin: 14px auto 0; padding: 0 16px; }
+.ribbon p { margin: 0; border: 1px solid var(--line); border-left: 4px solid var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.layout { max-width: 1440px; margin: 14px auto 40px; padding: 0 16px; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 960px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { position: relative; height: 680px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(10,20,40,.12); }
+@media (max-width: 640px) { .stage { height: 620px; } }
+.stage > .app { height: 100%; }
+.claude, .gpt { grid-template-rows: minmax(0, 1fr); }
+.log { overflow-y: auto; scroll-behavior: smooth; }
+.in { animation: rise .3s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .in, .pop { animation: none; } .log { scroll-behavior: auto; } }
+.sim { font: 600 10px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; opacity: .7; white-space: nowrap; }
+svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---------- PingOne hosted page (same for every client, only the agent name changes) ---------- */
+.pop { position: absolute; top: 54px; right: 18px; width: min(400px, calc(100% - 36px)); background: #fff; color: #1d2433; border-radius: 10px; box-shadow: 0 24px 60px rgba(0,0,0,.4); overflow: hidden; animation: rise .3s ease both; z-index: 5; font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; }
+.pop .bar { background: #e9ebef; padding: 8px 10px; display: flex; gap: 8px; align-items: center; }
+.pop .dots { display: flex; gap: 5px; } .pop .dots i { width: 9px; height: 9px; border-radius: 50%; background: #c7cbd3; display: block; }
+.pop .url { flex: 1; min-width: 0; background: #fff; border-radius: 6px; padding: 3px 9px; font: 12px var(--mono); color: #3a404a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pop .body { padding: 18px 20px 20px; display: grid; gap: 10px; }
+.pop .org { font-size: 12px; color: #6b7280; letter-spacing: .04em; text-transform: uppercase; }
+.pop h5 { margin: 0; font-size: 19px; }
+.pop .field { border: 1px solid #cfd4dc; border-radius: 6px; padding: 8px 10px; color: #1d2433; }
+.pop .flag { border-radius: 8px; padding: 9px 11px; background: #fdecea; border: 1px solid #e4a39d; }
+.pop .flag.blue { background: #e8f0fb; border-color: #9bb8e4; }
+.pop .go { justify-self: stretch; background: #b3261e; color: #fff; border: 0; border-radius: 6px; padding: 9px 14px; font-weight: 600; }
+.pop .small { font-size: 12px; color: #6b7280; }
+
+/* ======================= Muse ======================= */
+.muse { display: grid; grid-template-rows: auto minmax(0,1fr) auto; background: var(--surface); }
+.muse .hd { background: linear-gradient(120deg, var(--band-a), var(--band-b)); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+.muse .log { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.muse .u { align-self: flex-end; background: #1c3f7a; color: #fff; padding: 9px 13px; border-radius: 14px 14px 4px 14px; max-width: 80%; }
+.muse .b { background: var(--bg); padding: 9px 13px; border-radius: 14px 14px 14px 4px; max-width: 80%; }
+.muse .card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; max-width: 520px; }
+.muse .card b { font-size: 15px; }
+.muse .btn { justify-self: start; border-radius: 8px; padding: 6px 12px; border: 0; background: #1c3f7a; color: #fff; }
+.muse .tool { font: 13px var(--mono); }
+.muse .cmp { margin: 0 18px 18px; border: 1px solid var(--line); background: var(--bg); border-radius: 14px; padding: 11px 14px; display: flex; justify-content: space-between; color: var(--muted); }
+
+/* ======================= Claude ======================= */
+.claude { --c-bg: #faf9f5; --c-side: #f5f4ed; --c-fg: #141413; --c-mut: #73726c; --c-line: #e3e1d7; --c-bub: #f0eee6; --c-box: #ffffff; --c-clay: #d97757; --c-ava: #3d3d3a;
+  display: grid; grid-template-columns: 52px minmax(0,1fr); background: var(--c-bg); color: var(--c-fg); font: 15px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif; }
+:root[data-theme="dark"] .claude { --c-bg: #262624; --c-side: #1f1e1d; --c-fg: #f5f4ee; --c-mut: #a6a39a; --c-line: #3d3d3a; --c-bub: #141413; --c-box: #30302e; --c-ava: #c2c0b6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .claude { --c-bg: #262624; --c-side: #1f1e1d; --c-fg: #f5f4ee; --c-mut: #a6a39a; --c-line: #3d3d3a; --c-bub: #141413; --c-box: #30302e; --c-ava: #c2c0b6; } }
+.claude .rail { background: var(--c-side); border-right: 1px solid var(--c-line); display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px 0; color: var(--c-mut); }
+.claude .rail .new { width: 30px; height: 30px; border-radius: 50%; background: var(--c-clay); color: #fff; display: grid; place-items: center; }
+.claude .rail .ava { margin-top: auto; width: 28px; height: 28px; border-radius: 50%; background: var(--c-ava); color: var(--c-bg); font: 600 12px/28px system-ui; text-align: center; }
+.claude .main { display: grid; grid-template-rows: auto minmax(0,1fr) auto; min-width: 0; }
+.claude .hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; gap: 8px; }
+.claude .hd .t { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.claude .hd .share { border: 1px solid var(--c-line); background: var(--c-box); border-radius: 8px; padding: 4px 12px; font-size: 13px; }
+.claude .log { padding: 8px 16px 16px; }
+.claude .col { max-width: 700px; margin: 0 auto; display: grid; gap: 18px; }
+.claude .u { justify-self: end; display: flex; gap: 10px; align-items: flex-start; background: var(--c-bub); border-radius: 12px; padding: 10px 14px; max-width: 90%; }
+.claude .u .ava { width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--c-ava); color: var(--c-bg); font: 600 11px/24px system-ui; text-align: center; }
+.claude .a { font: 17px/1.65 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; }
+.claude .a p { margin: 0 0 6px; }
+.claude .spark { width: 22px; height: 22px; margin-top: 4px; }
+.claude .tool { border: 1px solid var(--c-line); border-radius: 10px; background: var(--c-box); font-size: 14px; overflow: hidden; }
+.claude .tool .th { display: flex; gap: 8px; align-items: center; padding: 9px 12px; color: var(--c-mut); }
+.claude .tool .th b { color: var(--c-fg); font-weight: 500; }
+.claude .tool pre { margin: 0; border-top: 1px solid var(--c-line); padding: 9px 12px; font: 12.5px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.claude .tool .lab { font: 600 11px var(--sans); color: var(--c-mut); text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 3px; }
+.claude .auth { border: 1px solid var(--c-line); background: var(--c-box); border-radius: 12px; padding: 14px; display: grid; gap: 10px; font-size: 14px; }
+.claude .auth .row { display: flex; gap: 10px; align-items: center; }
+.claude .auth .tile { width: 32px; height: 32px; border-radius: 8px; background: #1c3f7a; color: #fff; display: grid; place-items: center; font: 700 14px system-ui; flex: none; }
+.claude .auth .btn { justify-self: start; background: var(--c-fg); color: var(--c-bg); border: 0; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
+.claude .cmp { margin: 0 16px 14px; }
+.claude .box { max-width: 700px; margin: 0 auto; background: var(--c-box); border: 1px solid var(--c-line); border-radius: 18px; box-shadow: 0 4px 18px rgba(0,0,0,.05); padding: 12px 12px 10px 16px; display: grid; gap: 12px; }
+.claude .box .ph { color: var(--c-mut); }
+.claude .box .row { display: flex; align-items: center; gap: 8px; color: var(--c-mut); }
+.claude .box .ib { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--c-line); display: grid; place-items: center; }
+.claude .box .model { margin-left: auto; font-size: 13px; display: inline-flex; gap: 2px; align-items: center; }
+.claude .box .send { width: 32px; height: 32px; border-radius: 8px; background: var(--c-clay); color: #fff; display: grid; place-items: center; }
+.claude .box .chip { font-size: 12px; border: 1px solid var(--c-line); border-radius: 999px; padding: 3px 10px; display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.claude .disc { text-align: center; font-size: 11.5px; color: var(--c-mut); margin-top: 6px; }
+@media (max-width: 640px) { .claude { grid-template-columns: minmax(0,1fr); } .claude .rail { display: none; } .claude .box .chip { display: none; } }
+
+/* ======================= ChatGPT ======================= */
+.gpt { --g-bg: #ffffff; --g-side: #f9f9f9; --g-fg: #0d0d0d; --g-mut: #5d5d5d; --g-line: #e5e5e5; --g-bub: #f4f4f4; --g-box: #ffffff; --g-hov: #ececec; --g-inv: none;
+  display: grid; grid-template-columns: 240px minmax(0,1fr); background: var(--g-bg); color: var(--g-fg); font: 15px/1.6 -apple-system, "Segoe UI", system-ui, Helvetica, Arial, sans-serif; }
+:root[data-theme="dark"] .gpt { --g-bg: #212121; --g-side: #181818; --g-fg: #ececec; --g-mut: #afafaf; --g-line: #383838; --g-bub: #303030; --g-box: #303030; --g-hov: #2a2a2a; --g-inv: invert(1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gpt { --g-bg: #212121; --g-side: #181818; --g-fg: #ececec; --g-mut: #afafaf; --g-line: #383838; --g-bub: #303030; --g-box: #303030; --g-hov: #2a2a2a; --g-inv: invert(1); } }
+.gpt .logo { width: 22px; height: 22px; filter: var(--g-inv); }
+.gpt .side { background: var(--g-side); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; border-right: 1px solid var(--g-line); }
+.gpt .side .top { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 10px; color: var(--g-mut); }
+.gpt .side .it { display: flex; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 8px; }
+.gpt .side .on { background: var(--g-hov); }
+.gpt .side .h { color: var(--g-mut); font-size: 13px; padding: 14px 8px 4px; }
+.gpt .side .me { margin-top: auto; display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 8px; }
+.gpt .side .me .ava { width: 26px; height: 26px; border-radius: 50%; background: #2f6f4f; color: #fff; font: 600 12px/26px system-ui; text-align: center; }
+.gpt .side .me small { display: block; color: var(--g-mut); font-size: 12px; line-height: 1.2; }
+.gpt .main { display: grid; grid-template-rows: auto minmax(0,1fr) auto; min-width: 0; }
+.gpt .hd { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; gap: 8px; }
+.gpt .hd .mdl { font-size: 17px; display: inline-flex; gap: 4px; align-items: center; padding: 4px 8px; border-radius: 8px; }
+.gpt .hd .right { display: flex; gap: 10px; align-items: center; color: var(--g-mut); }
+.gpt .hd .share { border: 1px solid var(--g-line); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--g-fg); display: inline-flex; gap: 6px; align-items: center; }
+.gpt .log { padding: 8px 16px 16px; }
+.gpt .col { max-width: 720px; margin: 0 auto; display: grid; gap: 22px; }
+.gpt .u { justify-self: end; background: var(--g-bub); border-radius: 18px; padding: 9px 16px; max-width: 75%; }
+.gpt .a p { margin: 0; }
+.gpt .acts { display: flex; gap: 12px; color: var(--g-mut); margin-top: 8px; }
+.gpt .acts .i { width: 16px; height: 16px; }
+.gpt .used { display: inline-flex; gap: 8px; align-items: center; color: var(--g-mut); font-size: 14px; }
+.gpt .apptile { width: 22px; height: 22px; border-radius: 6px; background: #1c3f7a; color: #fff; display: grid; place-items: center; font: 700 11px system-ui; flex: none; }
+.gpt .res { margin: 6px 0 0; font: 12.5px var(--mono); background: var(--g-bub); border-radius: 10px; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gpt .conn { border: 1px solid var(--g-line); border-radius: 16px; padding: 16px; display: grid; gap: 10px; max-width: 460px; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+.gpt .conn .row { display: flex; gap: 12px; align-items: center; }
+.gpt .conn .apptile { width: 40px; height: 40px; border-radius: 10px; font-size: 16px; }
+.gpt .conn small { color: var(--g-mut); display: block; }
+.gpt .conn .btns { display: flex; gap: 8px; }
+.gpt .pill { border-radius: 999px; padding: 7px 16px; border: 1px solid var(--g-line); background: transparent; font-size: 14px; }
+.gpt .pill.k { background: var(--g-fg); color: var(--g-bg); border-color: var(--g-fg); }
+.gpt .cmp { padding: 0 16px 10px; }
+.gpt .box { max-width: 720px; margin: 0 auto; background: var(--g-box); border: 1px solid var(--g-line); border-radius: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.06); padding: 10px 10px 10px 12px; display: flex; gap: 8px; align-items: center; color: var(--g-mut); }
+.gpt .box .ph { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gpt .box .chip { display: inline-flex; gap: 6px; align-items: center; color: #2b6fd6; background: rgba(43,111,214,.1); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 13px; }
+.gpt .box .chip .apptile { width: 18px; height: 18px; font-size: 9px; border-radius: 5px; }
+.gpt .box .voice { width: 36px; height: 36px; border-radius: 50%; background: var(--g-fg); color: var(--g-bg); display: grid; place-items: center; flex: none; }
+.gpt .disc { text-align: center; font-size: 12px; color: var(--g-mut); margin-top: 8px; }
+@media (max-width: 760px) { .gpt { grid-template-columns: minmax(0,1fr); } .gpt .side { display: none; } }
+
+/* ======================= Codex CLI ======================= */
+.codex { --x-bg: #0c0c0c; --x-fg: #d4d4d4; --x-dim: #7f7f7f; --x-cy: #5fd7ff; --x-gr: #87d787; --x-rd: #ff7b72; --x-yl: #e5c07b; --x-mg: #d7a6ff;
+  display: grid; grid-template-rows: auto minmax(0,1fr) auto auto; background: var(--x-bg); color: var(--x-fg); font: 13.5px/1.5 var(--mono); }
+.codex .win { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #1d1d1f; color: #9a9a9a; font: 12px -apple-system, system-ui, sans-serif; }
+.codex .win .dots { display: flex; gap: 7px; } .codex .win .dots i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.codex .win .t { flex: 1; text-align: center; }
+.codex .log { padding: 12px 16px; }
+.codex .ln { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.codex .head { border: 1px solid #3a3a3a; border-radius: 6px; padding: 8px 12px; max-width: 560px; margin-bottom: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.codex .head .k { color: var(--x-dim); }
+.codex .dim { color: var(--x-dim); } .codex .cy { color: var(--x-cy); } .codex .gr { color: var(--x-gr); } .codex .rd { color: var(--x-rd); } .codex .yl { color: var(--x-yl); } .codex .mg { color: var(--x-mg); }
+.codex .usr { background: #1a1a1a; border-left: 2px solid var(--x-cy); padding: 2px 8px; margin: 8px 0; }
+.codex .gap { height: 8px; }
+.codex .cmp { margin: 0 16px; border: 1px solid #3a3a3a; border-radius: 6px; padding: 8px 10px; display: flex; gap: 8px; }
+.codex .cmp .ph { color: var(--x-dim); }
+.codex .foot { display: flex; justify-content: space-between; gap: 10px; padding: 6px 16px 10px; color: var(--x-dim); font-size: 12px; flex-wrap: wrap; }
+
+/* ---------- Trace: the back end, identical for every client ---------- */
+.trace { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; }
+.trace h2 { margin: 0; font-size: 17px; }
+.trace .sub { margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.trace ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.trace li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); opacity: .38; transition: opacity .25s, border-color .25s; font-size: 14px; }
+.trace li.done { opacity: 1; }
+.trace li.now { opacity: 1; border-color: var(--accent); background: var(--accent-soft); }
+.trace .n { font: 600 12px var(--mono); color: var(--muted); padding-top: 2px; }
+.trace .who { font-size: 12px; color: var(--muted); }
+.trace .txt { overflow-wrap: anywhere; }
+.trace .st { font: 12px var(--mono); }
+.st.e { color: var(--accent); } .st.k { color: var(--ok); }
+.same { margin: 0; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+</style>
+</head>
+<body>
+<p class="topnav"><a href="/">Back to Muse</a> &middot; <a href="/how-muse-works.html#publish">How a company adds the connector</a> &middot; <a href="/cimd.html">CIMD examples</a></p>
+<header class="band">
+  <div class="band__in">
+    <p class="eyebrow">Personal Agents</p>
+    <h1>One airline back end, any agent</h1>
+    <p>Pick a client. Each one adds the same Airline Connector, signs Sam in at PingOne, and calls the same gateway. Only the client and the name PingOne shows change.</p>
+    <div class="controls">
+      <div class="picker" role="group" aria-label="Client">
+        <button type="button" data-c="muse"><span class="m">M</span>Muse</button>
+        <button type="button" data-c="claude"><img src="brands/claude-symbol.svg" alt="">Claude</button>
+        <button type="button" data-c="chatgpt"><img class="inv" src="brands/openai-symbol.svg" alt="">ChatGPT</button>
+        <button type="button" data-c="codex"><img class="inv" src="brands/openai-symbol.svg" alt="">Codex</button>
+      </div>
+      <button type="button" class="ctl" id="next">Next step</button>
+      <button type="button" class="ctl" id="play">Play</button>
+      <button type="button" class="ctl" id="reset">Reset</button>
+      <button type="button" class="ctl" id="live" disabled>Sign in live</button>
+      <button type="button" class="ctl" id="theme">Theme: System</button>
+      <span class="stepname" id="stepname" aria-live="polite"></span>
+      <span class="stepname" id="livenote" aria-live="polite"></span>
+    </div>
+  </div>
+</header>
+
+<div class="ribbon"><p id="ribbon"></p></div>
+
+<div class="layout">
+  <section class="stage" id="stage" aria-label="Client"></section>
+  <aside class="trace" aria-labelledby="trace-h">
+    <h2 id="trace-h">What the back end did</h2>
+    <p class="sub" id="trace-sub"></p>
+    <ol id="trace"></ol>
+    <div id="realbox" hidden></div>
+    <p class="same">The same code runs for every client: Muse's <code>/mcp</code> and <code>/connector/*</code>, the PingOne DaVinci flow (Protect, agent detected, consent), the on-behalf-of exchange and the gateway. The client only changes its name, its callback, and which PingOne app signs Sam in (its own when it has one).</p>
+  </aside>
+</div>
+
+<script>
+(function () {
+  var I = {
+    plus: '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    down: '<svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="m6 9 6 6 6-6"/></svg>',
+    up: '<svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+    chat: '<svg class="i" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+    side: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>',
+    edit: '<svg class="i" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    search: '<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    lib: '<svg class="i" viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zM8 7h6"/></svg>',
+    grid: '<svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>',
+    folder: '<svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    slid: '<svg class="i" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+    mic: '<svg class="i" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+    wave: '<svg class="i" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>',
+    copy: '<svg class="i" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+    tu: '<svg class="i" viewBox="0 0 24 24"><path d="M7 10v10M7 10l4-7a2 2 0 0 1 3 2l-1 5h6a2 2 0 0 1 2 2.3l-1.4 6A2 2 0 0 1 17.6 20H7"/></svg>',
+    td: '<svg class="i" viewBox="0 0 24 24" style="transform:rotate(180deg)"><path d="M7 10v10M7 10l4-7a2 2 0 0 1 3 2l-1 5h6a2 2 0 0 1 2 2.3l-1.4 6A2 2 0 0 1 17.6 20H7"/></svg>',
+    re: '<svg class="i" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
+    dots: '<svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
+    share: '<svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M12 3v13M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>',
+    tool: '<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>'
+  };
+  var CL = '<img src="brands/claude-symbol.svg" alt="" ';
+  var OA = '<img class="logo" src="brands/openai-symbol.svg" alt="" ';
+
+  var C = {
+    muse:    { label: 'Muse', who: 'Muse', vendor: null, app: "Muse's PingOne app", own: true, cb: '/api/callback' },
+    claude:  { label: 'Claude', who: 'Claude', vendor: 'Anthropic', app: "Claude's own PingOne app", own: true, cb: '/clients/callback' },
+    chatgpt: { label: 'ChatGPT', who: 'ChatGPT', vendor: 'OpenAI', app: "ChatGPT's own PingOne app", own: true, cb: '/clients/callback' },
+    codex:   { label: 'Codex', who: 'Codex CLI', vendor: 'OpenAI', app: "Muse's connector app (no app of its own)", own: false, cb: 'http://127.0.0.1:8765/callback' }
+  };
+  var ASK = 'How many airline points do I have?';
+  var D = { points: 52000, tier: 'Gold', live: false };
+  var fmt = function (n) { return Number(n).toLocaleString('en-US'); };
+  var result = function () { return '{\n  "points": ' + D.points + ',\n  "tier": "' + D.tier + '"\n}'; };
+  var STEPS = ['Ask', 'Server says 401', 'Connect the airline', 'PingOne: agent detected', 'Consent', 'Token issued', 'Tool call', 'Answer'];
+
+  function traceRows(c) {
+    var name = c.who + ' (simulated)';
+    return [
+      [1, c.who + ' → Muse', 'POST /mcp initialize', '401 · resource_metadata'],
+      [1, c.who + ' → Muse', 'GET /.well-known/oauth-protected-resource and oauth-authorization-server', '200'],
+      [2, c.who + ' → Muse', 'POST /connector/register client_name "' + name + '"', '201 · client_id issued'],
+      [2, 'Muse → PingOne', 'authorize with ' + c.app + ' · PKCE', '302 → DaVinci'],
+      [3, 'PingOne', 'DaVinci: Protect risk, then "AI agent detected: ' + (c.own ? c.who : 'Airline Connector') + '"', 'agent · HIGH'],
+      [4, 'PingOne', 'Consent agreement for ' + c.who, 'approved'],
+      [5, 'Muse → PingOne', '/connector/callback · code → token, on-behalf-of exchange with ' + c.app, 'act: ' + (c.own ? c.who : 'Airline Connector')],
+      [5, c.who + ' → Muse', 'POST /connector/token · redirect ' + c.cb, '200 · access_token'],
+      [6, 'Muse → Gateway', 'tools/call loyalty_balance · Bearer (sub Sam, act agent)', '200 · ' + fmt(D.points) + ' pts']
+    ];
+  }
+
+  // ---------- skins: shell() builds the app, steps[i](c) appends to its log ----------
+  var S = {};
+
+  S.muse = {
+    shell: function () { return '<div class="app muse"><div class="hd"><strong>Muse</strong><span class="sim">Real back end</span></div><div class="log" id="log"></div><div class="cmp"><span>Ask Muse…</span><span>Send</span></div></div>'; },
+    steps: [
+      function () { add('<div class="u in">' + ASK + '</div>'); },
+      function () { add('<div class="card in"><b>Sign in to continue</b><span>The airline answered 401. Sign in at PingOne so Muse can act for you.</span><button class="btn" type="button">Sign in with PingOne</button></div>'); },
+      signin, detected, consent,
+      function () { clearPop(); add('<div class="card in"><b>Signed in</b><span>Muse holds a token for Sam, acting as Muse.</span></div>'); },
+      function () { add('<div class="card tool in">loyalty_balance → 200<br>{"points":' + D.points + ',"tier":"' + esc(D.tier) + '"}</div>'); },
+      function () { add('<div class="b in">You have <strong>' + fmt(D.points) + '</strong> points. Tier: ' + esc(D.tier) + '.</div>'); }
+    ]
+  };
+
+  S.claude = {
+    shell: function () {
+      return '<div class="app claude"><nav class="rail" aria-label="Sidebar">' + CL + 'style="width:24px;height:24px">' + I.side + '<span class="new">' + I.plus + '</span>' + I.chat + I.folder + I.grid + '<span class="ava">S</span></nav>' +
+        '<div class="main"><div class="hd"><span></span><span class="t">Airline points ' + I.down + '</span><span style="display:flex;gap:8px;align-items:center"><span class="sim">Simulated</span><span class="share">Share</span></span></div>' +
+        '<div class="log" id="log"><div class="col" id="col"></div></div>' +
+        '<div class="cmp"><div class="box"><span class="ph">Reply to Claude…</span><div class="row"><span class="ib">' + I.plus + '</span><span class="ib">' + I.slid + '</span><span class="chip">' + I.tool + 'Airline Connector</span><span class="model">Opus 5.5 ' + I.down + '</span><span class="send">' + I.up + '</span></div></div>' +
+        '<div class="disc">Claude can make mistakes. Please double-check responses.</div></div></div></div>';
+    },
+    steps: [
+      function () { col('<div class="u in"><span class="ava">S</span><span>' + ASK + '</span></div>'); },
+      function () { col('<div class="auth in"><div class="row"><span class="tile">A</span><div><b>Airline Connector</b><br><span style="opacity:.75">This connector needs you to sign in before Claude can use it.</span></div></div><button class="btn" type="button">Connect</button></div>'); },
+      signin, detected, consent,
+      function () { clearPop(); col('<div class="in" style="font-size:14px;opacity:.8">✓ Airline Connector connected</div>'); },
+      function () { col('<div class="tool in"><div class="th">' + I.tool + '<span><b>Airline Connector</b> · loyalty_balance</span><span style="margin-left:auto">' + I.down + '</span></div><pre><span class="lab">Request</span>{}</pre><pre><span class="lab">Response</span>' + esc(result()) + '</pre></div>'); },
+      function () { col('<div class="a in"><p>You have <strong>' + fmt(D.points) + '</strong> airline points, and your loyalty tier is <strong>' + esc(D.tier) + '</strong>.</p>' + CL + 'class="spark"></div>'); }
+    ]
+  };
+
+  S.chatgpt = {
+    shell: function () {
+      return '<div class="app gpt"><nav class="side" aria-label="Sidebar"><div class="top">' + OA + '>' + I.side + '</div>' +
+        '<span class="it">' + I.edit + 'New chat</span><span class="it">' + I.search + 'Search chats</span><span class="it">' + I.lib + 'Library</span><span class="it">' + I.grid + 'Apps</span>' +
+        '<span class="h">Chats</span><span class="it on">Airline points</span><span class="it">Trip to Denver</span><span class="it">Seat upgrade rules</span>' +
+        '<span class="me"><span class="ava">S</span><span>Sam<small>Plus</small></span></span></nav>' +
+        '<div class="main"><div class="hd"><span class="mdl">ChatGPT ' + I.down + '</span><span class="right"><span class="sim">Simulated</span><span class="share">' + I.share + 'Share</span>' + I.dots + '</span></div>' +
+        '<div class="log" id="log"><div class="col" id="col"></div></div>' +
+        '<div class="cmp"><div class="box">' + I.plus + '<span class="chip"><span class="apptile">A</span>Airline</span><span class="ph">Ask anything</span>' + I.mic + '<span class="voice">' + I.wave + '</span></div>' +
+        '<div class="disc">ChatGPT can make mistakes. Check important info.</div></div></div></div>';
+    },
+    steps: [
+      function () { col('<div class="u in">' + ASK + '</div>'); },
+      function () { col('<div class="conn in"><div class="row"><span class="apptile">A</span><div><b>Connect Airline</b><small>Airline needs access to your account to answer this.</small></div></div><div class="btns"><button class="pill k" type="button">Connect</button><button class="pill" type="button">Not now</button></div></div>'); },
+      signin, detected, consent,
+      function () { clearPop(); col('<div class="used in"><span class="apptile">A</span>Connected to Airline</div>'); },
+      function () { col('<div class="in"><span class="used"><span class="apptile">A</span>Talked to Airline · loyalty_balance ' + I.down + '</span><pre class="res">' + esc(result()) + '</pre></div>'); },
+      function () { col('<div class="a in"><p>You have <strong>' + fmt(D.points) + '</strong> airline points, and you\'re at <strong>' + esc(D.tier) + '</strong> status.</p><div class="acts">' + I.copy + I.tu + I.td + I.re + '</div></div>'); }
+    ]
+  };
+
+  S.codex = {
+    shell: function () {
+      return '<div class="app codex"><div class="win"><span class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><span class="t">codex — ~/trips</span><span class="sim" style="color:#9a9a9a">Simulated</span></div>' +
+        '<div class="log" id="log"><div class="head"><b>&gt;_ OpenAI Codex</b> <span class="k">(simulated)</span>\n\n<span class="k">model:</span>     gpt-5-codex   <span class="k">/model to change</span>\n<span class="k">directory:</span> ~/trips\n<span class="k">mcp:</span>       airline <span class="k">https://muse.ai-demo.ping-devops.com/mcp</span></div>' +
+        '<p class="ln dim">  To get started, describe a task or try one of these commands:</p><p class="ln dim">  /mcp - list configured MCP tools   /model - choose model</p></div>' +
+        '<div class="cmp"><span class="cy">›</span><span class="ph">Ask Codex to do anything</span></div>' +
+        '<div class="foot"><span>⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit</span><span>100% context left</span></div></div>';
+    },
+    steps: [
+      function () { add('<p class="ln usr in">› ' + ASK + '</p>'); },
+      function () { add('<p class="ln in"><span class="mg">•</span> Calling <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in rd">  └ MCP server "airline" requires authentication (401)</p><p class="ln in yl">  └ run: codex mcp login airline</p>'); },
+      function (c) { add('<p class="ln usr in">› !codex mcp login airline</p><p class="ln in dim">  Registered OAuth client "Codex CLI (simulated)"</p><p class="ln in dim">  Opening the browser to sign in… waiting on 127.0.0.1:8765</p>'); signin(c); },
+      detected, consent,
+      function () { clearPop(); add('<p class="ln in gr">  ✓ Successfully logged in to MCP server "airline"</p>'); },
+      function () { add('<p class="ln in"><span class="mg">•</span> Called <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in dim">  └ {"points":' + D.points + ',"tier":"' + esc(D.tier) + '"}</p>'); },
+      function () { add('<div class="gap"></div><p class="ln in"><span class="mg">•</span> You have ' + fmt(D.points) + ' airline points. Your tier is ' + esc(D.tier) + '.</p>'); }
+    ]
+  };
+
+  // ---------- shared PingOne screens ----------
+  function signin() { pop('Sign On', '<div class="field">sam</div><div class="field">••••••••••</div><button class="go" type="button">Sign On</button><span class="small">Signing in to Airline Connector</span>'); }
+  function detected(c) { pop('AI agent detected', '<p class="flag" style="margin:0"><strong>' + esc(c.who) + '</strong> is asking to act for you.</p><p style="margin:0">How we know: ' + (c.own ? 'Protect saw ' + esc(c.app) + ' and rated the sign-in an agent (HIGH).' : 'Protect saw the Airline Connector app and rated the sign-in an agent (HIGH). ' + esc(c.who) + ' has no PingOne app of its own, so Protect cannot say which agent.') + '</p><button class="go" type="button">Continue</button>'); }
+  function consent(c) { pop('Allow ' + esc(c.who) + '?', '<p class="flag blue" style="margin:0">' + esc(c.who) + ' may read your points balance and loyalty tier. It cannot book, pay or change your account.</p><button class="go" type="button">Allow</button><span class="small">You can revoke this at any time in your PingOne account.</span>'); }
+
+  var stage = document.getElementById('stage'), trace = document.getElementById('trace'), next = document.getElementById('next'),
+      play = document.getElementById('play'), stepname = document.getElementById('stepname');
+  var cur = 'claude', step = -1, timer = null, quiet = false, LIVE_ROWS = null;
+  var qc = new URLSearchParams(location.search).get('client'); if (C[qc]) cur = qc;
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+  function scroll() { var to = function () { var l = document.getElementById('log'); if (l) l.scrollTop = l.scrollHeight; }; to(); setTimeout(to, 400); }
+  function into(el, html) { var d = document.createElement('div'); d.innerHTML = html; while (d.firstChild) el.appendChild(d.firstChild); scroll(); }
+  function add(html) { into(document.getElementById('log'), html); }
+  function col(html) { into(document.getElementById('col'), html); }
+  function clearPop() { var p = stage.querySelector('.pop'); if (p) p.remove(); }
+  function pop(title, html) {
+    if (quiet) return;
+    clearPop();
+    var d = document.createElement('div'); d.className = 'pop';
+    d.innerHTML = '<div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">https://auth.pingone.com/…/signon</span></div><div class="body"><span class="org">Airline · PingOne</span><h5>' + title + '</h5>' + html + '</div>';
+    stage.appendChild(d);
+  }
+
+  function chrome() {
+    var c = C[cur];
+    stage.innerHTML = S[cur].shell();
+    document.getElementById('ribbon').textContent = c.vendor
+      ? 'Demo: a simulated ' + c.label + ' talking to Muse\'s real back end. This is not ' + c.vendor + '\'s app; the ' + c.label + ' name and logo belong to ' + c.vendor + '.'
+      : 'Muse, the existing app, shown for comparison.';
+    document.getElementById('trace-sub').textContent = 'Client: ' + c.who + ' · signs in with ' + c.app + ' · callback ' + c.cb;
+    trace.innerHTML = (LIVE_ROWS || traceRows(c)).map(function (r, i) {
+      var cls = /^4|refused|no answer/.test(r[3]) ? 'e' : 'k';
+      return '<li data-s="' + r[0] + '"><span class="n">' + (i + 1) + '</span><span class="txt"><span class="who">' + esc(r[1]) + '</span><br>' + esc(r[2]) + '<br><span class="st ' + cls + '">' + esc(r[3]) + '</span></span></li>';
+    }).join('');
+    document.querySelectorAll('.picker button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.c === cur)); });
+  }
+  function lightTrace() {
+    trace.querySelectorAll('li').forEach(function (li) { var s = Number(li.dataset.s); li.className = s < step ? 'done' : s === step ? 'now' : ''; });
+  }
+  function reset() {
+    stop(); step = -1; D = { points: 52000, tier: 'Gold', live: false }; LIVE_ROWS = null; document.getElementById('realbox').hidden = true; chrome(); lightTrace(); liveState();
+    stepname.textContent = 'Step 0 of ' + STEPS.length + ': press Next step or Play';
+    next.disabled = false;
+  }
+  function advance() {
+    if (step >= STEPS.length - 1) { stop(); return; }
+    step++;
+    S[cur].steps[step](C[cur]);
+    lightTrace();
+    stepname.textContent = 'Step ' + (step + 1) + ' of ' + STEPS.length + ': ' + STEPS[step];
+    if (step === STEPS.length - 1) { next.disabled = true; stop(); }
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } play.textContent = 'Play'; }
+
+  next.addEventListener('click', advance);
+  play.addEventListener('click', function () {
+    if (timer) { stop(); return; }
+    if (step >= STEPS.length - 1) reset();
+    play.textContent = 'Pause'; advance(); timer = setInterval(advance, 1500);
+  });
+  document.getElementById('reset').addEventListener('click', reset);
+  document.querySelectorAll('.picker button').forEach(function (b) {
+    b.addEventListener('click', function () { cur = b.dataset.c; try { localStorage.setItem('clients.pick', cur); } catch (e) {} reset(); });
+  });
+  try { var saved = localStorage.getItem('clients.pick'); if (C[saved]) cur = saved; } catch (e) {}
+
+  var O = ['system', 'light', 'dark'], tb = document.getElementById('theme'), t = 'system';
+  tb.addEventListener('click', function () {
+    t = O[(O.indexOf(t) + 1) % 3];
+    if (t === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+    tb.textContent = 'Theme: ' + t[0].toUpperCase() + t.slice(1);
+    try { if (t === 'system') localStorage.removeItem('muse.theme'); else localStorage.setItem('muse.theme', t); } catch (e) {}
+  });
+
+
+  // ---------- live: the real PingOne sign-in, through the same path as "Connect from your assistant" on Muse's home page ----------
+  var L = { assistants: [], session: null };
+  var KEYS = { claude: 'claude', chatgpt: 'chatgpt', codex: 'meta-ai' };
+  function keyFor(id) {
+    var ks = L.assistants.map(function (a) { return a.key; });
+    if (KEYS[id] && ks.indexOf(KEYS[id]) > -1) return KEYS[id];
+    return ks.indexOf('meta-ai') > -1 ? 'meta-ai' : null;
+  }
+  function liveState() {
+    var b = document.getElementById('live'), n = document.getElementById('livenote'), k = cur === 'muse' ? null : keyFor(cur);
+    b.disabled = !k;
+    n.textContent = cur === 'muse' ? 'Muse is the home page.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.' : k !== 'meta-ai' ? 'Live: signs in with ' + C[cur].who + "'s own PingOne app." : 'Live: ' + C[cur].who + " has no PingOne app of its own, so it signs in with Muse's connector app.";
+  }
+  function note(t) { document.getElementById('livenote').textContent = t; }
+  document.getElementById('live').addEventListener('click', function () {
+    var key = keyFor(cur); if (!key) return;
+    reset(); advance(); advance();
+    var off = false; try { off = localStorage.getItem('muse.p1mfa') === '0'; } catch (e) {}
+    try { sessionStorage.setItem('clients.live', cur); } catch (e) {}
+    note('Opening PingOne…');
+    fetch('/api/live/signin', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ as: 'assistant', assistant: key, mfa: off ? 'off' : 'on', returnTo: '/clients.html?client=' + cur }) })
+      .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
+      .then(function (x) { if (!x[0] || !x[1].url) { note(x[1].error || 'Could not start the sign-in.'); return; } setTimeout(function () { location.assign(x[1].url); }, 900); })
+      .catch(function () { note('Could not start the sign-in.'); });
+  });
+
+  function liveRows(a) {
+    var own = a.key !== 'meta-ai', app = own ? a.name + "'s own PingOne app" : "Muse's connector app";
+    var act = a.claims && a.claims.act ? String(a.claims.act.sub || a.claims.act.client_id || '') : '';
+    return [
+      [1, 'Browser → Muse', 'POST /api/live/signin as=assistant, assistant=' + a.key, '200 · authorize URL'],
+      [2, 'Muse → PingOne', 'authorize with ' + app + ' · PKCE · prompt=login', '302 → DaVinci'],
+      [3, 'PingOne', 'DaVinci: Protect, "AI agent detected", consent (the screens you just saw)', a.claims || a.points ? 'approved' : 'ended'],
+      [5, 'PingOne → Muse', '/api/callback · code → token, then the on-behalf-of exchange with ' + app, a.claims ? 'act: ' + act.slice(0, 8) + '…' : 'refused'],
+      [6, 'Muse → Gateway', 'tools/call get_loyalty_status · Bearer (sub Sam, act agent)', a.points ? '200 · ' + fmt(a.points.points) + ' pts' : 'no answer']
+    ];
+  }
+  // Back from PingOne: replay the chat with the real answer. The PingOne screens were real, so none is drawn again.
+  function returned() {
+    var a = L.session && L.session.assistant, flag = null;
+    try { flag = sessionStorage.getItem('clients.live'); } catch (e) {}
+    if (!a || flag !== cur) return false;
+    try { sessionStorage.removeItem('clients.live'); } catch (e) {}
+    reset();
+    LIVE_ROWS = liveRows(a);
+    D.live = true;
+    var ok = Boolean(a.points);
+    if (ok) { D.points = a.points.points; D.tier = a.points.tier; }
+    chrome();
+    quiet = true;
+    for (var i = 0; i < (ok ? STEPS.length : 2); i++) advance();
+    quiet = false;
+    lightTrace();
+    var own = a.key !== 'meta-ai', app = own ? a.name + "'s own PingOne app" : "Muse's connector app";
+    document.getElementById('ribbon').textContent = 'Live: the PingOne sign-in and the gateway call were real. The chat window is a look-alike of ' + C[cur].label + ', not ' + (C[cur].vendor || 'its') + "'s own app.";
+    document.getElementById('trace-sub').textContent = 'Client: ' + C[cur].who + ' · signed in with ' + app;
+    var rb = document.getElementById('realbox'); rb.hidden = false; rb.className = 'real-box' + (ok ? '' : ' bad');
+    var cl = a.claims ? 'sub ' + String(a.claims.sub).slice(0, 8) + '…, act ' + String((a.claims.act && (a.claims.act.sub || a.claims.act.client_id)) || 'none').slice(0, 8) + '…' : null;
+    rb.innerHTML = ok
+      ? '<strong>Real result</strong><span>Signed in with ' + esc(app) + (cl ? '. Token: ' + esc(cl) : '') + '. The points came back from the gateway.</span>'
+      : '<strong>Real result: no points</strong><span>' + esc(a.error || 'The gateway did not answer.') + '</span><span>The sign-in itself did happen at PingOne. This is the gateway saying no, and it is shown as it came back.</span>';
+    stepname.textContent = ok ? 'Live run complete' : 'Live run stopped: ' + (a.error || 'no answer');
+    if (!ok) { var l = document.getElementById('col') || document.getElementById('log'); var d = document.createElement('div'); d.className = 'in'; d.innerHTML = '<div class="real-box bad"><strong>Could not get your points</strong><span>' + esc(a.error || 'The gateway did not answer.') + '</span></div>'; l.appendChild(d); }
+    return true;
+  }
+  fetch('/api/session', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (s) {
+    L.session = s; L.assistants = (s.connector && s.connector.assistants) || [];
+    if (!returned()) liveState();
+  }).catch(function () { liveState(); });
+
+  reset();
+})();
+</script>
+</body>
+</html>
