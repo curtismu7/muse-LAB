@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ReactFlow, Background, Controls, MarkerType, useNodesState, useEdgesState } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MarkerType, Position, useNodesState, useEdgesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { loadDiagram } from './diagrams/index.js';
 
@@ -28,11 +28,23 @@ function nodeLabel(n) {
   );
 }
 
+// The chain runs left to right, steps down, then right to left. Each box's way in and way out face its neighbours, so no edge loops round a box.
+const byId = Object.fromEntries(DIAGRAM.nodes.map((n) => [n.id, n]));
+const side = (from, to) => (to.y > from.y + 40 ? [Position.Bottom, Position.Top] : to.x >= from.x ? [Position.Right, Position.Left] : [Position.Left, Position.Right]);
+const ends = {};
+for (const e of DIAGRAM.edges) {
+  const [out, inn] = side(byId[e.source], byId[e.target]);
+  (ends[e.source] ??= {}).out = out;
+  (ends[e.target] ??= {}).in = inn;
+}
+
 function initialNodes() {
   return DIAGRAM.nodes.map((n) => ({
     id: n.id,
     position: { x: n.x, y: n.y },
     data: { label: nodeLabel(n) },
+    sourcePosition: ends[n.id]?.out ?? Position.Right,
+    targetPosition: ends[n.id]?.in ?? Position.Left,
     className: `hop hop-idle grp-${DIAGRAM.groups[n.group]?.color ?? 'grey'}`,
   }));
 }
@@ -43,6 +55,9 @@ function initialEdges() {
     source: e.source,
     target: e.target,
     label: e.label,
+    type: 'smoothstep',
+    labelBgPadding: [6, 3],
+    labelBgBorderRadius: 4,
     markerEnd: { type: MarkerType.ArrowClosed },
     className: 'hop-edge',
   }));
@@ -144,7 +159,7 @@ export default function PersonalAgentFlow({ lastEntry }) {
           <button type="button" onClick={reset}>Reset</button>
         </div>
       </div>
-      <div className="flow-canvas">
+      <div className="flow-canvas flow-canvas--two-row">
         <ReactFlow
           nodes={nodes}
           edges={edges}
