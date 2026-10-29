@@ -96,7 +96,7 @@ pre { margin: 0; background: var(--bg); border: 1px solid var(--line); border-ra
 
   <div class="tabs" role="tablist" aria-label="Example">
     <button type="button" role="tab" id="t-real" aria-selected="true" aria-controls="p-real">Real: ChatGPT, Codex, Claude Code and Linear</button>
-    <button type="button" role="tab" id="t-mock" aria-selected="false" aria-controls="p-mock">Mock: Muse's connector</button>
+    <button type="button" role="tab" id="t-mock" aria-selected="false" aria-controls="p-mock">Mock: what a server checks</button>
   </div>
 
   <div class="panel" id="p-real" role="tabpanel" aria-labelledby="t-real">
@@ -247,46 +247,44 @@ location: https://api.notion.com/v1/oauth/authorize?client_id=1f8d872b-594c-80a4
     </section>
 
     <section aria-labelledby="r7">
-      <details>
-        <summary id="r7">Also tried: real PingFederate with client.dev's example document</summary>
-        <div class="step">
-        <p class="muted">Host names of the PingFederate servers are replaced with <code>.example</code> names here. The responses are as captured.</p>
-        <p>PingFederate 13.1 added CIMD. Both a local 13.1.3 and the SE one (<code>pf.example</code>) advertise <code>client_id_metadata_document_supported: true</code> and list <code>none</code> and <code>private_key_jwt</code>.</p>
-        <p><strong>First try: refused.</strong> An authorize request with <code>client_id=https://client.dev/oauth/metadata.json</code> returned <code>400 - Invalid client_id</code>. Reading the SE server's configuration showed why: CIMD was on, but only three policies existed, each allowing one exact metadata URL (PKCE required), and client.dev was in none of them. PingFederate rejects a CIMD request when no enabled policy matches.</p>
+      <div class="step">
+        <h3 id="r7">7. Real PingFederate does it too (the CIMD server we use)</h3>
+        <p class="muted">Captured on the SE PingFederate on 29 October 2026 (agents-f5, read-only requests plus one owner-approved policy). Host names are replaced with <code>.example</code> names here; the responses are as captured.</p>
+        <p>PingFederate 13.1 added CIMD. The SE server (<code>pf.example</code>) and a local 13.1.3 both advertise <code>client_id_metadata_document_supported: true</code> and list <code>none</code> and <code>private_key_jwt</code>. Our Muse connector sits in front of PingOne, which has no CIMD, so Muse registers apps by DCR; <strong>PingFederate is where CIMD runs</strong>.</p>
+        <p><strong>Before a policy allowed the client: refused.</strong> The SE server had CIMD on and three policies, each allowing one exact metadata URL, with PKCE required. client.dev was in none of them, so PingFederate rejects the request:</p>
 <pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
 Host: pf-local.example:9031
 
 HTTP/2 400
 400 - Invalid client_id</pre>
-        <p><strong>After adding a policy for client.dev only</strong> (one new policy and an opaque-token access token manager, with the owner's approval; the other three untouched), the same request on the SE server:</p>
-<pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
-Host: pf.example
-
-HTTP/2 302
+        <p><strong>After one policy for client.dev only</strong> (owner-approved; the other three untouched): PingFederate fetches and validates <code>https://client.dev/oauth/metadata.json</code> and sends the client on to its sign-in page, a form titled "Sign in to Ping Identity AI demo" (HTTP 200).</p>
+        <p><strong>The same with our own hosted document</strong> (policy <code>cimdLabOwn</code>, a client document served from our own host): the same result, so PingFederate fetched it from the public internet.</p>
+        <p><strong>The trap worth knowing.</strong> A new access token manager with no <code>authz_req</code> mapping for the sign-in adapter makes PingFederate answer with a redirect to the client and an error. It looks like an authentication-selector problem and is not:</p>
+<pre>HTTP/2 302
 location: https://client.dev/oauth/callback?error=server_error&amp;error_description=There+are+no+authentication+methods+available+for+OAuth.&amp;state=x</pre>
-        <p>The 400 is gone, so PingFederate fetched and validated the document: the client is accepted. It then could not finish the sign-in and sent the error back to the callback the document lists. The cause is on the new access token manager I describe above, not on CIMD: it has no access-token mapping for the login adapter. The fix is one additive mapping that is waiting for the owner's approval, and nothing shared would be edited. Not captured yet: the sign-in and the code. A second PingFederate (<code>pf-acme.example</code>) does not advertise CIMD at all.</p>
-        </div>
-      </details>
+        <p>Adding the mapping on the token manager is the fix; the default authentication policy was already sending these requests to the sign-in form.</p>
+        <p class="note"><span class="tag todo">Open</span> Not captured: the authorization code itself, because it needs the demo user's password at the sign-in form. PingFederate acting as a CIMD <em>client</em> is unverified. The Acme PingFederate (<code>pf-acme.example</code>) does not advertise CIMD at all.</p>
+      </div>
     </section>
   </div>
 
   <div class="panel" id="p-mock" role="tabpanel" aria-labelledby="t-mock">
     <section aria-labelledby="m-intro">
-      <h2 id="m-intro"><span class="tag sim">Mock</span> What Muse's connector would do</h2>
-      <p>This is scripted, not captured. Muse's connector does not do CIMD yet, so nothing below has been run. The app is Codex, using its real document from the other tab, so the shapes match. Codes, tokens and the PKCE values are samples. Codex needs only PKCE. ChatGPT's real document asks for <code>private_key_jwt</code>, so supporting ChatGPT would also mean fetching its key set and checking a signed assertion at the token step, which this walk-through does not show.</p>
+      <h2 id="m-intro"><span class="tag sim">Mock</span> What a server does with a CIMD client_id</h2>
+      <p>This is scripted, not captured. It follows what Linear, Notion and PingFederate did on the Real tab, as a plain walk-through of the checks. Muse's own connector does not use CIMD: it sits in front of PingOne, which has none, so it registers apps by DCR. The app is Codex, using its real document from the other tab, so the shapes match. Codes, tokens and the PKCE values are samples. Codex needs only PKCE. ChatGPT's real document asks for <code>private_key_jwt</code>, so supporting ChatGPT would also mean fetching its key set and checking a signed assertion at the token step, which this walk-through does not show.</p>
     </section>
 
     <section aria-labelledby="m1">
       <div class="step">
-        <h3 id="m1">1. Muse advertises CIMD</h3>
+        <h3 id="m1">1. The server advertises CIMD</h3>
 <pre>GET /.well-known/oauth-authorization-server
-Host: <span data-host>muse.example</span>
+Host: as.example
 
 200 OK
 {
-  "issuer": "<span data-origin>https://muse.example</span>",
-  "authorization_endpoint": ".../connector/authorize",
-  "token_endpoint": ".../connector/token",
+  "issuer": "https://as.example",
+  "authorization_endpoint": ".../authorize",
+  "token_endpoint": ".../token",
   "code_challenge_methods_supported": ["S256"],
   "token_endpoint_auth_methods_supported": ["none"],
   "client_id_metadata_document_supported": true   <span class="bad-t">&lt;- the one new line</span>
@@ -295,16 +293,16 @@ Host: <span data-host>muse.example</span>
 
       <div class="step">
         <h3 id="m2">2. The app sends the user to authorize</h3>
-<pre>GET /connector/authorize
+<pre>GET /authorize
   ?client_id=https://chatgpt.com/oauth/codex/client.json
   &amp;redirect_uri=http://127.0.0.1:1455/callback
   &amp;response_type=code&amp;scope=mcp
   &amp;code_challenge=SAMPLE_CHALLENGE&amp;code_challenge_method=S256&amp;state=SAMPLE_STATE</pre>
-        <p>Today Muse would answer 400 here, because that <code>client_id</code> is not registered. The new behaviour starts when the <code>client_id</code> is an HTTPS address.</p>
+        <p>A server without CIMD would answer 400 here, because that <code>client_id</code> is not registered. The new behaviour starts when the <code>client_id</code> is an HTTPS address.</p>
       </div>
 
       <div class="step">
-        <h3 id="m3">3. Muse fetches and checks the document</h3>
+        <h3 id="m3">3. The server fetches and checks the document</h3>
 <pre>GET /oauth/codex/client.json
 Host: chatgpt.com
 Accept: application/json
@@ -319,7 +317,7 @@ Accept: application/json
             <tr><td>Same address</td><td>Document <code>client_id</code> equals the address it was fetched from</td><td><code>invalid_client</code></td></tr>
             <tr><td>Callback</td><td>The request's <code>redirect_uri</code> is one of <code>redirect_uris</code>. For a loopback address any port matches.</td><td>400, no redirect (never send a code to an unlisted address)</td></tr>
             <tr><td>Public client</td><td><code>token_endpoint_auth_method</code> is <code>none</code></td><td><code>invalid_client</code></td></tr>
-            <tr><td>Allow-list</td><td>The host is one Muse trusts (a Muse setting, like PingFederate's CIMD policy)</td><td><code>invalid_client</code></td></tr>
+            <tr><td>Allow-list</td><td>The address is one the server trusts (a setting, like PingFederate's CIMD policy)</td><td><code>invalid_client</code></td></tr>
           </tbody>
         </table>
         </div>
@@ -327,13 +325,13 @@ Accept: application/json
 
       <div class="step">
         <h3 id="m4">4. Sign-in goes ahead as it does today</h3>
-        <p>With the app accepted, Muse sends the user to PingOne through the DaVinci flow with Protect, the same as for any connector. The user signs in and approves, then Muse redirects to the callback the document listed:</p>
+        <p>With the app accepted, the server shows its sign-in page (on PingFederate, the form from the Real tab). The user signs in and approves, then the server redirects to the callback the document listed:</p>
 <pre>302 Location: http://127.0.0.1:1455/callback?code=SAMPLE_CODE&amp;state=SAMPLE_STATE</pre>
       </div>
 
       <div class="step">
         <h3 id="m5">5. The app swaps the code for a token</h3>
-<pre>POST /connector/token
+<pre>POST /token
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=authorization_code&amp;code=SAMPLE_CODE
@@ -350,7 +348,7 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
         <h3 id="m6">6. Refusals worth showing</h3>
         <div class="wide">
         <table>
-          <thead><tr><th>Request</th><th>Muse answers</th></tr></thead>
+          <thead><tr><th>Request</th><th>The server answers</th></tr></thead>
           <tbody>
             <tr><td><code>client_id=http://chatgpt.com/...</code> (not HTTPS)</td><td><code>invalid_client</code></td></tr>
             <tr><td>Document says a different <code>client_id</code> than its address</td><td><code>invalid_client</code></td></tr>
@@ -368,7 +366,7 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
     <ul>
       <li><span class="tag real">Real</span> ChatGPT, Codex and Claude Code host their own documents. Linear and Notion accept ChatGPT's and Codex's, and refuse a callback that is not in the document.</li>
       <li><span class="tag real">Real</span> PingFederate 13.1.x advertises CIMD. It refused client.dev until a policy allowed it, then fetched and validated the document. The sign-in then failed on a missing token mapping, which is not CIMD.</li>
-      <li><span class="tag sim">Mock</span> Muse's connector accepting a document address. <strong>Not built.</strong> Muse does not do CIMD today.</li>
+      <li><span class="tag sim">Mock</span> The generic walk-through on the Mock tab. Muse's own connector does not do CIMD by design (PingOne has none); PingFederate does.</li>
       <li><span class="tag todo">Open</span> The token step with a real signed-in user, for ChatGPT (<code>private_key_jwt</code>) and Codex. Whether ChatGPT falls back to <code>none</code> when a server lacks <code>private_key_jwt</code> is not verified.</li>
     </ul>
     <p class="note">PingFederate's CIMD support follows an evolving draft specification, and its documentation warns later changes may not be backward compatible. See <a href="https://docs.pingidentity.com/pingfederate/13.1/administrators_reference_guide/pf_cimd.html">PingFederate CIMD</a>.</p>
@@ -378,10 +376,6 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
 (function(){document.documentElement.classList.add('js');var T=[['t-real','p-real'],['t-mock','p-mock']];
 function pick(i){T.forEach(function(x,j){var b=document.getElementById(x[0]),p=document.getElementById(x[1]);b.setAttribute('aria-selected',String(i===j));p.hidden=i!==j})}
 T.forEach(function(x,i){document.getElementById(x[0]).addEventListener('click',function(){pick(i)})});pick(0)})();
-</script>
-<script>
-(function(){var h=location.host||'muse.example',o=location.origin&&location.origin!=='null'?location.origin:'https://muse.example';
-document.querySelectorAll('[data-host]').forEach(function(e){e.textContent=h});document.querySelectorAll('[data-origin]').forEach(function(e){e.textContent=o})})();
 </script>
 <script>
 (function(){var K='muse.theme',O=['system','light','dark'],L={system:'System',light:'Light',dark:'Dark'},b=document.getElementById('theme-btn');
