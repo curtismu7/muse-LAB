@@ -33,11 +33,12 @@ export function connectorConfig(env, live) {
   const staticUris = (env.MUSE_CONNECTOR_REDIRECT_URIS ?? '').split(',').map((u) => u.trim()).filter(Boolean);
   const staticClient = env.MUSE_CONNECTOR_CLIENT_ID && staticUris.length ? { id: env.MUSE_CONNECTOR_CLIENT_ID, redirectUris: staticUris, name: 'Pre-registered agent' } : null;
   // Agents with their own PingOne app (MUSE_CONNECTOR_AGENTS, JSON), picked by the agent's callback host, so Protect and the PingOne screens can name them.
-  // Their hosts are allowed to register too. A bad entry is dropped, and that agent falls back to Muse's app.
+  // Their hosts are allowed to register too. An agent with no hosts (Codex, which calls back on loopback) is only picked from the directory Connect path, never by host.
+  // A bad entry is dropped, and that agent falls back to Muse's app.
   let agents = [];
   try { agents = JSON.parse(env.MUSE_CONNECTOR_AGENTS || '[]'); } catch { agents = []; }
-  agents = (Array.isArray(agents) ? agents : []).filter((a) => a && typeof a.clientId === 'string' && a.clientId && typeof a.clientSecret === 'string' && a.clientSecret && Array.isArray(a.hosts) && a.hosts.length)
-    .map((a) => ({ name: String(a.name ?? 'Agent').slice(0, 40), clientId: a.clientId, clientSecret: a.clientSecret, hosts: a.hosts.map((h) => String(h).trim().toLowerCase()).filter(Boolean) }));
+  agents = (Array.isArray(agents) ? agents : []).filter((a) => a && typeof a.clientId === 'string' && a.clientId && typeof a.clientSecret === 'string' && a.clientSecret && (a.hosts === undefined || Array.isArray(a.hosts)))
+    .map((a) => ({ name: String(a.name ?? 'Agent').slice(0, 40), clientId: a.clientId, clientSecret: a.clientSecret, hosts: (a.hosts ?? []).map((h) => String(h).trim().toLowerCase()).filter(Boolean) }));
   for (const a of agents) for (const h of a.hosts) if (!hosts.includes(h)) hosts.push(h);
   return { publicUrl: pu.origin, hosts, staticClient, agents };
 }
