@@ -188,7 +188,8 @@ test('a pre-registered client id works without registration', async () => {
 test('the session tells the page which assistants can connect, and says nothing when it is off', async () => {
   const a = await boot({ MUSE_CONNECTOR_CLIENT_ID: 'airline-connector', MUSE_CONNECTOR_REDIRECT_URIS: REDIRECT });
   const on = await (await a.get('/api/session')).json();
-  assert.deepEqual(on.connector, { url: `${a.base}/mcp`, clientId: 'airline-connector', redirectUri: REDIRECT, airline: null, assistants: [{ key: 'meta-ai', name: 'Meta AI' }] });
+  assert.deepEqual(on.connector, { name: on.connector.name, url: `${a.base}/mcp`, authorizeUrl: `${a.base}/connector/authorize`, tokenUrl: `${a.base}/connector/token`, scope: 'mcp', clientId: 'airline-connector', redirectUri: REDIRECT, airline: null, assistants: [{ key: 'meta-ai', name: 'Meta AI' }] });
+  assert.match(on.connector.name, /Airline Connector$/);
   await a.close();
   const b = await boot({ MUSE_CONNECTOR: '0' });
   assert.equal((await (await b.get('/api/session')).json()).connector, null);

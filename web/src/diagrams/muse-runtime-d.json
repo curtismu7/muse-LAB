@@ -1,0 +1,313 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "muse-runtime-d",
+  "title": "Runtime D: Anthropic's Claude through the Airline Connector",
+  "lede": "Claude reaches the same Airline Connector as Meta's Muse (runtime B). What differs: who adds it, how it gets a client ID, which PingOne app signs Sam in, and who calls /mcp. Not tried yet: Claude's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
+  "groups": {
+    "blue": {
+      "label": "Claude",
+      "color": "blue"
+    },
+    "dark": {
+      "label": "Muse (Airline Connector)",
+      "color": "dark"
+    },
+    "green": {
+      "label": "PingOne",
+      "color": "green"
+    },
+    "red": {
+      "label": "Stops or flags",
+      "color": "red"
+    },
+    "amber": {
+      "label": "Gateway and policy",
+      "color": "amber"
+    }
+  },
+  "lanes": [
+    {
+      "id": "lane0",
+      "label": "D. Anthropic's Claude: the company adds the connector once, Sam just connects",
+      "x": 10,
+      "y": 30,
+      "w": 1168,
+      "h": 464
+    }
+  ],
+  "nodes": [
+    {
+      "id": "d1",
+      "group": "blue",
+      "label": "1. The company adds it once",
+      "sub": [
+        "Owner: Organization settings > Connectors > Add > Custom > Web, URL https://muse.ai-demo.ping-devops.com/mcp",
+        "or a listing in the Connectors Directory"
+      ],
+      "x": 40,
+      "y": 74
+    },
+    {
+      "id": "d2",
+      "group": "blue",
+      "label": "2. Sam asks in Claude",
+      "sub": [
+        "\"How many airline points do I have?\""
+      ],
+      "x": 326,
+      "y": 74
+    },
+    {
+      "id": "d3",
+      "group": "blue",
+      "label": "3. Claude picks the tool",
+      "sub": [
+        "reads tool names and descriptions",
+        "the Airline Connector is on for this chat"
+      ],
+      "x": 612,
+      "y": 74
+    },
+    {
+      "id": "d4",
+      "group": "dark",
+      "label": "4. /mcp answers 401",
+      "sub": [
+        "metadata points at /connector/authorize (PKCE S256, scope mcp)"
+      ],
+      "x": 898,
+      "y": 74
+    },
+    {
+      "id": "d5",
+      "group": "dark",
+      "label": "5. Claude gets a client ID",
+      "sub": [
+        "registers itself at /connector/register",
+        "callback https://claude.ai/api/mcp/auth_callback"
+      ],
+      "x": 40,
+      "y": 228
+    },
+    {
+      "id": "d6",
+      "group": "green",
+      "label": "6. PingOne sign-in",
+      "sub": [
+        "Claude's own PingOne app, picked by callback host claude.ai",
+        "same DaVinci flow, login hint ends .conn"
+      ],
+      "x": 326,
+      "y": 228
+    },
+    {
+      "id": "d7",
+      "group": "red",
+      "label": "7. Protect: AI agent detected",
+      "sub": [
+        "Protect names Claude from its app id",
+        "the screen says how it knows"
+      ],
+      "x": 612,
+      "y": 228
+    },
+    {
+      "id": "d8",
+      "group": "green",
+      "label": "8. Sam consents",
+      "sub": [
+        "PingOne consent for the Airline Connector"
+      ],
+      "x": 898,
+      "y": 228
+    },
+    {
+      "id": "d9",
+      "group": "dark",
+      "label": "9. Muse gives Claude its own token",
+      "sub": [
+        "after the exchanges at /connector/token",
+        "the PingOne token never leaves Muse"
+      ],
+      "x": 40,
+      "y": 382
+    },
+    {
+      "id": "d10",
+      "group": "amber",
+      "label": "10. /mcp call, gateway decides",
+      "sub": [
+        "from Anthropic's servers",
+        "points and tier come back to Claude"
+      ],
+      "x": 326,
+      "y": 382
+    }
+  ],
+  "edges": [
+    {
+      "source": "d1",
+      "target": "d2",
+      "label": "D1",
+      "name": "Ready to use"
+    },
+    {
+      "source": "d2",
+      "target": "d3",
+      "label": "D2",
+      "name": "Ask"
+    },
+    {
+      "source": "d3",
+      "target": "d4",
+      "label": "D3",
+      "name": "Call, no token"
+    },
+    {
+      "source": "d4",
+      "target": "d5",
+      "label": "D4",
+      "name": "401, sign in"
+    },
+    {
+      "source": "d5",
+      "target": "d6",
+      "label": "D5",
+      "name": "Authorize"
+    },
+    {
+      "source": "d6",
+      "target": "d7",
+      "label": "D6",
+      "name": "Protect check"
+    },
+    {
+      "source": "d7",
+      "target": "d8",
+      "label": "D7",
+      "name": "Consent"
+    },
+    {
+      "source": "d8",
+      "target": "d9",
+      "label": "D8",
+      "name": "Exchanges, token"
+    },
+    {
+      "source": "d9",
+      "target": "d10",
+      "label": "D9",
+      "name": "Call with token"
+    }
+  ],
+  "steps": [
+    {
+      "title": "Ready to use",
+      "what": "The company has already added the connector: Owner: Organization settings > Connectors > Add > Custom > Web, URL https://muse.ai-demo.ping-devops.com/mcp; or a listing in the Connectors Directory.",
+      "why": "Members then only click Connect. Nobody types a URL or client ID.",
+      "edges": [
+        0
+      ]
+    },
+    {
+      "title": "Ask",
+      "what": "Sam asks Claude: \"How many airline points do I have?\".",
+      "why": "Claude acts only when asked.",
+      "edges": [
+        0,
+        1
+      ]
+    },
+    {
+      "title": "Call, no token",
+      "what": "Claude picks loyalty_balance from the Airline Connector and calls /mcp. It has no token yet.",
+      "why": "The model chooses from the tool names and descriptions. The airline's name in them is what steers it.",
+      "edges": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "title": "401, sign in",
+      "what": "/mcp answers 401 with metadata: sign in at /connector/authorize, PKCE S256, scope mcp.",
+      "why": "Claude learns where to sign in from the server, not from config.",
+      "edges": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "title": "Authorize",
+      "what": "Claude registers itself at /connector/register, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in with Claude's own PingOne app, chosen because the callback host is claude.ai.",
+      "why": "claude.ai is a listed agent host (MUSE_CONNECTOR_AGENTS), so it may register. Muse issues a public client (no secret). The Owner can paste a client ID in Advanced settings instead.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "title": "Protect check",
+      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect sees Claude's own PingOne app and names Claude.",
+      "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "title": "Consent",
+      "what": "PingOne shows the \"AI agent detected\" screen, then asks Sam to let Claude act for him. Sam agrees.",
+      "why": "No consent, no token: a \"no\" ends the flow with nothing issued.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "title": "Exchanges, token",
+      "what": "Muse does the code swap and both exchanges with Claude's own PingOne app, then gives Claude its own access token at /connector/token.",
+      "why": "So act names Claude. The PingOne token never leaves Muse. Claude holds only a Muse token for scope mcp.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "title": "Call with token",
+      "what": "Anthropic's servers call /mcp with that token. Muse calls the gateway, which checks the delegated token, and the points come back.",
+      "why": "Not tried yet: Claude's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    }
+  ]
+}
