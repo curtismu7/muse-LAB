@@ -57,6 +57,8 @@ img { display: block; }
 .picker .m { width: 16px; height: 16px; border-radius: 5px; background: #fff; color: var(--band-a); font: 700 11px/16px var(--sans); text-align: center; }
 .picker button[aria-pressed="true"] .m { background: var(--band-a); color: #fff; }
 .ctl { border: 1px solid #c3c8d0; background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; }
+select.ctl { appearance: auto; }
+select.ctl option { color: #14213d; background: #fff; }
 .ctl:disabled { opacity: .4; cursor: default; }
 .stepname { font-size: 14px; opacity: .85; }
 .ribbon { max-width: 1440px; margin: 14px auto 0; padding: 0 16px; }
@@ -238,6 +240,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
       <button type="button" class="ctl" id="play">Play</button>
       <button type="button" class="ctl" id="reset">Reset</button>
       <button type="button" class="ctl" id="live" disabled>Sign in live</button>
+      <select class="ctl" id="vertical" aria-label="Story"></select>
       <button type="button" class="ctl" id="theme">Theme: System</button>
       <span class="stepname" id="stepname" aria-live="polite"></span>
       <span class="stepname" id="livenote" aria-live="polite"></span>
@@ -291,7 +294,10 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     chatgpt: { label: 'ChatGPT', who: 'ChatGPT', vendor: 'OpenAI', app: "ChatGPT's own PingOne app", own: true, cb: '/clients/callback' },
     codex:   { label: 'Codex', who: 'Codex CLI', vendor: 'OpenAI', app: "Codex's own PingOne app", own: true, cb: 'http://127.0.0.1:8765/callback' }
   };
-  var ASK = 'How many airline points do I have?';
+  // The ask and the answer come from the story pack (/api/story, stories.json). This is the offline fallback if that call fails.
+  var STORY = { vertical: 'airline', label: 'Airline', ask: 'How many airline points do I have?', answer: 'You have **{{points}}** airline points. Your tier is **{{tier}}**.', verticals: [{ key: 'airline', label: 'Airline' }] };
+  var answerHtml = function () { return esc(STORY.answer).replace(/\{\{points\}\}/g, fmt(D.points)).replace(/\{\{tier\}\}/g, esc(D.tier)).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); };
+  var answerText = function () { return answerHtml().replace(/<[^>]+>/g, ''); };
   var D = { points: 52000, tier: 'Gold', live: false };
   var fmt = function (n) { return Number(n).toLocaleString('en-US'); };
   var result = function () { return '{\n  "points": ' + D.points + ',\n  "tier": "' + D.tier + '"\n}'; };
@@ -318,12 +324,12 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   S.muse = {
     shell: function () { return '<div class="app muse"><div class="hd"><strong>Muse</strong><span class="sim">Real back end</span></div><div class="log" id="log"></div><div class="cmp"><span>Ask Muse…</span><span>Send</span></div></div>'; },
     steps: [
-      function () { add('<div class="u in">' + ASK + '</div>'); },
+      function () { add('<div class="u in">' + esc(STORY.ask) + '</div>'); },
       function () { add('<div class="card in"><b>Sign in to continue</b><span>The airline answered 401. Sign in at PingOne so Muse can act for you.</span><button class="btn" type="button">Sign in with PingOne</button></div>'); },
       signin, detected, consent,
       function () { clearPop(); add('<div class="card in"><b>Signed in</b><span>Muse holds a token for Sam, acting as Muse.</span></div>'); },
       function () { add('<div class="card tool in">loyalty_balance → 200<br>{"points":' + D.points + ',"tier":"' + esc(D.tier) + '"}</div>'); },
-      function () { add('<div class="b in">You have <strong>' + fmt(D.points) + '</strong> points. Tier: ' + esc(D.tier) + '.</div>'); }
+      function () { add('<div class="b in">' + answerHtml() + '</div>'); }
     ]
   };
 
@@ -336,12 +342,12 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
         '<div class="disc">Claude can make mistakes. Please double-check responses.</div></div></div></div>';
     },
     steps: [
-      function () { col('<div class="u in"><span class="ava">S</span><span>' + ASK + '</span></div>'); },
+      function () { col('<div class="u in"><span class="ava">S</span><span>' + esc(STORY.ask) + '</span></div>'); },
       function () { col('<div class="auth in"><div class="row"><span class="tile">A</span><div><b>Airline Connector</b><br><span style="opacity:.75">This connector needs you to sign in before Claude can use it.</span></div></div><button class="btn" type="button">Connect</button></div>'); },
       signin, detected, consent,
       function () { clearPop(); col('<div class="in" style="font-size:14px;opacity:.8">✓ Airline Connector connected</div>'); },
       function () { col('<div class="tool in"><div class="th">' + I.tool + '<span><b>Airline Connector</b> · loyalty_balance</span><span style="margin-left:auto">' + I.down + '</span></div><pre><span class="lab">Request</span>{}</pre><pre><span class="lab">Response</span>' + esc(result()) + '</pre></div>'); },
-      function () { col('<div class="a in"><p>You have <strong>' + fmt(D.points) + '</strong> airline points, and your loyalty tier is <strong>' + esc(D.tier) + '</strong>.</p>' + CL + 'class="spark"></div>'); }
+      function () { col('<div class="a in"><p>' + answerHtml() + '</p>' + CL + 'class="spark"></div>'); }
     ]
   };
 
@@ -357,12 +363,12 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
         '<div class="disc">ChatGPT can make mistakes. Check important info.</div></div></div></div>';
     },
     steps: [
-      function () { col('<div class="u in">' + ASK + '</div>'); },
+      function () { col('<div class="u in">' + esc(STORY.ask) + '</div>'); },
       function () { col('<div class="conn in"><div class="row"><span class="apptile">A</span><div><b>Connect Airline</b><small>Airline needs access to your account to answer this.</small></div></div><div class="btns"><button class="pill k" type="button">Connect</button><button class="pill" type="button">Not now</button></div></div>'); },
       signin, detected, consent,
       function () { clearPop(); col('<div class="used in"><span class="apptile">A</span>Connected to Airline</div>'); },
       function () { col('<div class="in"><span class="used"><span class="apptile">A</span>Talked to Airline · loyalty_balance ' + I.down + '</span><pre class="res">' + esc(result()) + '</pre></div>'); },
-      function () { col('<div class="a in"><p>You have <strong>' + fmt(D.points) + '</strong> airline points, and you\'re at <strong>' + esc(D.tier) + '</strong> status.</p><div class="acts">' + I.copy + I.tu + I.td + I.re + '</div></div>'); }
+      function () { col('<div class="a in"><p>' + answerHtml() + '</p><div class="acts">' + I.copy + I.tu + I.td + I.re + '</div></div>'); }
     ]
   };
 
@@ -375,13 +381,13 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
         '<div class="foot"><span>⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit</span><span>100% context left</span></div></div>';
     },
     steps: [
-      function () { add('<p class="ln usr in">› ' + ASK + '</p>'); },
+      function () { add('<p class="ln usr in">› ' + esc(STORY.ask) + '</p>'); },
       function () { add('<p class="ln in"><span class="mg">•</span> Calling <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in rd">  └ MCP server "airline" requires authentication (401)</p><p class="ln in yl">  └ run: codex mcp login airline</p>'); },
       function (c) { add('<p class="ln usr in">› !codex mcp add airline --url ' + esc(location.origin) + '/mcp</p><p class="ln in dim">  Added MCP server "airline"</p><p class="ln usr in">› !codex mcp login airline</p><p class="ln in dim">  Registered OAuth client "Codex CLI (simulated)"</p><p class="ln in dim">  Opening the browser to sign in… waiting on 127.0.0.1:8765</p>'); signin(c); },
       detected, consent,
       function () { clearPop(); add('<p class="ln in gr">  ✓ Successfully logged in to MCP server "airline"</p>'); },
       function () { add('<p class="ln in"><span class="mg">•</span> Called <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in dim">  └ {"points":' + D.points + ',"tier":"' + esc(D.tier) + '"}</p>'); },
-      function () { add('<div class="gap"></div><p class="ln in"><span class="mg">•</span> You have ' + fmt(D.points) + ' airline points. Your tier is ' + esc(D.tier) + '.</p>'); }
+      function () { add('<div class="gap"></div><p class="ln in"><span class="mg">•</span> ' + answerText() + '</p>'); }
     ]
   };
 
@@ -465,11 +471,11 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 
   // ---------- live: the platform's real client steps against Muse's /mcp (server: POST /api/sim/start), then the real PingOne sign-in ----------
   var L = { assistants: [], session: null };
-  function liveOk() { return cur !== 'muse' && L.assistants.length > 0; }
+  function liveOk() { return cur !== 'muse' && L.assistants.length > 0 && STORY.vertical === 'airline'; }
   function liveState() {
     var b = document.getElementById('live'), n = document.getElementById('livenote');
     b.disabled = !liveOk();
-    n.textContent = cur === 'muse' ? 'Muse is the home page.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.'
+    n.textContent = cur === 'muse' ? 'Muse is the home page.' : STORY.vertical !== 'airline' ? 'Live runs the airline back end, so it is off for the ' + STORY.label.toLowerCase() + ' story.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.'
       : (cur === 'codex' ? 'Developer path. ' : '') + 'Live: runs ' + C[cur].who + "'s real client steps against Muse's /mcp, then signs in at PingOne.";
   }
   function note(t) { document.getElementById('livenote').textContent = t; }
@@ -523,10 +529,24 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     if (!ok) { var l = document.getElementById('col') || document.getElementById('log'); var d = document.createElement('div'); d.className = 'in'; d.innerHTML = '<div class="real-box bad"><strong>Could not get your points</strong><span>' + esc(a.error || 'The gateway did not answer.') + '</span></div>'; l.appendChild(d); }
     return true;
   }
-  fetch('/api/session', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (s) {
-    L.session = s; L.assistants = (s.connector && s.connector.assistants) || [];
-    if (!returned()) liveState();
-  }).catch(function () { liveState(); });
+  function buildVertical() {
+    var sel = document.getElementById('vertical');
+    sel.innerHTML = STORY.verticals.map(function (v) { return '<option value="' + esc(v.key) + '"' + (v.key === STORY.vertical ? ' selected' : '') + '>Story: ' + esc(v.label) + '</option>'; }).join('');
+    sel.hidden = STORY.verticals.length < 2;
+    sel.addEventListener('change', function () { var q = new URLSearchParams(location.search); q.set('vertical', sel.value); location.search = q.toString(); });
+  }
+  function loadSession() {
+    fetch('/api/session', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (s) {
+      L.session = s; L.assistants = (s.connector && s.connector.assistants) || [];
+      if (!returned()) liveState();
+    }).catch(function () { liveState(); });
+  }
+  var vq = new URLSearchParams(location.search).get('vertical');
+  fetch('/api/story' + (vq ? '?vertical=' + encodeURIComponent(vq) : ''), { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (st) { if (st && st.ask && st.answer) STORY = st; })
+    .catch(function () { /* keep the offline fallback */ })
+    .then(function () { buildVertical(); reset(); loadSession(); });
 
   reset();
 })();

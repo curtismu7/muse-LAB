@@ -9,6 +9,9 @@ import { signInTrace } from './signin.js';
 import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
 import { agentConfig, agentTools, normaliseResult, plan, reply } from './agent.js';
 import { assistantsFor, mountConnector } from './connector.js';
+import { createNetguard } from './netguard.js';
+import { loadStories, renderStory } from './stories.js';
+import { loadCustomer } from './customer.js';
 import { PLATFORMS, createPlatformEngine } from './platforms.js';
 import { chatgptKey, mountPfResource } from './pf-resource.js';
 import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
@@ -33,7 +36,7 @@ function record(ws, entry) {
   if (ws.decisions.length > 50) ws.decisions.length = 50;
 }
 
-export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
+export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {}) {
   const hosted = env.MUSE_HOSTED === '1';
   const picker = !hosted && env.IDP === 'mock' && env.ALLOW_MOCK_SIGNIN === '1' && env.NODE_ENV !== 'production';
   const allowedHosts = new Set([
@@ -41,6 +44,12 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     ...(env.MUSE_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean),
   ]);
   const live = liveConfig(env);
+  // Rule 1: no outbound calls in mock mode, every outbound origin counted in live mode (netguard.js). All outbound fetches below go through it.
+  const guard = createNetguard({ mode: live ? 'live' : 'mock' });
+  const fetchImpl = guard.wrap(rawFetch);
+  // Stories and branding are data (rules 10 and 12): stories.json packs and customer.config.json.
+  const stories = loadStories();
+  const customer = loadCustomer(env, Object.keys(stories.verticals));
   const agent = agentConfig(env);
   const protect = createProtect(env);
   const workspaces = createWorkspaces({ max: Number(env.MUSE_MAX_WORKSPACES) || 200 });
@@ -125,9 +134,25 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     next();
   });
 
+  // The story pack for a vertical (default: the customer config's), with its cast filled in. Public, static data.
+  app.get('/api/story', (req, res) => {
+    const v = req.query.vertical === undefined ? customer.vertical : String(req.query.vertical);
+    const story = renderStory(stories, v);
+    if (!story) return res.status(400).json({ error: 'unknown vertical' });
+    res.set('Cache-Control', 'no-store').json(story);
+  });
+
+  // The netguard's counters and its self-test. Counts and a mode only: no addresses.
+  app.get('/api/netguard', async (req, res) => {
+    const { origins, last, ...s } = guard.stats();
+    res.set('Cache-Control', 'no-store').json({ ...s, selfTest: (await guard.selfTest()).ok });
+  });
+
   app.get('/api/session', (req, res) => {
     const ws = req.ws;
     res.json({
+      customer,
+      workspaceId: ws.workspaceId,
       protectMode: protect.mode,
       signedIn: Boolean(ws.user),
       persona: ws.user ? { key: ws.user, ...PERSONAS[ws.user] } : null,
@@ -518,5 +543,6 @@ export function start(env = process.env) {
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   // Your own settings (see .env.example). Values already in the environment win; no .env means the mock demo.
   if (typeof process.loadEnvFile === 'function' && existsSync('.env')) process.loadEnvFile('.env');
-  start();
+  const server = start();
+  server.on('listening', () => console.log(`Agent Connect listening on port ${server.address().port} (MODE=${process.env.MODE ?? 'mock'}, ${process.env.MUSE_HOSTED === '1' ? 'hosted' : 'local'})`));
 }

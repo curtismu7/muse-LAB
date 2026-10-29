@@ -1,0 +1,34 @@
+{
+  "schema": "muse-stories/1",
+  "default": "airline",
+  "runtimeTokens": ["points", "tier"],
+  "verticals": {
+    "airline": {
+      "label": "Airline",
+      "cast": { "member": "Sam", "provider": "Skyline Air", "unit": "airline points" },
+      "story": {
+        "ask": "How many {{cast.unit}} do I have with {{cast.provider}}?",
+        "answer": "You have **{{points}}** {{cast.unit}} with {{cast.provider}}. Your tier is **{{tier}}**.",
+        "summary": "{{cast.member}} asks an agent for the {{cast.unit}} balance at {{cast.provider}}."
+      }
+    },
+    "bank": {
+      "label": "Bank",
+      "cast": { "member": "Sam", "provider": "Harbor Bank", "unit": "reward points" },
+      "story": {
+        "ask": "How many {{cast.unit}} do I have with {{cast.provider}}?",
+        "answer": "You have **{{points}}** {{cast.unit}} with {{cast.provider}}. Your card tier is **{{tier}}**.",
+        "summary": "{{cast.member}} asks an agent for the {{cast.unit}} balance at {{cast.provider}}."
+      }
+    },
+    "hotel": {
+      "label": "Hotel",
+      "cast": { "member": "Sam", "provider": "Meridian Hotels", "unit": "stay points" },
+      "story": {
+        "ask": "How many {{cast.unit}} do I have with {{cast.provider}}?",
+        "answer": "You have **{{points}}** {{cast.unit}} with {{cast.provider}}. Your member level is **{{tier}}**.",
+        "summary": "{{cast.member}} asks an agent for the {{cast.unit}} balance at {{cast.provider}}."
+      }
+    }
+  }
+}
