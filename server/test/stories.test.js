@@ -41,7 +41,7 @@ test('/api/story serves the default pack, a chosen one, and refuses an unknown v
   try {
     const d = await (await fetch(base + '/api/story')).json();
     assert.equal(d.vertical, 'airline'); assert.deepEqual(d.verticals.map((v) => v.key), ['airline', 'bank', 'hotel']);
-    assert.ok(d.ask.includes('Skyline Air'));
+    assert.ok(d.ask.includes('SkyHigh Airlines'));
     const b = await (await fetch(base + '/api/story?vertical=bank')).json();
     assert.ok(b.answer.includes('Harbor Bank') && b.answer.includes('{{points}}'), 'runtime tokens are left for the page');
     assert.equal((await fetch(base + '/api/story?vertical=spaceship')).status, 400);
