@@ -95,5 +95,5 @@ How it fits: our engine still runs steps 1 to 5 (401, register, PingOne with the
 - **Protect per-agent detection** needs each agent's app id in the predictor. Agents without their own app (Codex, Meta's Muse) are only "an agent through the connector", and the screen says so.
 - **Headless bot detection.** Protect rates headless Chrome as a bot HIGH, so Playwright runs hit the red "Muse Agent Detected (Bot)" path, or the blank High Risk page on other apps. Test against the mock, or run headed for live.
 - **MFA on the connector path.** The live connector sign-in needs MFA unless the flow's MEDIUM compare is changed for testing. Plan tests around it and never leave the flow edited.
-- **CI.** The muse repo still has no runner. "Green" means the local runs with pasted counts until one is installed.
+- **CI.** The muse repo has a self-hosted runner (`cmuir-mac-muse`). "Green" means its build, forbidden-strings and secrets checks ran on the PR head.
 - **Look-alike drift.** Vendor UIs change. The skins aim at being recognisable, not exact.
