@@ -2,7 +2,7 @@
   "schema": "diagram-studio/1",
   "id": "muse-runtime-e",
   "title": "Runtime E: OpenAI's ChatGPT through the Airline Connector",
-  "lede": "ChatGPT reaches the same Airline Connector as Meta's Muse (runtime B). Only who adds it, how it gets a client ID, and who calls /mcp differ. Not tried yet: chatgpt.com must be added to the allowed callback hosts first.",
+  "lede": "ChatGPT reaches the same Airline Connector as Meta's Muse (runtime B). What differs: who adds it, how it gets a client ID, which PingOne app signs Sam in, and who calls /mcp. Not tried yet: ChatGPT's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
   "groups": {
     "blue": {
       "label": "ChatGPT",
@@ -94,8 +94,8 @@
       "group": "green",
       "label": "6. PingOne sign-in",
       "sub": [
-        "same DaVinci flow",
-        "login hint ends .conn today; .chatgpt once the marker ships"
+        "ChatGPT's own PingOne app, picked by callback host chatgpt.com",
+        "same DaVinci flow, login hint ends .conn"
       ],
       "x": 326,
       "y": 228
@@ -105,7 +105,8 @@
       "group": "red",
       "label": "7. Protect: AI agent detected",
       "sub": [
-        "the screen names the client and says how it knows"
+        "Protect names ChatGPT from its app id",
+        "the screen says how it knows"
       ],
       "x": 612,
       "y": 228
@@ -240,8 +241,8 @@
     },
     {
       "title": "Authorize",
-      "what": "ChatGPT registers itself, or the admin pastes a client ID, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in.",
-      "why": "Whichever way, the callback has to be on the allowed list before sign-in works.",
+      "what": "ChatGPT registers itself, or the admin pastes a client ID, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in with ChatGPT's own PingOne app, chosen because the callback host is chatgpt.com.",
+      "why": "chatgpt.com is a listed agent host (MUSE_CONNECTOR_AGENTS), so it may register.",
       "edges": [
         0,
         1,
@@ -252,7 +253,7 @@
     },
     {
       "title": "Protect check",
-      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect rates the connector sign-in an agent.",
+      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect sees ChatGPT's own PingOne app and names ChatGPT.",
       "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows.",
       "edges": [
         0,
@@ -279,8 +280,8 @@
     },
     {
       "title": "Exchanges, token",
-      "what": "Muse does the exchanges with PingOne and gives ChatGPT its own access token at /connector/token.",
-      "why": "The PingOne token never leaves Muse. ChatGPT holds only a Muse token for scope mcp.",
+      "what": "Muse does the code swap and both exchanges with ChatGPT's own PingOne app, then gives ChatGPT its own access token at /connector/token.",
+      "why": "So act names ChatGPT. The PingOne token never leaves Muse. ChatGPT holds only a Muse token for scope mcp.",
       "edges": [
         0,
         1,
@@ -295,7 +296,7 @@
     {
       "title": "Call with token",
       "what": "OpenAI's servers call /mcp with that token. Muse calls the gateway, which checks the delegated token, and the points come back.",
-      "why": "Not tried yet: chatgpt.com must be added to the allowed callback hosts first.",
+      "why": "Not tried yet: ChatGPT's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
       "edges": [
         0,
         1,

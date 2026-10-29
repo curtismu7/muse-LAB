@@ -2,7 +2,7 @@
   "schema": "diagram-studio/1",
   "id": "muse-runtime-f",
   "title": "Runtime F: Codex CLI through the Airline Connector",
-  "lede": "Codex reaches the same Airline Connector as Meta's Muse (runtime B). Only who adds it, how it gets a client ID, and who calls /mcp differ. Not tried yet. Loopback callbacks are already allowed, so this is the shortest to try.",
+  "lede": "Codex reaches the same Airline Connector as Meta's Muse (runtime B). What differs: who adds it, how it gets a client ID, which PingOne app signs Sam in, and who calls /mcp. Not tried yet. Loopback callbacks are already allowed, so this is the shortest to try.",
   "groups": {
     "blue": {
       "label": "Codex",
@@ -94,8 +94,8 @@
       "group": "green",
       "label": "6. PingOne sign-in",
       "sub": [
-        "same DaVinci flow",
-        "login hint ends .conn today; .codex once the marker ships"
+        "Muse's connector app (agents without their own app)",
+        "same DaVinci flow, login hint ends .conn"
       ],
       "x": 326,
       "y": 228
@@ -105,7 +105,8 @@
       "group": "red",
       "label": "7. Protect: AI agent detected",
       "sub": [
-        "the screen names the client and says how it knows"
+        "Protect flags the connector app; the screen says the Airline Connector",
+        "the screen says how it knows"
       ],
       "x": 612,
       "y": 228
@@ -240,7 +241,7 @@
     },
     {
       "title": "Authorize",
-      "what": "Codex codex mcp login airline: registers itself, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in.",
+      "what": "Codex codex mcp login airline: registers itself, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in with Muse's connector app, because Codex has no app of its own.",
       "why": "Fix the port with mcp_oauth_callback_port so the callback is predictable.",
       "edges": [
         0,
@@ -252,7 +253,7 @@
     },
     {
       "title": "Protect check",
-      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect rates the connector sign-in an agent.",
+      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect sees the connector app and flags an agent; it cannot tell which one.",
       "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows.",
       "edges": [
         0,
@@ -279,7 +280,7 @@
     },
     {
       "title": "Exchanges, token",
-      "what": "Muse does the exchanges with PingOne and gives Codex its own access token at /connector/token.",
+      "what": "Muse does the code swap and both exchanges with Muse's connector app, then gives Codex its own access token at /connector/token.",
       "why": "The PingOne token never leaves Muse. Codex holds only a Muse token for scope mcp.",
       "edges": [
         0,

@@ -2,7 +2,7 @@
   "schema": "diagram-studio/1",
   "id": "muse-runtime-d",
   "title": "Runtime D: Anthropic's Claude through the Airline Connector",
-  "lede": "Claude reaches the same Airline Connector as Meta's Muse (runtime B). Only who adds it, how it gets a client ID, and who calls /mcp differ. Not tried yet: claude.ai must be added to the allowed callback hosts first.",
+  "lede": "Claude reaches the same Airline Connector as Meta's Muse (runtime B). What differs: who adds it, how it gets a client ID, which PingOne app signs Sam in, and who calls /mcp. Not tried yet: Claude's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
   "groups": {
     "blue": {
       "label": "Claude",
@@ -94,8 +94,8 @@
       "group": "green",
       "label": "6. PingOne sign-in",
       "sub": [
-        "same DaVinci flow",
-        "login hint ends .conn today; .claude once the marker ships"
+        "Claude's own PingOne app, picked by callback host claude.ai",
+        "same DaVinci flow, login hint ends .conn"
       ],
       "x": 326,
       "y": 228
@@ -105,7 +105,8 @@
       "group": "red",
       "label": "7. Protect: AI agent detected",
       "sub": [
-        "the screen names the client and says how it knows"
+        "Protect names Claude from its app id",
+        "the screen says how it knows"
       ],
       "x": 612,
       "y": 228
@@ -240,8 +241,8 @@
     },
     {
       "title": "Authorize",
-      "what": "Claude registers itself at /connector/register, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in.",
-      "why": "Muse issues a public client (no secret) for that callback. The Owner can paste a client ID in Advanced settings instead.",
+      "what": "Claude registers itself at /connector/register, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in with Claude's own PingOne app, chosen because the callback host is claude.ai.",
+      "why": "claude.ai is a listed agent host (MUSE_CONNECTOR_AGENTS), so it may register. Muse issues a public client (no secret). The Owner can paste a client ID in Advanced settings instead.",
       "edges": [
         0,
         1,
@@ -252,7 +253,7 @@
     },
     {
       "title": "Protect check",
-      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect rates the connector sign-in an agent.",
+      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect sees Claude's own PingOne app and names Claude.",
       "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows.",
       "edges": [
         0,
@@ -279,8 +280,8 @@
     },
     {
       "title": "Exchanges, token",
-      "what": "Muse does the exchanges with PingOne and gives Claude its own access token at /connector/token.",
-      "why": "The PingOne token never leaves Muse. Claude holds only a Muse token for scope mcp.",
+      "what": "Muse does the code swap and both exchanges with Claude's own PingOne app, then gives Claude its own access token at /connector/token.",
+      "why": "So act names Claude. The PingOne token never leaves Muse. Claude holds only a Muse token for scope mcp.",
       "edges": [
         0,
         1,
@@ -295,7 +296,7 @@
     {
       "title": "Call with token",
       "what": "Anthropic's servers call /mcp with that token. Muse calls the gateway, which checks the delegated token, and the points come back.",
-      "why": "Not tried yet: claude.ai must be added to the allowed callback hosts first.",
+      "why": "Not tried yet: Claude's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
       "edges": [
         0,
         1,
