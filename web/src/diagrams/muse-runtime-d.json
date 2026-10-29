@@ -41,7 +41,7 @@
       "group": "blue",
       "label": "1. The company adds it once",
       "sub": [
-        "Owner: Organization settings > Connectors > Add > Custom > Web, URL https://muse.ai-demo.ping-devops.com/mcp",
+        "Owner: Organization settings > Connectors > Add > Custom > Web, URL {{origin}}/mcp",
         "or a listing in the Connectors Directory"
       ],
       "x": 40,
@@ -204,7 +204,7 @@
   "steps": [
     {
       "title": "Ready to use",
-      "what": "The company has already added the connector: Owner: Organization settings > Connectors > Add > Custom > Web, URL https://muse.ai-demo.ping-devops.com/mcp; or a listing in the Connectors Directory.",
+      "what": "The company has already added the connector: Owner: Organization settings > Connectors > Add > Custom > Web, URL {{origin}}/mcp; or a listing in the Connectors Directory.",
       "why": "Members then only click Connect. Nobody types a URL or client ID.",
       "edges": [
         0

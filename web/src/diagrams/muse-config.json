@@ -185,7 +185,7 @@
    "group": "dark",
    "label": "Ingress + certificate",
    "sub": [
-    "https://muse.ai-demo.ping-devops.com"
+    "{{origin}}"
    ],
    "x": 612,
    "y": 612
@@ -203,7 +203,7 @@
    "group": "blue",
    "label": "2. Server URL",
    "sub": [
-    "https://muse.ai-demo.ping-devops.com/mcp"
+    "{{origin}}/mcp"
    ],
    "x": 326,
    "y": 804
@@ -417,7 +417,7 @@
   },
   {
    "title": "Ingress to pod",
-   "what": "Ingress and the certificate send https://muse.ai-demo.ping-devops.com to the pod.",
+   "what": "Ingress and the certificate send {{origin}} to the pod.",
    "why": "One public host serves the UI, the API and the connector.",
    "edges": [
     0,
