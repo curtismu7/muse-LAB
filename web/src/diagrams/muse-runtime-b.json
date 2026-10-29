@@ -41,7 +41,7 @@
    "group": "blue",
    "label": "1. User asks in Meta's Muse",
    "sub": [
-    "\"How many United points do I have?\""
+    "\"How many SkyHigh points do I have?\""
    ],
    "x": 40,
    "y": 74
@@ -180,7 +180,7 @@
  "steps": [
   {
    "title": "Ask",
-   "what": "The user asks in Meta’s Muse: \"How many United points do I have?\"",
+   "what": "The user asks in Meta’s Muse: \"How many SkyHigh points do I have?\"",
    "why": "The user never leaves Meta’s Muse.",
    "edges": [
     0

@@ -14,7 +14,8 @@ const pfJwt = (claims, kid = 'pf1', key = pfKey.privateKey) => { const h = `${b6
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 async function freePort() { const s = net.createServer(); s.listen(0, '127.0.0.1'); await once(s, 'listening'); const p = s.address().port; await new Promise((r) => s.close(r)); return p; }
 
-// A stand-in PingFederate: advertises CIMD, fetches the client document (and ChatGPT's JWKS) from Muse, checks the assertion, issues an RS256 JWT.
+// A stand-in PingFederate: advertises CIMD, fetches the client document (and ChatGPT's JWKS) from Muse, checks the assertion the way
+// PingFederate 13.1 does (aud = issuer, typ client-authentication+jwt), issues an RS256 JWT.
 function fakePf(base, seen) {
   return async (url, init = {}) => {
     const u = String(url); seen.push({ url: u, init });
@@ -30,7 +31,7 @@ function fakePf(base, seen) {
         const keys = (await (await fetch(doc.jwks_uri)).json()).keys;
         const k = keys.find((x) => x.kid === JSON.parse(Buffer.from(h, 'base64url')).kid);
         const claims = JSON.parse(Buffer.from(c ?? '', 'base64url').toString() || '{}');
-        if (!k || !verify('RSA-SHA256', Buffer.from(`${h}.${c}`), createPublicKey({ key: k, format: 'jwk' }), Buffer.from(s, 'base64url')) || claims.iss !== doc.client_id || claims.aud !== `${PF}/as/token.oauth2`) return json(401, { error: 'invalid_client' });
+        if (!k || !verify('RSA-SHA256', Buffer.from(`${h}.${c}`), createPublicKey({ key: k, format: 'jwk' }), Buffer.from(s, 'base64url')) || claims.iss !== doc.client_id || claims.aud !== PF || JSON.parse(Buffer.from(h, 'base64url')).typ !== 'client-authentication+jwt') return json(401, { error: 'invalid_client' });
       }
       return json(200, { access_token: pfJwt({ iss: PF, aud: `${base}/mcp-pf`, sub: 'sam@pf', scope: 'openid muse:mcp', client_id: doc.client_id, exp: Math.floor(Date.now() / 1000) + 600 }), token_type: 'Bearer', expires_in: 600 });
     }
