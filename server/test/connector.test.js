@@ -58,7 +58,7 @@ async function boot(extra = {}) {
 const REDIRECT = 'https://chat.agent.example/oauth/callback';
 const pkce = () => { const verifier = 'v'.repeat(50); return { verifier, challenge: createHash('sha256').update(verifier).digest('base64url') }; };
 
-test('discovery documents point at this server, and registration only appears when redirect hosts are configured', async () => {
+test('discovery documents point at this server; with no redirect hosts, registration only accepts Muse\'s own stand-in callbacks', async () => {
   const a = await boot();
   const prm = await (await a.get('/.well-known/oauth-protected-resource/mcp')).json();
   assert.equal(prm.resource, `${a.base}/mcp`); assert.deepEqual(prm.authorization_servers, [a.base]); assert.equal(prm.resource_name, 'Airline Connector');
@@ -68,9 +68,11 @@ test('discovery documents point at this server, and registration only appears wh
   assert.deepEqual(as.code_challenge_methods_supported, ['S256']);
   await a.close();
   const b = await boot({ MUSE_CONNECTOR_REDIRECT_HOSTS: '' });
-  assert.equal((await (await b.get('/.well-known/oauth-authorization-server')).json()).registration_endpoint, undefined);
-  assert.equal((await b.post('/connector/register', { redirect_uris: [REDIRECT] })).status, 403);
-  await b.close();
+  try {
+    assert.equal((await (await b.get('/.well-known/oauth-authorization-server')).json()).registration_endpoint, `${b.base}/connector/register`);
+    assert.equal((await b.post('/connector/register', { redirect_uris: [REDIRECT] })).status, 400, 'an outside host is still refused');
+    assert.equal((await b.post('/connector/register', { redirect_uris: [`${b.base}/sim/chatgpt/callback`] })).status, 201);
+  } finally { await b.close(); }
 });
 
 test('/mcp without a token answers 401 with the metadata address', async () => {
@@ -309,5 +311,52 @@ test('an agent with no callback host (Codex) has its own app in the directory Co
     const { challenge } = pkce();
     const au = await a.get(`/connector/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: LOOP, state: 's', code_challenge: challenge, code_challenge_method: 'S256' })}`);
     assert.notEqual(new URL(au.headers.get('location')).searchParams.get('client_id'), 'cx-app');
+  } finally { await a.close(); }
+});
+
+test('Connect the way the platform does it: 401, metadata, dynamic registration, PKCE + resource, sign-in with that assistant\'s app, token, MCP calls', async () => {
+  const AGENTS = JSON.stringify([{ name: 'Claude', hosts: ['claude.example'], clientId: 'cl-app', clientSecret: 'cl-sekret' }]);
+  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS });
+  try {
+    const jar = {}; const cookie = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
+    const keep = (r) => { for (const c of r.headers.getSetCookie?.() ?? []) { const [kv] = c.split(';'); const [k, v] = kv.split('='); jar[k] = v; } return r; };
+    const call = async (m, p, body) => keep(await fetch(p.startsWith('http') ? p : a.base + p, { method: m, redirect: 'manual', headers: { 'content-type': 'application/json', cookie: cookie() }, body: body ? JSON.stringify(body) : undefined }));
+    await call('GET', '/api/session');
+    assert.equal((await call('POST', '/api/sim/start', { platform: 'nobody' })).status, 409);
+    const st = await (await call('POST', '/api/sim/start', { platform: 'claude', returnTo: '/clients.html?client=claude' })).json();
+    assert.equal(st.method, 'dcr', 'no CIMD advertised, so the platform registers');
+    const au = new URL(st.url);
+    assert.equal(au.origin + au.pathname, `${a.base}/connector/authorize`);
+    assert.equal(au.searchParams.get('redirect_uri'), `${a.base}/sim/claude/callback`);
+    assert.equal(au.searchParams.get('code_challenge_method'), 'S256');
+    assert.equal(au.searchParams.get('resource'), `${a.base}/mcp`);
+    assert.match(au.searchParams.get('client_id'), /^muse-/, 'a client id issued by registration');
+    // The browser: connector -> PingOne (with Claude's own app) -> connector callback -> the stand-in platform callback.
+    const toP1 = new URL((await call('GET', st.url)).headers.get('location'));
+    assert.equal(toP1.searchParams.get('client_id'), 'cl-app', 'PingOne sees Claude\'s app, picked from the stand-in callback');
+    const back = new URL((await call('GET', `/connector/callback?code=p1code&state=${toP1.searchParams.get('state')}`)).headers.get('location'));
+    assert.equal(back.origin + back.pathname, `${a.base}/sim/claude/callback`);
+    const done = await call('GET', back.pathname + back.search);
+    assert.match(await done.text(), /\/clients\.html\?client=claude/);
+    const s = (await (await call('GET', '/api/session')).json()).assistant;
+    assert.equal(s.name, 'Claude'); assert.equal(s.method, 'dcr'); assert.equal(s.error, null);
+    assert.equal(s.points.points, 52000);
+    assert.deepEqual(s.steps.map((x) => x.n), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert.equal(s.steps[0].response.status, 401);
+    assert.equal(s.steps[3].response.status, 201);
+    assert.ok(!JSON.stringify(s).match(/"access_token":"(?!\(hidden\))/), 'no token reaches the page');
+    assert.equal((await call('GET', back.pathname + back.search)).status, 400, 'a callback works once');
+  } finally { await a.close(); }
+});
+
+test('the connector limit does not count Muse\'s own platform runs, and a wrong mark is counted like anyone', async () => {
+  const { SELF_MARK } = await import('../src/platforms.js');
+  const a = await boot();
+  try {
+    const hit = (h) => a.post('/connector/register', { redirect_uris: [] }, h);
+    for (let i = 0; i < 40; i++) assert.equal((await hit({ 'x-muse-self': SELF_MARK })).status, 400);
+    let last = 400;
+    for (let i = 0; i < 31; i++) last = (await hit({ 'x-muse-self': 'guess' })).status;
+    assert.equal(last, 429);
   } finally { await a.close(); }
 });
