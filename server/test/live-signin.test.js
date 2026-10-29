@@ -281,7 +281,7 @@ test('the PingOne MFA switch: off adds the .nomfa flag to the login hint, on lea
 
 test('just a user: separate PingOne app, no exchange, own token to the gateway is refused', async () => {
   const P1 = 'https://auth.pingone.com/env1/as';
-  const UID = '2e73d4ff-8164-4c9c-849f-55f1180a94e7';
+  const UID = '00000000-0000-0000-0000-0000000000a1';
   const bodies = [];
   const n = net({
     [GW]: (init) => (init.headers.authorization ? json(401, { error: 'invalid_token' }) : json(401, {}, { 'www-authenticate': 'Bearer resource_metadata="https://gw.example/.well-known/oauth-protected-resource/pft/mcp"' })),
