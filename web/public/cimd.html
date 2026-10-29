@@ -95,85 +95,176 @@ pre { margin: 0; background: var(--bg); border: 1px solid var(--line); border-ra
   </header>
 
   <div class="tabs" role="tablist" aria-label="Example">
-    <button type="button" role="tab" id="t-real" aria-selected="true" aria-controls="p-real">Real: client.dev and PingFederate</button>
+    <button type="button" role="tab" id="t-real" aria-selected="true" aria-controls="p-real">Real: ChatGPT, Codex, Claude Code and Linear</button>
     <button type="button" role="tab" id="t-mock" aria-selected="false" aria-controls="p-mock">Mock: Muse's connector</button>
   </div>
 
   <div class="panel" id="p-real" role="tabpanel" aria-labelledby="t-real">
     <section aria-labelledby="r-intro">
-      <h2 id="r-intro"><span class="tag real">Real</span> Captured on 29 October 2026</h2>
-      <p>The app is <a href="https://client.dev/">client.dev</a>, a public site that hosts an example CIMD document. The authorization server is a local PingFederate 13.1.3 (13.1 is the release that added CIMD). These are the actual responses, trimmed only where marked.</p>
-      <p class="note">The last step stops at an error, and that is the real result. This PingFederate refused client.dev. PingFederate's documentation says it rejects a CIMD request when no enabled CIMD policy matches, and I have not looked at this server's policies to confirm that is the cause. Getting past it most likely needs a policy for client.dev, which has not been added.</p>
+      <h2 id="r-intro"><span class="tag real">Real</span> ChatGPT, Codex and Claude Code, against Linear and Notion</h2>
+      <p>Captured on 29 October 2026 from the public internet. The apps are the real ones: OpenAI hosts ChatGPT's and Codex's documents, Anthropic hosts Claude Code's. The servers are the real MCP servers of <a href="https://linear.app/">Linear</a> and <a href="https://www.notion.so/">Notion</a>, both of which advertise CIMD. Nothing here needed an account, because an authorize request only starts a sign-in.</p>
+      <p class="note">Not captured: what happens after Approve. That needs a signed-in Linear or Notion user, so the code and token steps are not shown on this tab.</p>
     </section>
 
     <section aria-labelledby="r1">
       <div class="step">
-        <h3 id="r1">1. The app's document, as anyone can fetch it</h3>
-        <p class="cap">Request, no credentials</p>
-<pre>GET /oauth/metadata.json HTTP/2
-Host: client.dev</pre>
-        <p class="cap">Response</p>
-<pre>HTTP/2 200
-content-type: application/json; charset=utf-8
-access-control-allow-origin: *
-cache-control: public, max-age=0, must-revalidate
-server: Vercel
-
-{
-  "client_id": "https://client.dev/oauth/metadata.json",
-  "client_name": "client.dev",
-  "client_uri": "https://client.dev",
-  "redirect_uris": ["https://client.dev/oauth/callback"],
-  "grant_types": ["authorization_code"],
+        <h3 id="r1">1. The three apps' own documents</h3>
+        <p class="cap">Request, no credentials, same for all three</p>
+<pre>GET /oauth/client.json HTTP/2                   Host: chatgpt.com
+GET /oauth/codex/client.json HTTP/2             Host: chatgpt.com
+GET /oauth/claude-code-client-metadata HTTP/2   Host: claude.ai</pre>
+        <p class="cap">ChatGPT: 200, <code>https://chatgpt.com/oauth/client.json</code></p>
+<pre>{
+  "client_id": "https://chatgpt.com/oauth/client.json",
+  "client_name": "ChatGPT",
+  "client_uri": "https://chatgpt.com/",
+  "logo_uri": "https://persistent.oaistatic.com/sonic/misc/openai-logo.png",
+  "redirect_uris": ["https://chatgpt.com/connector_platform_oauth_redirect"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "private_key_jwt",
+  "token_endpoint_auth_methods_supported": ["none", "private_key_jwt"],
+  "token_endpoint_auth_signing_alg": "RS256",
+  "jwks_uri": "https://chatgpt.com/oauth/jwks.json"
+}</pre>
+        <p class="cap">Codex: 200, <code>https://chatgpt.com/oauth/codex/client.json</code></p>
+<pre>{
+  "client_id": "https://chatgpt.com/oauth/codex/client.json",
+  "client_name": "Codex",
+  "client_uri": "https://chatgpt.com/codex",
+  "application_type": "native",
+  "logo_uri": "https://persistent.oaistatic.com/sonic/misc/openai-logo.png",
+  "redirect_uris": ["http://127.0.0.1/callback", "http://localhost/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "token_endpoint_auth_methods_supported": ["none"]
+}</pre>
+        <p class="cap">Claude Code: 200, <code>https://claude.ai/oauth/claude-code-client-metadata</code></p>
+<pre>{
+  "client_id": "https://claude.ai/oauth/claude-code-client-metadata",
+  "client_name": "Claude Code",
+  "client_uri": "https://claude.ai",
+  "redirect_uris": ["http://localhost/callback", "http://127.0.0.1/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none"
 }</pre>
-        <p>The document's own <code>client_id</code> is the address it is served from. That match is the first thing a server checks. <code>token_endpoint_auth_method: none</code> means a public client: no secret, PKCE instead.</p>
+        <p>Two different kinds of client. Codex and Claude Code are public clients: no secret, PKCE only, a loopback callback with no port written in the document. <strong>ChatGPT is a confidential client</strong>: it asks for <code>private_key_jwt</code>, so it proves who it is at the token step by signing with a key published at its <code>jwks_uri</code>. (Its document also lists <code>none</code>.)</p>
       </div>
 
       <div class="step">
-        <h3 id="r2">2. The server says it understands CIMD</h3>
+        <h3 id="r2">2. A real server says it understands CIMD</h3>
         <p class="cap">Request</p>
-<pre>GET /.well-known/oauth-authorization-server HTTP/1.1
-Host: local.ping-devops.com:9031</pre>
-        <p class="cap">Response (200, five fields kept out of the full document)</p>
+<pre>GET /.well-known/oauth-authorization-server HTTP/2
+Host: mcp.linear.app</pre>
+        <p class="cap">Response (200, seven fields kept out of the full document)</p>
 <pre>{
-  "issuer": "https://local.ping-devops.com:9031",
-  "authorization_endpoint": "https://local.ping-devops.com:9031/as/authorization.oauth2",
-  "token_endpoint": "https://local.ping-devops.com:9031/as/token.oauth2",
-  "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "client_secret_jwt",
-                                            "private_key_jwt", "tls_client_auth", "none"],
+  "issuer": "https://mcp.linear.app",
+  "authorization_endpoint": "https://mcp.linear.app/authorize",
+  "token_endpoint": "https://mcp.linear.app/token",
+  "registration_endpoint": "https://mcp.linear.app/register",
+  "code_challenge_methods_supported": ["S256"],
+  "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
   "client_id_metadata_document_supported": true
 }</pre>
-        <p>This is the flag Claude, ChatGPT and Codex look for. With it, and <code>none</code> in the list, they present a document address and never call the registration endpoint (this server also lists <code>/as/clients.oauth2</code> for DCR).</p>
+        <p>Linear also keeps its registration endpoint, so a client that has no document can still register (DCR). Notion's metadata is the same shape, with <code>private_key_jwt</code> added to the methods it accepts, the one ChatGPT asks for.</p>
       </div>
 
       <div class="step">
-        <h3 id="r3">3. The authorize request, with a web address as the client</h3>
-        <p class="cap">Request</p>
-<pre>GET /as/authorization.oauth2
-  ?client_id=https://client.dev/oauth/metadata.json
-  &amp;response_type=code
-  &amp;redirect_uri=https://client.dev/oauth/callback
-  &amp;code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
-  &amp;code_challenge_method=S256
-  &amp;state=x
-Host: local.ping-devops.com:9031</pre>
+        <h3 id="r3">3. ChatGPT asks Linear to sign someone in</h3>
+        <p class="cap">Request (the <code>code_challenge</code> is a sample)</p>
+<pre>GET /authorize
+  ?response_type=code
+  &amp;client_id=https://chatgpt.com/oauth/client.json
+  &amp;redirect_uri=https://chatgpt.com/connector_platform_oauth_redirect
+  &amp;code_challenge=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  &amp;code_challenge_method=S256&amp;state=x
+Host: mcp.linear.app</pre>
         <p class="cap">Response</p>
-<pre>HTTP/2 400
-content-type: text/html;charset=utf-8
+<pre>HTTP/2 200
+content-type: text/html; charset=UTF-8
 
-400 - Invalid client_id</pre>
-        <p>PingFederate refused the request before showing a sign-in page. Its documentation says that with CIMD on it reads the <code>client_id</code> as an address, checks its CIMD policies, and rejects the request if none matches. That is the likely cause here, but it is unconfirmed. It fits the design: the server decides which addresses it trusts, and a document anyone can host does not become a client by itself.</p>
-        <p class="note"><span class="tag todo">Open</span> Not captured yet: the same request after a CIMD policy allows client.dev. It would go on to fetch the document, check it, and show the PingFederate sign-in, with the code coming back to <code>https://client.dev/oauth/callback</code>. The mock tab shows those steps.</p>
+&lt;title&gt;ChatGPT | Authorization Request&lt;/title&gt;
+  (page preloads https://persistent.oaistatic.com/sonic/misc/openai-logo.png)
+  Website: https://chatgpt.com/
+  [ Approve ]</pre>
+        <p>Nobody registered ChatGPT with Linear. Linear fetched the document at the <code>client_id</code> address and built its consent page from it: the name in the title, OpenAI's logo from <code>logo_uri</code>, and the website from <code>client_uri</code>. The page is Linear's own, not ChatGPT's.</p>
       </div>
+
+      <div class="step">
+        <h3 id="r4">4. Codex asks, with a callback port nobody listed</h3>
+        <p class="cap">Request</p>
+<pre>GET /authorize
+  ?response_type=code
+  &amp;client_id=https://chatgpt.com/oauth/codex/client.json
+  &amp;redirect_uri=http://127.0.0.1:1455/callback
+  &amp;code_challenge=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  &amp;code_challenge_method=S256&amp;state=x
+Host: mcp.linear.app</pre>
+        <p class="cap">Response</p>
+<pre>HTTP/2 200
+content-type: text/html; charset=UTF-8
+
+&lt;title&gt;Codex | Authorization Request&lt;/title&gt;
+  Website: https://chatgpt.com/codex
+  Callback: http://127.0.0.1:1455/callback
+  [ Approve ]</pre>
+        <p>The document lists <code>http://127.0.0.1/callback</code> with no port. Linear accepted port 1455 anyway. For a loopback address any port matches, because a command-line app picks a free port when it starts (Codex lets you fix it with <code>mcp_oauth_callback_port</code>). Linear shows the exact callback on its page.</p>
+      </div>
+
+      <div class="step">
+        <h3 id="r5">5. A callback the document does not list is refused</h3>
+        <p class="cap">Request: the same Codex request, with <code>redirect_uri=https://evil.example/cb</code></p>
+        <p class="cap">Linear</p>
+<pre>HTTP/2 400
+Invalid redirect URI</pre>
+        <p class="cap">Notion</p>
+<pre>HTTP/2 400
+{"error":"invalid_request","error_description":"Invalid redirect URI"}</pre>
+        <p>This is what stops anyone from borrowing ChatGPT's or Codex's address: a code is only ever sent to a callback in the document its owner published. Neither server redirected anywhere.</p>
+      </div>
+
+      <div class="step">
+        <h3 id="r6">6. Notion accepts the same two apps</h3>
+<pre>GET /authorize?client_id=https://chatgpt.com/oauth/client.json&amp;redirect_uri=https://chatgpt.com/connector_platform_oauth_redirect&amp;...
+Host: mcp.notion.com
+
+HTTP/2 302
+location: https://api.notion.com/v1/oauth/authorize?client_id=1f8d872b-594c-80a4-...&amp;redirect_uri=https%3A%2F%2Fmcp.notion.com%2Fcallback&amp;...</pre>
+        <p>The Codex request got the same 302. Notion accepted the client and handed the user on to api.notion.com with a Notion client ID and a callback back on mcp.notion.com. That looks like the MCP server acting as the authorization server the app talks to, and signing people in with Notion's own login behind it. That reading is my inference from the redirect, not something Notion documents here.</p>
+        <div class="wide">
+        <table>
+          <thead><tr><th>Server</th><th>Authorization server metadata, 29 Oct 2026</th><th>Authorize with ChatGPT and Codex documents</th></tr></thead>
+          <tbody>
+            <tr><td>Linear <code>mcp.linear.app</code></td><td><code>client_id_metadata_document_supported: true</code></td><td>Accepted (consent page). Unlisted callback refused.</td></tr>
+            <tr><td>Notion <code>mcp.notion.com</code></td><td>true, and <code>private_key_jwt</code> accepted</td><td>Accepted (302 to Notion sign-in). Unlisted callback refused.</td></tr>
+            <tr><td>Sentry, Vercel, Cloudflare, Canva, Monday, Shopify, WorkOS, Stytch</td><td>true</td><td>Not tried.</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="r7">
+      <details>
+        <summary id="r7">Also tried: a local PingFederate 13.1.3 with client.dev's example document</summary>
+        <div class="step">
+        <p>PingFederate 13.1 added CIMD. This local one advertises <code>client_id_metadata_document_supported: true</code> and lists <code>none</code>. An authorize request with <code>client_id=https://client.dev/oauth/metadata.json</code> returned <code>400 - Invalid client_id</code>. PingFederate's documentation says it rejects a CIMD request when no enabled CIMD policy matches. I have not read this server's policies, so the cause is unconfirmed. A policy that allows client.dev, or ChatGPT's and Codex's addresses, would be the next step to capture the accepted path on PingFederate.</p>
+<pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
+Host: local.ping-devops.com:9031
+
+HTTP/2 400
+400 - Invalid client_id</pre>
+        </div>
+      </details>
     </section>
   </div>
 
   <div class="panel" id="p-mock" role="tabpanel" aria-labelledby="t-mock">
     <section aria-labelledby="m-intro">
       <h2 id="m-intro"><span class="tag sim">Mock</span> What Muse's connector would do</h2>
-      <p>This is scripted, not captured. Muse's connector does not do CIMD yet, so nothing below has been run. The app is client.dev's real document from the other tab, so the shapes match. Codes, tokens and the PKCE values are samples.</p>
+      <p>This is scripted, not captured. Muse's connector does not do CIMD yet, so nothing below has been run. The app is Codex, using its real document from the other tab, so the shapes match. Codes, tokens and the PKCE values are samples. Codex needs only PKCE. ChatGPT's real document asks for <code>private_key_jwt</code>, so supporting ChatGPT would also mean fetching its key set and checking a signed assertion at the token step, which this walk-through does not show.</p>
     </section>
 
     <section aria-labelledby="m1">
@@ -196,8 +287,8 @@ Host: muse.ai-demo.ping-devops.com
       <div class="step">
         <h3 id="m2">2. The app sends the user to authorize</h3>
 <pre>GET /connector/authorize
-  ?client_id=https://client.dev/oauth/metadata.json
-  &amp;redirect_uri=https://client.dev/oauth/callback
+  ?client_id=https://chatgpt.com/oauth/codex/client.json
+  &amp;redirect_uri=http://127.0.0.1:1455/callback
   &amp;response_type=code&amp;scope=mcp
   &amp;code_challenge=SAMPLE_CHALLENGE&amp;code_challenge_method=S256&amp;state=SAMPLE_STATE</pre>
         <p>Today Muse would answer 400 here, because that <code>client_id</code> is not registered. The new behaviour starts when the <code>client_id</code> is an HTTPS address.</p>
@@ -205,8 +296,8 @@ Host: muse.ai-demo.ping-devops.com
 
       <div class="step">
         <h3 id="m3">3. Muse fetches and checks the document</h3>
-<pre>GET /oauth/metadata.json
-Host: client.dev
+<pre>GET /oauth/codex/client.json
+Host: chatgpt.com
 Accept: application/json
 
 200 OK   (same body as the real capture)</pre>
@@ -217,7 +308,7 @@ Accept: application/json
             <tr><td>Address</td><td>HTTPS, a real host, and the address does not resolve to a private or internal network</td><td><code>invalid_client</code>, nothing fetched</td></tr>
             <tr><td>Fetch</td><td>Answers in a few seconds, small body, JSON</td><td><code>invalid_client</code></td></tr>
             <tr><td>Same address</td><td>Document <code>client_id</code> equals the address it was fetched from</td><td><code>invalid_client</code></td></tr>
-            <tr><td>Callback</td><td>The request's <code>redirect_uri</code> is exactly one of <code>redirect_uris</code></td><td>400, no redirect (never send a code to an unlisted address)</td></tr>
+            <tr><td>Callback</td><td>The request's <code>redirect_uri</code> is one of <code>redirect_uris</code>. For a loopback address any port matches.</td><td>400, no redirect (never send a code to an unlisted address)</td></tr>
             <tr><td>Public client</td><td><code>token_endpoint_auth_method</code> is <code>none</code></td><td><code>invalid_client</code></td></tr>
             <tr><td>Allow-list</td><td>The host is one Muse trusts (a Muse setting, like PingFederate's CIMD policy)</td><td><code>invalid_client</code></td></tr>
           </tbody>
@@ -228,7 +319,7 @@ Accept: application/json
       <div class="step">
         <h3 id="m4">4. Sign-in goes ahead as it does today</h3>
         <p>With the app accepted, Muse sends the user to PingOne through the DaVinci flow with Protect, the same as for any connector. The user signs in and approves, then Muse redirects to the callback the document listed:</p>
-<pre>302 Location: https://client.dev/oauth/callback?code=SAMPLE_CODE&amp;state=SAMPLE_STATE</pre>
+<pre>302 Location: http://127.0.0.1:1455/callback?code=SAMPLE_CODE&amp;state=SAMPLE_STATE</pre>
       </div>
 
       <div class="step">
@@ -237,8 +328,8 @@ Accept: application/json
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=authorization_code&amp;code=SAMPLE_CODE
-&amp;client_id=https://client.dev/oauth/metadata.json
-&amp;redirect_uri=https://client.dev/oauth/callback
+&amp;client_id=https://chatgpt.com/oauth/codex/client.json
+&amp;redirect_uri=http://127.0.0.1:1455/callback
 &amp;code_verifier=SAMPLE_VERIFIER
 
 200 OK
@@ -252,7 +343,7 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
         <table>
           <thead><tr><th>Request</th><th>Muse answers</th></tr></thead>
           <tbody>
-            <tr><td><code>client_id=http://client.dev/...</code> (not HTTPS)</td><td><code>invalid_client</code></td></tr>
+            <tr><td><code>client_id=http://chatgpt.com/...</code> (not HTTPS)</td><td><code>invalid_client</code></td></tr>
             <tr><td>Document says a different <code>client_id</code> than its address</td><td><code>invalid_client</code></td></tr>
             <tr><td><code>redirect_uri=https://evil.example/cb</code>, not in the document</td><td>400 error page, no redirect</td></tr>
             <tr><td><code>client_id</code> on a host that resolves to <code>127.0.0.1</code> or a cluster address</td><td><code>invalid_client</code>, never fetched</td></tr>
@@ -266,9 +357,10 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
   <section aria-labelledby="after">
     <h2 id="after">What each side does</h2>
     <ul>
-      <li><span class="tag real">Real</span> client.dev hosts the document. PingFederate 13.1.3 advertises CIMD and refused client.dev (cause unconfirmed).</li>
-      <li><span class="tag sim">Mock</span> Muse's connector accepting a document address. Not built.</li>
-      <li><span class="tag todo">Open</span> A PingFederate CIMD policy for client.dev, to capture the accepted path for real.</li>
+      <li><span class="tag real">Real</span> ChatGPT, Codex and Claude Code host their own documents. Linear and Notion accept ChatGPT's and Codex's, and refuse a callback that is not in the document.</li>
+      <li><span class="tag real">Real</span> A local PingFederate 13.1.3 advertises CIMD. It refused client.dev (cause unconfirmed).</li>
+      <li><span class="tag sim">Mock</span> Muse's connector accepting a document address. <strong>Not built.</strong> Muse does not do CIMD today.</li>
+      <li><span class="tag todo">Open</span> The token step with a real signed-in user, for ChatGPT (<code>private_key_jwt</code>) and Codex. Whether ChatGPT falls back to <code>none</code> when a server lacks <code>private_key_jwt</code> is not verified.</li>
     </ul>
     <p class="note">PingFederate's CIMD support follows an evolving draft specification, and its documentation warns later changes may not be backward compatible. See <a href="https://docs.pingidentity.com/pingfederate/13.1/administrators_reference_guide/pf_cimd.html">PingFederate CIMD</a>.</p>
   </section>
