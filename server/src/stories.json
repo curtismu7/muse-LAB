@@ -5,7 +5,7 @@
   "verticals": {
     "airline": {
       "label": "Airline",
-      "cast": { "member": "Sam", "provider": "Skyline Air", "unit": "airline points" },
+      "cast": { "member": "Sam", "provider": "SkyHigh Airlines", "unit": "airline points" },
       "story": {
         "ask": "How many {{cast.unit}} do I have with {{cast.provider}}?",
         "answer": "You have **{{points}}** {{cast.unit}} with {{cast.provider}}. Your tier is **{{tier}}**.",
