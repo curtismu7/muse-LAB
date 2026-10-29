@@ -1,6 +1,6 @@
 # Muse: packaging and deployment handoff
 
-Written for: an agent who will package Muse (zip, image or both) and deploy it. Status as of 2026-10-29, muse `main` at `f66bdca`. Repo: `cmuir_pingcorp/muse` (private). Nothing in this doc has been run as a packaging job: the facts below are from the repo, the live site, and the checks named.
+Written for: an agent who will package Muse (zip, image or both) and deploy it. Status as of 2026-10-29, muse `main` at `1e14802` (the live Real pod runs `f66bdca`; the mock-only pod runs `0cdad69`). Repo: `cmuir_pingcorp/muse` (private). Nothing in this doc has been run as a packaging job: the facts below are from the repo, the live site, and the checks named.
 
 ## What Muse is now
 
@@ -14,6 +14,8 @@ A personal-agent demo with two modes. Pick the mode before you package.
 | Right for a zip? | **Yes.** No tenant, no secrets | **No.** It would carry tenant identifiers |
 
 Live today at `https://muse.ai-demo.ping-devops.com/` (Real mode; pod image `ghcr.io/cmuir_pingcorp/muse:sha-f66bdca1afe08ec672326928f832f9494ff627de`).
+
+**Update 2026-10-29 (after #26, by United's session):** the mock-only SE build now exists and is live at `https://muse-mock.ai-demo.ping-devops.com/` (`APP_NAME=muse-mock`, `MODE=mock`, image `sha-0cdad69`). Checked by content: `/api/health` is `demo-health/1`, `/api/session` shows `mode: mock`, live unavailable, no connector. A zip already exists at `~/Downloads/demo-rollout/muse-1e14802.zip` (90 files, built from `1e14802`); check it against the include/leave-out lists below before trusting it. `README.md` has a "Hosted builds" section from #26; it is current for `MODE` and `APP_NAME`. The owner decision that no separate stub connector or gateway is built still stands: the mock build is Muse's existing offline mock (simulated sign-in, Protect and gateway), not a new stub.
 
 Owner decision 2026-10-29: `/clients.html` with its scripted run is the mock-only version. Do not build a separate stub connector or gateway.
 
@@ -115,6 +117,6 @@ Load the `standalone-demo` skill and read `~/Development/STANDALONE-RULES.md` (c
 
 ## Not verified
 
-- No zip or standalone image has been built from this repo by me.
+- I have not built a zip or standalone image from this repo; the existing zip and the `muse-mock` deploy are United's and I have not inspected the zip's contents beyond its file count.
 - A full local mock-only run (`npm start` with no Secret) was not started in this session. The page behaviour with the connector off was checked in a browser against a stubbed session.
 - The four conformance failures above are unfixed.
