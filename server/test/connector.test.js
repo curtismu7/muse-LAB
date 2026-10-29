@@ -185,10 +185,10 @@ test('a pre-registered client id works without registration', async () => {
   await a.close();
 });
 
-test('the session tells the page how to add the connector, and says nothing when it is off', async () => {
+test('the session tells the page which assistants can connect, and says nothing when it is off', async () => {
   const a = await boot({ MUSE_CONNECTOR_CLIENT_ID: 'airline-connector', MUSE_CONNECTOR_REDIRECT_URIS: REDIRECT });
   const on = await (await a.get('/api/session')).json();
-  assert.deepEqual(on.connector, { url: `${a.base}/mcp`, clientId: 'airline-connector', redirectUri: REDIRECT });
+  assert.deepEqual(on.connector, { url: `${a.base}/mcp`, clientId: 'airline-connector', redirectUri: REDIRECT, airline: null, assistants: [{ key: 'meta-ai', name: 'Meta AI' }] });
   await a.close();
   const b = await boot({ MUSE_CONNECTOR: '0' });
   assert.equal((await (await b.get('/api/session')).json()).connector, null);
@@ -243,4 +243,30 @@ test('an agent with its own PingOne app (by callback host) signs in and acts wit
   assert.ok(other.back.searchParams.get('code'));
   assert.ok(a.seen.filter((x) => x.url === `${P1}/token`).slice(4).every((x) => new URLSearchParams(x.init.body).get('client_id') === 'c1'), 'an agent with no app of its own keeps Muse\'s');
   await a.close();
+});
+
+test('Connect from your assistant: each listed assistant signs in with its own PingOne app, acts for the user and gets the points', async () => {
+  const AGENTS = JSON.stringify([{ name: 'ChatGPT', hosts: ['chatgpt.example'], clientId: 'gpt-app', clientSecret: 'gpt-sekret' }]);
+  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS, MUSE_CONNECTOR_AIRLINE: 'United' });
+  try {
+  const jar = {}; const cookie = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
+  const keep = (r) => { for (const c of r.headers.getSetCookie?.() ?? []) { const [kv] = c.split(';'); const [k, v] = kv.split('='); jar[k] = v; } return r; };
+  const call = async (m, p, body) => keep(await fetch(a.base + p, { method: m, redirect: 'manual', headers: { 'content-type': 'application/json', cookie: cookie() }, body: body ? JSON.stringify(body) : undefined }));
+  await call('GET', '/api/session');
+  const s0 = await (await call('GET', '/api/session')).json();
+  assert.deepEqual(s0.connector.assistants.map((x) => x.name), ['ChatGPT', 'Meta AI']);
+  assert.equal(s0.connector.airline, 'United');
+  assert.ok(!JSON.stringify(s0).includes('gpt-sekret'), 'no secret reaches the page');
+  assert.equal((await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'nobody' })).status, 409);
+  const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'chatgpt' })).json();
+  const u = new URL(si.url);
+  assert.equal(u.searchParams.get('client_id'), 'gpt-app'); assert.equal(u.searchParams.get('login_hint'), 'demouser.conn');
+  assert.equal(u.searchParams.get('redirect_uri'), `${a.base}/api/callback`);
+  const before = a.seen.length;
+  await call('GET', `/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const posts = a.seen.slice(before).filter((x) => x.url === `${P1}/token`).map((x) => new URLSearchParams(x.init.body));
+  assert.equal(posts.length, 4); assert.ok(posts.every((f) => f.get('client_id') === 'gpt-app'));
+  const s1 = await (await call('GET', '/api/session')).json();
+  assert.equal(s1.assistant.name, 'ChatGPT'); assert.equal(s1.assistant.points.points, 52000); assert.equal(s1.assistant.error, null);
+  } finally { await a.close(); }
 });

@@ -8,7 +8,7 @@ import { decide } from './gateway.js';
 import { signInTrace } from './signin.js';
 import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
 import { agentConfig, agentTools, normaliseResult, plan, reply } from './agent.js';
-import { mountConnector } from './connector.js';
+import { assistantsFor, mountConnector } from './connector.js';
 import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
@@ -123,6 +123,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       discovery: ws.discovery ?? null,
       liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null, ask: ws.liveAsk ?? null, answer: ws.liveAnswer ?? null },
       userLogin: ws.userLogin ?? null,
+      assistant: ws.assistant ?? null,
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
       tools: Object.entries(TOOLS).map(([id, t]) => ({ id, label: t.label, fields: t.fields, personas: t.personas })),
       decisions: ws.decisions,
@@ -152,7 +153,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     res.json(ws.discovery);
   });
 
-  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; };
+  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; };
   // The tool result comes back as MCP text content holding JSON; Muse reads the points out of it.
   const answerFrom = (steps) => {
     const r = steps.find((x) => x.n === 9)?.response;
@@ -218,8 +219,21 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
 
   // Step 5. Returns the authorize URL; the page navigates there. Nothing is sent to the gateway yet.
   app.post('/api/live/signin', limited, (req, res) => {
-    if (!liveReady(req, res)) return;
     const ws = req.ws;
+    if (req.body?.as === 'assistant') {
+      // The customer clicked Connect in their assistant's directory. The sign-in uses that assistant's own PingOne app, so Protect and the screens name it.
+      // It needs no discovery and no Real switch: the connector being on already means real PingOne is configured.
+      const a = live?.idp ? assistantsFor(env, live).find((x) => x.key === String(req.body?.assistant ?? '')) : null;
+      if (!a) return res.status(409).json({ error: 'that assistant is not configured' });
+      const learned = { authorizeEndpoint: a.idp.authorizeEndpoint, tokenEndpoint: a.idp.tokenEndpoint, scopes: ['openid'] };
+      const client = { clientId: a.idp.clientId, redirectUri: live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback` };
+      const r = startSignIn(learned, client, null, { forceLogin: true, loginHint: a.idp.loginHint ? `${a.idp.loginHint}.conn${req.body?.mfa === 'off' ? '.nomfa' : ''}` : null });
+      for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
+      pending.set(r.state, { wsId: ws.id, verifier: r.verifier, learned, client, as: 'assistant', assistant: { key: a.key, name: a.name }, idp: a.idp, at: Date.now() });
+      ws.assistant = null;
+      return res.json({ url: r.url });
+    }
+    if (!liveReady(req, res)) return;
     if (req.body?.as === 'user') {
       // Sam signs in as himself: a different PingOne app, so the flow shows no agent screen and no consent, and nothing is exchanged.
       if (!live.idp?.userClientId) return res.status(409).json({ error: 'the user sign-in is not configured' });
@@ -263,6 +277,25 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
         }
       } catch (e) { ws.userLogin = { claims: null, steps: [], error: failed(e).error, denied: null }; }
       return done('Signed in. Returning to Muse.');
+    }
+    if (p.as === 'assistant') {
+      // Same as the connector: swap the code, act for the user with that assistant's app, then ask the gateway for the points.
+      ws.assistant = { ...p.assistant, claims: null, points: null, error: null };
+      try {
+        const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: p.client, resource: null, clientSecret: p.idp.clientSecret }, fetchImpl);
+        if (!r.token) { ws.assistant.error = r.error ?? 'PingOne did not issue a token.'; return done('Sign-in failed. Returning to Muse.'); }
+        const d = await delegate(live, p.idp, r.token, fetchImpl);
+        if (!d.token) { ws.assistant.error = d.error ?? 'The token exchange was refused.'; return done('Sign-in failed. Returning to Muse.'); }
+        ws.assistant.claims = d.claims ?? null;
+        const ask = () => callGateway(live, d.token, fetchImpl, { tool: 'get_loyalty_status' });
+        const steps = await ask().catch(() => ask());
+        const resp = steps.find((x) => x.n === 9)?.response;
+        let rec = null;
+        try { rec = JSON.parse(String(resp?.body?.result?.content?.[0]?.text ?? '')); } catch { /* not the airline record */ }
+        if (rec && rec.loyaltyPoints !== undefined) ws.assistant.points = { points: rec.loyaltyPoints, tier: rec.loyaltyTier, passenger: rec.name };
+        else ws.assistant.error = `The gateway did not answer (${resp?.status ?? 'no answer'}).`;
+      } catch (e) { ws.assistant.error = failed(e).error; }
+      return done('Connected. Returning to Muse.');
     }
     try {
       const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource, clientSecret: live.idp?.clientSecret }, fetchImpl);

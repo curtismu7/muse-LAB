@@ -188,27 +188,27 @@ a { color: var(--accent); }
     <p class="note">How an agent chooses between tools is up to that agent, and this page can only describe the general behaviour of MCP clients. The tool descriptions are the part you control.</p>
   </section>
 
-  <section aria-labelledby="publish">
-    <h2 id="publish">Adding the connector to Claude, ChatGPT and Codex, as a company</h2>
-    <p>In Meta's Muse, each person adds the Airline Connector by hand: they paste the server URL and client ID, then sign in. Claude, ChatGPT and Codex can use the same MCP server, <code>https://muse.ai-demo.ping-devops.com/mcp</code>. The difference is who does the setup. The airline lists or publishes the connector once, so a customer only clicks Connect and signs in at PingOne.</p>
+  <section aria-labelledby="connect">
+    <h2 id="connect">How a customer connects: from their own assistant</h2>
+    <p>A customer never types a server address or a client ID. The airline lists its connector once in each assistant's directory. The customer finds the airline there by name, clicks Connect, and signs in at PingOne. On the Muse page, "Connect from your assistant" plays this out: the directory card is a stand-in, and everything after Connect is real.</p>
+    <ol>
+      <li><strong>Find it.</strong> In ChatGPT, Claude or Meta AI, the customer searches the apps or connectors directory for the airline, or the assistant suggests it when they mention the airline.</li>
+      <li><strong>Connect.</strong> One click. The assistant opens the airline's PingOne sign-in.</li>
+      <li><strong>Sign in and consent.</strong> PingOne Protect checks the sign-in, the "AI agent detected" screen names the assistant (ChatGPT, Claude, or the Airline Connector for Meta AI), and the customer allows it to act for them.</li>
+      <li><strong>Ask.</strong> "How many points do I have?" The assistant calls the airline's tools with a token that says who the customer is and which assistant is acting.</li>
+    </ol>
     <div class="wide">
       <table>
-        <thead><tr><th>App</th><th>The company does this once</th><th>The customer does this</th><th>Callback to allow on the PingOne app</th></tr></thead>
+        <thead><tr><th>Assistant</th><th>What the airline does once</th><th>How PingOne knows which assistant it is</th></tr></thead>
         <tbody>
-          <tr><td>Meta's Muse</td><td>Shares the server URL and client ID. This is what the demo does today.</td><td>Adds a custom connector, pastes both values, signs in.</td><td><code>https://agent.meta.ai/api/hatch/oauth/callback</code></td></tr>
-          <tr><td>Claude (Anthropic): web, Desktop, mobile</td><td><strong>For the public:</strong> submits the server to Anthropic's Connectors Directory through the review form. The form asks for OAuth, a title and a <code>readOnlyHint</code> or <code>destructiveHint</code> on every tool, a privacy policy, support contact details, at least three example prompts and a test account.<br><strong>For its own staff:</strong> an Owner opens Organization settings, Connectors, Add, Custom, Web, and enters the URL. Advanced settings take an OAuth client ID and secret.</td><td>Finds the airline in Connectors, clicks Connect, signs in. Staff see it in their list, labelled Custom.</td><td><code>https://claude.ai/api/mcp/auth_callback</code></td></tr>
-          <tr><td>ChatGPT (OpenAI)</td><td><strong>For the public:</strong> builds an app with the Apps SDK, which runs on MCP, and tests it in developer mode. Then submits it for review on the OpenAI Developer Platform, with the MCP connection details, testing guidelines, directory listing text and the countries it is offered in.<br><strong>For its own staff:</strong> a Business or Enterprise admin creates the app and publishes it from Workspace settings, Apps, Drafts.</td><td>Picks the airline from the app directory, or from their Apps settings, then connects and signs in. Staff see it labelled custom.</td><td>The callback ChatGPT shows when the app is created</td></tr>
-          <tr><td>Codex (OpenAI): CLI and IDE</td><td>Codex has no directory, so the company ships the config instead. It commits a project <code>.codex/config.toml</code> with <code>[mcp_servers.airline]</code> and <code>url = "https://muse.ai-demo.ping-devops.com/mcp"</code>, or pushes that config through MDM. To block other servers, it lists the allowed ones in <code>requirements.toml</code>, matched on <code>url</code>.</td><td>Runs <code>codex mcp login airline</code> once and signs in. Without a shipped config, one command adds it: <code>codex mcp add airline --url https://muse.ai-demo.ping-devops.com/mcp</code>.</td><td>A localhost callback. Fix its port with <code>mcp_oauth_callback_port</code> so PingOne can allow it.</td></tr>
+          <tr><td>ChatGPT (OpenAI)</td><td>Builds an app with the Apps SDK, which runs on MCP, and submits it for review with its listing text, test account and countries. Once approved it is in the app directory.</td><td>Its own PingOne app, "ChatGPT agent login". Protect's agent check lists that app, and the consent is "Allow ChatGPT to act for you".</td></tr>
+          <tr><td>Claude (Anthropic)</td><td>Submits the server to Anthropic's Connectors Directory: OAuth, a <code>readOnlyHint</code> or <code>destructiveHint</code> on every tool, a privacy policy, support contacts, example prompts and a test account.</td><td>Its own PingOne app, "Claude agent login", with its own consent.</td></tr>
+          <tr><td>Meta AI</td><td>No public directory yet, so there is nothing to list today. The airline would list it once Meta offers one.</td><td>Muse's PingOne app through the Airline Connector; the screens say "Airline Connector".</td></tr>
         </tbody>
       </table>
     </div>
-    <p>What the server needs for all four:</p>
-    <ul>
-      <li>One public HTTPS address that speaks streamable HTTP MCP.</li>
-      <li>OAuth through PingOne, with every app's callback above added as a redirect URI on the PingOne app. Apps that bring a pre-registered client take its client ID: Muse in its form, Claude in Advanced settings, Codex with <code>--oauth-client-id</code>.</li>
-      <li>Tool names and descriptions that name the airline, so the right connector gets picked (see <a href="#pick">which connector gets picked</a>).</li>
-    </ul>
-    <p class="note">These steps come from each vendor's documentation as of October 2026, and menus move. A directory listing is the vendor's decision after review, not something the airline controls. This demo has been added to Meta's Muse only. It has not been tried in Claude, ChatGPT or Codex.</p>
+    <p>Behind the listing it is the same MCP server and the same PingOne flow for every assistant. Only the PingOne app differs, picked from the assistant's callback address, so Protect and the screens can name each one, and the final token's <code>act</code> is that assistant.</p>
+    <p class="note">The listing steps come from each vendor's documentation as of October 2026, and they change. A listing is the vendor's decision after review. This demo is not listed in any directory, which is why the card on the Muse page is a stand-in.</p>
   </section>
 
   <section aria-labelledby="real">
