@@ -1,0 +1,312 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "muse-runtime-e",
+  "title": "Runtime E: OpenAI's ChatGPT through the Airline Connector",
+  "lede": "ChatGPT reaches the same Airline Connector as Meta's Muse (runtime B). Only who adds it, how it gets a client ID, and who calls /mcp differ. Not tried yet: chatgpt.com must be added to the allowed callback hosts first.",
+  "groups": {
+    "blue": {
+      "label": "ChatGPT",
+      "color": "blue"
+    },
+    "dark": {
+      "label": "Muse (Airline Connector)",
+      "color": "dark"
+    },
+    "green": {
+      "label": "PingOne",
+      "color": "green"
+    },
+    "red": {
+      "label": "Stops or flags",
+      "color": "red"
+    },
+    "amber": {
+      "label": "Gateway and policy",
+      "color": "amber"
+    }
+  },
+  "lanes": [
+    {
+      "id": "lane0",
+      "label": "E. OpenAI's ChatGPT: the company adds the connector once, Sam just connects",
+      "x": 10,
+      "y": 30,
+      "w": 1168,
+      "h": 464
+    }
+  ],
+  "nodes": [
+    {
+      "id": "e1",
+      "group": "blue",
+      "label": "1. The company adds it once",
+      "sub": [
+        "Admin: Workspace settings > Apps > Drafts > Publish",
+        "or an Apps SDK app listed in the app directory"
+      ],
+      "x": 40,
+      "y": 74
+    },
+    {
+      "id": "e2",
+      "group": "blue",
+      "label": "2. Sam asks in ChatGPT",
+      "sub": [
+        "\"How many airline points do I have?\""
+      ],
+      "x": 326,
+      "y": 74
+    },
+    {
+      "id": "e3",
+      "group": "blue",
+      "label": "3. ChatGPT picks the tool",
+      "sub": [
+        "reads tool names and descriptions",
+        "Sam picked the Airline app in the composer"
+      ],
+      "x": 612,
+      "y": 74
+    },
+    {
+      "id": "e4",
+      "group": "dark",
+      "label": "4. /mcp answers 401",
+      "sub": [
+        "metadata points at /connector/authorize (PKCE S256, scope mcp)"
+      ],
+      "x": 898,
+      "y": 74
+    },
+    {
+      "id": "e5",
+      "group": "dark",
+      "label": "5. ChatGPT gets a client ID",
+      "sub": [
+        "registers itself, or the admin pastes a client ID",
+        "callback: the one ChatGPT shows when the app is created"
+      ],
+      "x": 40,
+      "y": 228
+    },
+    {
+      "id": "e6",
+      "group": "green",
+      "label": "6. PingOne sign-in",
+      "sub": [
+        "same DaVinci flow",
+        "login hint ends .conn today; .chatgpt once the marker ships"
+      ],
+      "x": 326,
+      "y": 228
+    },
+    {
+      "id": "e7",
+      "group": "red",
+      "label": "7. Protect: AI agent detected",
+      "sub": [
+        "the screen names the client and says how it knows"
+      ],
+      "x": 612,
+      "y": 228
+    },
+    {
+      "id": "e8",
+      "group": "green",
+      "label": "8. Sam consents",
+      "sub": [
+        "PingOne consent for the Airline Connector"
+      ],
+      "x": 898,
+      "y": 228
+    },
+    {
+      "id": "e9",
+      "group": "dark",
+      "label": "9. Muse gives ChatGPT its own token",
+      "sub": [
+        "after the exchanges at /connector/token",
+        "the PingOne token never leaves Muse"
+      ],
+      "x": 40,
+      "y": 382
+    },
+    {
+      "id": "e10",
+      "group": "amber",
+      "label": "10. /mcp call, gateway decides",
+      "sub": [
+        "from OpenAI's servers",
+        "points and tier come back to ChatGPT"
+      ],
+      "x": 326,
+      "y": 382
+    }
+  ],
+  "edges": [
+    {
+      "source": "e1",
+      "target": "e2",
+      "label": "E1",
+      "name": "Ready to use"
+    },
+    {
+      "source": "e2",
+      "target": "e3",
+      "label": "E2",
+      "name": "Ask"
+    },
+    {
+      "source": "e3",
+      "target": "e4",
+      "label": "E3",
+      "name": "Call, no token"
+    },
+    {
+      "source": "e4",
+      "target": "e5",
+      "label": "E4",
+      "name": "401, sign in"
+    },
+    {
+      "source": "e5",
+      "target": "e6",
+      "label": "E5",
+      "name": "Authorize"
+    },
+    {
+      "source": "e6",
+      "target": "e7",
+      "label": "E6",
+      "name": "Protect check"
+    },
+    {
+      "source": "e7",
+      "target": "e8",
+      "label": "E7",
+      "name": "Consent"
+    },
+    {
+      "source": "e8",
+      "target": "e9",
+      "label": "E8",
+      "name": "Exchanges, token"
+    },
+    {
+      "source": "e9",
+      "target": "e10",
+      "label": "E9",
+      "name": "Call with token"
+    }
+  ],
+  "steps": [
+    {
+      "title": "Ready to use",
+      "what": "The company has already added the connector: Admin: Workspace settings > Apps > Drafts > Publish; or an Apps SDK app listed in the app directory.",
+      "why": "Members then only click Connect. Nobody types a URL or client ID.",
+      "edges": [
+        0
+      ]
+    },
+    {
+      "title": "Ask",
+      "what": "Sam asks ChatGPT: \"How many airline points do I have?\".",
+      "why": "ChatGPT acts only when asked.",
+      "edges": [
+        0,
+        1
+      ]
+    },
+    {
+      "title": "Call, no token",
+      "what": "ChatGPT picks loyalty_balance from the Airline Connector and calls /mcp. It has no token yet.",
+      "why": "The model chooses from the tool names and descriptions. The airline's name in them is what steers it.",
+      "edges": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "title": "401, sign in",
+      "what": "/mcp answers 401 with metadata: sign in at /connector/authorize, PKCE S256, scope mcp.",
+      "why": "ChatGPT learns where to sign in from the server, not from config.",
+      "edges": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "title": "Authorize",
+      "what": "ChatGPT registers itself, or the admin pastes a client ID, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in.",
+      "why": "Whichever way, the callback has to be on the allowed list before sign-in works.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "title": "Protect check",
+      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect rates the connector sign-in an agent.",
+      "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "title": "Consent",
+      "what": "PingOne shows the \"AI agent detected\" screen, then asks Sam to let ChatGPT act for him. Sam agrees.",
+      "why": "No consent, no token: a \"no\" ends the flow with nothing issued.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "title": "Exchanges, token",
+      "what": "Muse does the exchanges with PingOne and gives ChatGPT its own access token at /connector/token.",
+      "why": "The PingOne token never leaves Muse. ChatGPT holds only a Muse token for scope mcp.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "title": "Call with token",
+      "what": "OpenAI's servers call /mcp with that token. Muse calls the gateway, which checks the delegated token, and the points come back.",
+      "why": "Not tried yet: chatgpt.com must be added to the allowed callback hosts first.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    }
+  ]
+}

@@ -7,6 +7,9 @@ import museConfig from './muse-config.json';
 import museRuntimeA from './muse-runtime-a.json';
 import museRuntimeB from './muse-runtime-b.json';
 import museRuntimeC from './muse-runtime-c.json';
+import museRuntimeD from './muse-runtime-d.json';
+import museRuntimeE from './muse-runtime-e.json';
+import museRuntimeF from './muse-runtime-f.json';
 
 const REGISTRY = {
   'personal-agent-flow': personalAgentFlow,
@@ -17,6 +20,9 @@ const REGISTRY = {
   'muse-runtime-a': museRuntimeA,
   'muse-runtime-b': museRuntimeB,
   'muse-runtime-c': museRuntimeC,
+  'muse-runtime-d': museRuntimeD,
+  'muse-runtime-e': museRuntimeE,
+  'muse-runtime-f': museRuntimeF,
 };
 
 export function loadDiagram(id) {

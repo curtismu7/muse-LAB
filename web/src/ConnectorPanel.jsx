@@ -17,11 +17,15 @@ function Copy({ text, label }) {
 
 export default function ConnectorPanel({ connector }) {
   if (!connector) return null;
-  const rows = [['Server URL', connector.url], ['Client ID', connector.clientId], ['Callback', connector.redirectUri]].filter(([, v]) => v);
+  const rows = [
+    ['Name', connector.name], ['MCP server URL', connector.url], ['Client ID', connector.clientId],
+    ['Authorization URL', connector.authorizeUrl], ['Token URL', connector.tokenUrl], ['Scope', connector.scope], ['Redirect URI (already allowed)', connector.redirectUri],
+  ].filter(([, v]) => v);
   return (
     <section className="disco connector" aria-label="Airline Connector" data-testid="connector-panel">
       <strong>Try it in Meta's Muse</strong>
-      <p className="muted small">Add this as a custom connector, sign in at PingOne, then paste a prompt below. Leave the client secret blank.</p>
+      <p className="muted small">Add this as a custom connector, sign in at PingOne, then paste a prompt below. Authentication is OAuth 2.0, authorization code with PKCE (S256). It is a public client: leave the client secret blank.</p>
+      <p className="muted small">If the app asks only for a URL, give it the MCP server URL. It finds the rest through the server's discovery documents and can register its own client.</p>
       <p className="muted small">Meta's Muse picks a connector by reading each tool's name and description. If you also have another airline connected, name the airline in your prompt. <a href="/how-muse-works.html#pick">More</a></p>
       <ul className="connector-rows">
         {rows.map(([k, v]) => (
