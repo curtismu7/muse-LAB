@@ -226,7 +226,7 @@ a { color: var(--accent); }
       </table>
     </div>
     <p>To use it, the server's authorization metadata must say <code>client_id_metadata_document_supported: true</code>. Claude also needs <code>none</code> listed in <code>token_endpoint_auth_methods_supported</code>, or it falls back to DCR. When the authorize request arrives with an HTTPS <code>client_id</code>, the server fetches the document, checks that the document names that same address, and checks that the requested callback is one of its <code>redirect_uris</code>.</p>
-    <p class="note"><span class="tag todo">Open</span> Muse's connector does not do this yet. It lists <code>none</code> but does not advertise CIMD, so Claude, ChatGPT and Codex would register through <code>/connector/register</code> on every new connection. Building CIMD is a separate change. The client IDs above come from each vendor's documentation as of October 2026, and the hosted address for Claude's web and Desktop apps has not been confirmed (the docs show Claude Code's).</p>
+    <p class="note"><span class="tag todo">Open</span> Muse's connector does not do this yet. It lists <code>none</code> but does not advertise CIMD, so Claude, ChatGPT and Codex would register through <code>/connector/register</code> on every new connection. Building CIMD is a separate change. <a href="/cimd.html">See the requests and responses, mock and real</a>. The client IDs above come from each vendor's documentation as of October 2026, and the hosted address for Claude's web and Desktop apps has not been confirmed (the docs show Claude Code's).</p>
   </section>
 
   <section aria-labelledby="real">
