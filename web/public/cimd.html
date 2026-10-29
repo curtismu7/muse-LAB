@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIMD examples: mock and real</title>
+<script>try{var t=localStorage.getItem('muse.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var f=Number(localStorage.getItem('muse.fs'));if([0.85,1.15,1.3,1.5].indexOf(f)>-1)document.documentElement.style.setProperty('--fs',String(f))}catch(e){}</script>
+<style>
+/* Layout: one column of short sections, one wide flow diagram, one facts table. Palette and type carried over from the first version. */
+:root {
+  --bg: #f5f5f2; --surface: #ffffff; --fg: #1d1f23; --muted: #5d636d;
+  --line: #dfe1dc; --accent: #0a6e78; --accent-soft: #e3f0f1;
+  --ok: #1d6b35; --ok-soft: #e7f5ea; --warn: #8a5a00; --warn-soft: #fff6e0; --bad: #a1211c;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --surface: #181b21; --fg: #e9ebef; --muted: #9aa0ab;
+    --line: #2a2f38; --accent: #3fb4c0; --accent-soft: #1b2b2e;
+    --ok: #6fd08c; --ok-soft: #17291d; --warn: #f0c060; --warn-soft: #2b2415; --bad: #ff8a80; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #181b21; --fg: #e9ebef; --muted: #9aa0ab;
+  --line: #2a2f38; --accent: #3fb4c0; --accent-soft: #1b2b2e;
+  --ok: #6fd08c; --ok-soft: #17291d; --warn: #f0c060; --warn-soft: #2b2415; --bad: #ff8a80; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); margin: 0; font: calc(18px * var(--fs, 1))/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: min(1600px, 96vw); margin: 0 auto; padding-block: 32px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+h1 { font-size: calc(33px * var(--fs, 1)); line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: calc(23px * var(--fs, 1)); margin: 0 0 8px; text-wrap: balance; }
+p, li { margin: 0; }
+ul, ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.lede { font-size: calc(21px * var(--fs, 1)); color: var(--muted); }
+.muted { color: var(--muted); font-size: calc(16px * var(--fs, 1)); }
+section { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 12px; min-width: 0; }
+.note { border: 1px solid var(--line); border-left: 3px solid var(--warn); padding: 10px 14px; background: var(--surface); border-radius: 8px; font-size: calc(16px * var(--fs, 1)); }
+.wide { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: calc(16px * var(--fs, 1)); }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.tag { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; font-size: calc(14px * var(--fs, 1)); white-space: nowrap; }
+.sim { color: var(--warn); }
+.real { color: var(--ok); }
+.todo { color: var(--muted); }
+code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+svg { display: block; width: 100%; height: auto; min-width: 560px; }
+svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--fg); }
+svg .sub { fill: var(--muted); }
+svg .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.4; }
+svg .you { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; }
+svg .ping { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.4; }
+svg .done { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 1.4; }
+svg .arrow { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+svg .dash { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+svg .head { fill: var(--muted); }
+a { color: var(--accent); }
+.back { max-width: min(1600px, 96vw); margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 0; font-size: calc(16px * var(--fs, 1)); }
+.back { display: flex; justify-content: space-between; align-items: center; }
+.pdf-btn { font: inherit; font-size: calc(16px * var(--fs, 1)); color: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.pdf-btn:hover { border-color: var(--accent); }
+@media print {
+  .back-actions, .ts { display: none; }
+  :root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+    --bg: #ffffff; --surface: #ffffff; --fg: #1d1f23; --muted: #5d636d; --line: #dfe1dc; --accent: #0a6e78; --accent-soft: #e3f0f1;
+    --ok: #1d6b35; --ok-soft: #e7f5ea; --warn: #8a5a00; --warn-soft: #fff6e0; --bad: #a1211c; color-scheme: light;
+  }
+  .back { display: none; }
+  main { max-width: none; padding-block: 0; }
+  section, svg, table { break-inside: avoid; }
+}
+
+.ts { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; }
+.ts span { min-width: 3.2em; text-align: center; font-size: calc(14px * var(--fs, 1)); }
+
+pre { margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.step { border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 8px; min-width: 0; }
+.step:first-of-type { border-top: 0; padding-top: 0; }
+.step h3 { margin: 0; font-size: calc(19px * var(--fs, 1)); }
+.cap { color: var(--muted); font-size: calc(14px * var(--fs, 1)); margin-bottom: -4px; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.tabs button { font: inherit; font-size: calc(16px * var(--fs, 1)); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 16px; cursor: pointer; }
+.tabs button[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.js .panel[hidden] { display: none; }
+.panel { display: grid; gap: 20px; }
+.ok-t { color: var(--ok); } .bad-t { color: var(--bad); }
+</style>
+</head>
+<body>
+<p class="back"><a href="/how-muse-works.html#cimd">Back to How Muse works</a><span class="back-actions"><span class="ts" role="group" aria-label="Text size"><button type="button" class="pdf-btn" id="ts-dn" aria-label="Smaller text">A&minus;</button><span id="ts-now" aria-live="polite">100%</span><button type="button" class="pdf-btn" id="ts-up" aria-label="Larger text">A+</button></span> <button type="button" class="pdf-btn" id="theme-btn">Theme</button></span></p>
+<main>
+  <header>
+    <h1>CIMD, step by step: mock and real</h1>
+    <p class="lede">With a Client ID Metadata Document the app's <code>client_id</code> is a web address. The authorization server fetches that address, checks what it finds, and only then lets the sign-in go ahead. Below, every request and response, once as a labelled mock of what Muse's connector would do, and once as captured from real servers.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Example">
+    <button type="button" role="tab" id="t-real" aria-selected="true" aria-controls="p-real">Real: client.dev and PingFederate</button>
+    <button type="button" role="tab" id="t-mock" aria-selected="false" aria-controls="p-mock">Mock: Muse's connector</button>
+  </div>
+
+  <div class="panel" id="p-real" role="tabpanel" aria-labelledby="t-real">
+    <section aria-labelledby="r-intro">
+      <h2 id="r-intro"><span class="tag real">Real</span> Captured on 29 October 2026</h2>
+      <p>The app is <a href="https://client.dev/">client.dev</a>, a public site that hosts an example CIMD document. The authorization server is a local PingFederate 13.1.3 (13.1 is the release that added CIMD). These are the actual responses, trimmed only where marked.</p>
+      <p class="note">The last step stops at an error, and that is the real result. This PingFederate refused client.dev. PingFederate's documentation says it rejects a CIMD request when no enabled CIMD policy matches, and I have not looked at this server's policies to confirm that is the cause. Getting past it most likely needs a policy for client.dev, which has not been added.</p>
+    </section>
+
+    <section aria-labelledby="r1">
+      <div class="step">
+        <h3 id="r1">1. The app's document, as anyone can fetch it</h3>
+        <p class="cap">Request, no credentials</p>
+<pre>GET /oauth/metadata.json HTTP/2
+Host: client.dev</pre>
+        <p class="cap">Response</p>
+<pre>HTTP/2 200
+content-type: application/json; charset=utf-8
+access-control-allow-origin: *
+cache-control: public, max-age=0, must-revalidate
+server: Vercel
+
+{
+  "client_id": "https://client.dev/oauth/metadata.json",
+  "client_name": "client.dev",
+  "client_uri": "https://client.dev",
+  "redirect_uris": ["https://client.dev/oauth/callback"],
+  "grant_types": ["authorization_code"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}</pre>
+        <p>The document's own <code>client_id</code> is the address it is served from. That match is the first thing a server checks. <code>token_endpoint_auth_method: none</code> means a public client: no secret, PKCE instead.</p>
+      </div>
+
+      <div class="step">
+        <h3 id="r2">2. The server says it understands CIMD</h3>
+        <p class="cap">Request</p>
+<pre>GET /.well-known/oauth-authorization-server HTTP/1.1
+Host: local.ping-devops.com:9031</pre>
+        <p class="cap">Response (200, five fields kept out of the full document)</p>
+<pre>{
+  "issuer": "https://local.ping-devops.com:9031",
+  "authorization_endpoint": "https://local.ping-devops.com:9031/as/authorization.oauth2",
+  "token_endpoint": "https://local.ping-devops.com:9031/as/token.oauth2",
+  "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "client_secret_jwt",
+                                            "private_key_jwt", "tls_client_auth", "none"],
+  "client_id_metadata_document_supported": true
+}</pre>
+        <p>This is the flag Claude, ChatGPT and Codex look for. With it, and <code>none</code> in the list, they present a document address and never call the registration endpoint (this server also lists <code>/as/clients.oauth2</code> for DCR).</p>
+      </div>
+
+      <div class="step">
+        <h3 id="r3">3. The authorize request, with a web address as the client</h3>
+        <p class="cap">Request</p>
+<pre>GET /as/authorization.oauth2
+  ?client_id=https://client.dev/oauth/metadata.json
+  &amp;response_type=code
+  &amp;redirect_uri=https://client.dev/oauth/callback
+  &amp;code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+  &amp;code_challenge_method=S256
+  &amp;state=x
+Host: local.ping-devops.com:9031</pre>
+        <p class="cap">Response</p>
+<pre>HTTP/2 400
+content-type: text/html;charset=utf-8
+
+400 - Invalid client_id</pre>
+        <p>PingFederate refused the request before showing a sign-in page. Its documentation says that with CIMD on it reads the <code>client_id</code> as an address, checks its CIMD policies, and rejects the request if none matches. That is the likely cause here, but it is unconfirmed. It fits the design: the server decides which addresses it trusts, and a document anyone can host does not become a client by itself.</p>
+        <p class="note"><span class="tag todo">Open</span> Not captured yet: the same request after a CIMD policy allows client.dev. It would go on to fetch the document, check it, and show the PingFederate sign-in, with the code coming back to <code>https://client.dev/oauth/callback</code>. The mock tab shows those steps.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-mock" role="tabpanel" aria-labelledby="t-mock">
+    <section aria-labelledby="m-intro">
+      <h2 id="m-intro"><span class="tag sim">Mock</span> What Muse's connector would do</h2>
+      <p>This is scripted, not captured. Muse's connector does not do CIMD yet, so nothing below has been run. The app is client.dev's real document from the other tab, so the shapes match. Codes, tokens and the PKCE values are samples.</p>
+    </section>
+
+    <section aria-labelledby="m1">
+      <div class="step">
+        <h3 id="m1">1. Muse advertises CIMD</h3>
+<pre>GET /.well-known/oauth-authorization-server
+Host: muse.ai-demo.ping-devops.com
+
+200 OK
+{
+  "issuer": "https://muse.ai-demo.ping-devops.com",
+  "authorization_endpoint": ".../connector/authorize",
+  "token_endpoint": ".../connector/token",
+  "code_challenge_methods_supported": ["S256"],
+  "token_endpoint_auth_methods_supported": ["none"],
+  "client_id_metadata_document_supported": true   <span class="bad-t">&lt;- the one new line</span>
+}</pre>
+      </div>
+
+      <div class="step">
+        <h3 id="m2">2. The app sends the user to authorize</h3>
+<pre>GET /connector/authorize
+  ?client_id=https://client.dev/oauth/metadata.json
+  &amp;redirect_uri=https://client.dev/oauth/callback
+  &amp;response_type=code&amp;scope=mcp
+  &amp;code_challenge=SAMPLE_CHALLENGE&amp;code_challenge_method=S256&amp;state=SAMPLE_STATE</pre>
+        <p>Today Muse would answer 400 here, because that <code>client_id</code> is not registered. The new behaviour starts when the <code>client_id</code> is an HTTPS address.</p>
+      </div>
+
+      <div class="step">
+        <h3 id="m3">3. Muse fetches and checks the document</h3>
+<pre>GET /oauth/metadata.json
+Host: client.dev
+Accept: application/json
+
+200 OK   (same body as the real capture)</pre>
+        <div class="wide">
+        <table>
+          <thead><tr><th>Check</th><th>Pass when</th><th>On failure</th></tr></thead>
+          <tbody>
+            <tr><td>Address</td><td>HTTPS, a real host, and the address does not resolve to a private or internal network</td><td><code>invalid_client</code>, nothing fetched</td></tr>
+            <tr><td>Fetch</td><td>Answers in a few seconds, small body, JSON</td><td><code>invalid_client</code></td></tr>
+            <tr><td>Same address</td><td>Document <code>client_id</code> equals the address it was fetched from</td><td><code>invalid_client</code></td></tr>
+            <tr><td>Callback</td><td>The request's <code>redirect_uri</code> is exactly one of <code>redirect_uris</code></td><td>400, no redirect (never send a code to an unlisted address)</td></tr>
+            <tr><td>Public client</td><td><code>token_endpoint_auth_method</code> is <code>none</code></td><td><code>invalid_client</code></td></tr>
+            <tr><td>Allow-list</td><td>The host is one Muse trusts (a Muse setting, like PingFederate's CIMD policy)</td><td><code>invalid_client</code></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="step">
+        <h3 id="m4">4. Sign-in goes ahead as it does today</h3>
+        <p>With the app accepted, Muse sends the user to PingOne through the DaVinci flow with Protect, the same as for any connector. The user signs in and approves, then Muse redirects to the callback the document listed:</p>
+<pre>302 Location: https://client.dev/oauth/callback?code=SAMPLE_CODE&amp;state=SAMPLE_STATE</pre>
+      </div>
+
+      <div class="step">
+        <h3 id="m5">5. The app swaps the code for a token</h3>
+<pre>POST /connector/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&amp;code=SAMPLE_CODE
+&amp;client_id=https://client.dev/oauth/metadata.json
+&amp;redirect_uri=https://client.dev/oauth/callback
+&amp;code_verifier=SAMPLE_VERIFIER
+
+200 OK
+{ "access_token": "SAMPLE_TOKEN", "token_type": "Bearer", "scope": "mcp" }</pre>
+        <p>No client secret anywhere. PKCE proves the app that asked is the app that gets the token, and the document's callback list proves the code went where its owner said.</p>
+      </div>
+
+      <div class="step">
+        <h3 id="m6">6. Refusals worth showing</h3>
+        <div class="wide">
+        <table>
+          <thead><tr><th>Request</th><th>Muse answers</th></tr></thead>
+          <tbody>
+            <tr><td><code>client_id=http://client.dev/...</code> (not HTTPS)</td><td><code>invalid_client</code></td></tr>
+            <tr><td>Document says a different <code>client_id</code> than its address</td><td><code>invalid_client</code></td></tr>
+            <tr><td><code>redirect_uri=https://evil.example/cb</code>, not in the document</td><td>400 error page, no redirect</td></tr>
+            <tr><td><code>client_id</code> on a host that resolves to <code>127.0.0.1</code> or a cluster address</td><td><code>invalid_client</code>, never fetched</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section aria-labelledby="after">
+    <h2 id="after">What each side does</h2>
+    <ul>
+      <li><span class="tag real">Real</span> client.dev hosts the document. PingFederate 13.1.3 advertises CIMD and refused client.dev (cause unconfirmed).</li>
+      <li><span class="tag sim">Mock</span> Muse's connector accepting a document address. Not built.</li>
+      <li><span class="tag todo">Open</span> A PingFederate CIMD policy for client.dev, to capture the accepted path for real.</li>
+    </ul>
+    <p class="note">PingFederate's CIMD support follows an evolving draft specification, and its documentation warns later changes may not be backward compatible. See <a href="https://docs.pingidentity.com/pingfederate/13.1/administrators_reference_guide/pf_cimd.html">PingFederate CIMD</a>.</p>
+  </section>
+</main>
+<script>
+(function(){document.documentElement.classList.add('js');var T=[['t-real','p-real'],['t-mock','p-mock']];
+function pick(i){T.forEach(function(x,j){var b=document.getElementById(x[0]),p=document.getElementById(x[1]);b.setAttribute('aria-selected',String(i===j));p.hidden=i!==j})}
+T.forEach(function(x,i){document.getElementById(x[0]).addEventListener('click',function(){pick(i)})});pick(0)})();
+</script>
+<script>
+(function(){var K='muse.theme',O=['system','light','dark'],L={system:'System',light:'Light',dark:'Dark'},b=document.getElementById('theme-btn');
+function cur(){try{var t=localStorage.getItem(K);return t==='light'||t==='dark'?t:'system'}catch(e){return 'system'}}
+function show(t){b.textContent='Theme: '+L[t];b.setAttribute('aria-label','Theme: '+L[t]+'. Click to change.')}
+show(cur());b.addEventListener('click',function(){var n=O[(O.indexOf(cur())+1)%3];if(n==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',n);try{if(n==='system')localStorage.removeItem(K);else localStorage.setItem(K,n)}catch(e){}show(n)})})();
+</script>
+<script>
+(function(){var S=[0.85,1,1.15,1.3,1.5],K='muse.fs',dn=document.getElementById('ts-dn'),up=document.getElementById('ts-up'),now=document.getElementById('ts-now');
+function cur(){try{var v=Number(localStorage.getItem(K));return S.indexOf(v)>-1?v:1}catch(e){return 1}}
+function show(v){now.textContent=Math.round(v*100)+'%';dn.disabled=v===S[0];up.disabled=v===S[S.length-1]}
+function set(v){document.documentElement.style.setProperty('--fs',String(v));try{if(v===1)localStorage.removeItem(K);else localStorage.setItem(K,String(v))}catch(e){}show(v)}
+show(cur());dn.addEventListener('click',function(){set(S[Math.max(0,S.indexOf(cur())-1)])});up.addEventListener('click',function(){set(S[Math.min(S.length-1,S.indexOf(cur())+1)])})})();
+</script>
+</body>
+</html>

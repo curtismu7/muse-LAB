@@ -211,6 +211,24 @@ a { color: var(--accent); }
     <p class="note">The listing steps come from each vendor's documentation as of October 2026, and they change. A listing is the vendor's decision after review. This demo is not listed in any directory, which is why the card on the Muse page is a stand-in.</p>
   </section>
 
+  <section aria-labelledby="cimd">
+    <h2 id="cimd">Client ID Metadata Documents (CIMD): no registration step</h2>
+    <p>An OAuth server has to know who is asking before it sends someone to sign in. There are three ways it learns that. The company types in a client ID by hand, as in Meta's Muse. The app registers itself on first use (Dynamic Client Registration, DCR), and the server mints a new client every time. Or, with CIMD, the app's <code>client_id</code> is an HTTPS address, and the server fetches the document at that address to read the app's name and allowed callbacks. Nothing is registered, so nothing piles up on the server.</p>
+    <div class="wide">
+      <table>
+        <thead><tr><th>App</th><th>Supports CIMD</th><th>The <code>client_id</code> it presents</th></tr></thead>
+        <tbody>
+          <tr><td>Claude: web, Desktop, mobile, Claude Code</td><td>Yes, on by default. Anthropic recommends it over DCR for busy servers.</td><td>A metadata address Anthropic hosts. For Claude Code the docs give <code>https://claude.ai/oauth/claude-code-client-metadata</code>.</td></tr>
+          <tr><td>ChatGPT</td><td>Yes, and it prefers CIMD over DCR.</td><td><code>https://chatgpt.com/oauth/client.json</code>, or a per-callback <code>https://chatgpt.com/oauth/{callback_id}/client.json</code></td></tr>
+          <tr><td>Codex</td><td>Yes. It uses CIMD when the server advertises it, then DCR. A client ID you set always wins.</td><td><code>https://chatgpt.com/oauth/codex/client.json</code></td></tr>
+          <tr><td>Meta's Muse</td><td>Not checked.</td><td>Unknown. Today it is given a client ID by hand.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>To use it, the server's authorization metadata must say <code>client_id_metadata_document_supported: true</code>. Claude also needs <code>none</code> listed in <code>token_endpoint_auth_methods_supported</code>, or it falls back to DCR. When the authorize request arrives with an HTTPS <code>client_id</code>, the server fetches the document, checks that the document names that same address, and checks that the requested callback is one of its <code>redirect_uris</code>.</p>
+    <p class="note"><span class="tag todo">Open</span> Muse's connector does not do this yet. It lists <code>none</code> but does not advertise CIMD, so Claude, ChatGPT and Codex would register through <code>/connector/register</code> on every new connection. Building CIMD is a separate change. <a href="/cimd.html">See the requests and responses, mock and real</a>. The client IDs above come from each vendor's documentation as of October 2026, and the hosted address for Claude's web and Desktop apps has not been confirmed (the docs show Claude Code's).</p>
+  </section>
+
   <section aria-labelledby="real">
     <h2 id="real">What is real and what is not</h2>
     <ul>
