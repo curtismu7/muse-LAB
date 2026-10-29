@@ -10,6 +10,7 @@ import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
 import { agentConfig, agentTools, normaliseResult, plan, reply } from './agent.js';
 import { assistantsFor, mountConnector } from './connector.js';
 import { PLATFORMS, createPlatformEngine } from './platforms.js';
+import { chatgptKey, mountPfResource } from './pf-resource.js';
 import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
@@ -94,7 +95,11 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   // Muse as a connector for other agents (off unless MUSE_CONNECTOR=1 and real mode is configured).
   const connector = mountConnector(app, { env, live, fetchImpl }) || null;
   // What ChatGPT, Claude, Codex and Meta AI do on Connect, run by Muse against its own connector (see platforms.js).
-  const platforms = connector ? createPlatformEngine({ publicUrl: new URL(connector.url).origin, fetchImpl }) : null;
+  // The CIMD path: an MCP resource behind a real PingFederate (off unless MUSE_PF_ISSUER is set). ChatGPT's signing key is shared with the engine.
+  const simKey = live && env.MUSE_PF_ISSUER ? chatgptKey() : null;
+  const pf = simKey ? mountPfResource(app, { env, live, fetchImpl, key: simKey }) : null;
+  const simOrigin = connector ? new URL(connector.url).origin : pf ? new URL(pf.url).origin : null;
+  const platforms = simOrigin ? createPlatformEngine({ publicUrl: simOrigin, fetchImpl, signer: simKey }) : null;
   // The stand-in platform callback. The sign-in comes back here instead of chatgpt.com or the customer's loopback.
   app.get('/sim/:key/callback', async (req, res) => {
     const out = platforms ? await platforms.finish(req.query.state, { code: req.query.code ? String(req.query.code) : null, error: req.query.error }).catch(() => null) : null;
@@ -129,6 +134,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       picker,
       hosted,
       connector,
+      pf: pf ? { url: pf.url, issuer: pf.issuer } : null,
       mode: ws.gatewayMode === 'live' ? 'live' : 'mock',
       live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp), lane: live.idp?.lane ?? null, userLogin: Boolean(live.idp?.userClientId) } : { available: false },
       agent: agent ? { enabled: true, model: agent.model } : { enabled: false },
@@ -232,11 +238,13 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
   // Connect from an assistant, the way that platform does it: discovery, registration, then the authorize URL the page navigates to.
   app.post('/api/sim/start', limited, async (req, res) => {
     const key = String(req.body?.platform ?? '');
-    if (!platforms || !PLATFORMS[key]) return res.status(409).json({ error: 'that assistant is not available here' });
+    // Which airline server the assistant connects to: Muse's connector (PingOne behind it, no CIMD) or the PingFederate one (CIMD).
+    const mcpUrl = req.body?.server === 'pf' ? pf?.url : connector?.url;
+    if (!platforms || !PLATFORMS[key] || !mcpUrl) return res.status(409).json({ error: 'that assistant is not available here' });
     const returnTo = /^\/clients\.html\?client=[a-z]{1,12}$/.test(String(req.body?.returnTo ?? '')) ? String(req.body.returnTo) : '/';
     req.ws.assistant = null;
     try {
-      const r = await platforms.start(key, { mcpUrl: connector.url, wsId: req.ws.id, returnTo });
+      const r = await platforms.start(key, { mcpUrl, wsId: req.ws.id, returnTo });
       if (!r.authorizeUrl) { req.ws.assistant = { key, name: PLATFORMS[key].name, method: null, realRedirect: PLATFORMS[key].realRedirect, steps: r.steps, points: null, error: r.error }; return res.status(502).json({ error: r.error }); }
       res.json({ url: r.authorizeUrl, method: r.method });
     } catch (e) { res.status(502).json(failed(e)); }
