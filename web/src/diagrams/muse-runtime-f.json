@@ -1,0 +1,313 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "muse-runtime-f",
+  "title": "Runtime F: Codex CLI through the Airline Connector",
+  "lede": "Codex reaches the same Airline Connector as Meta's Muse (runtime B). What differs: who adds it, how it gets a client ID, which PingOne app signs Sam in, and who calls /mcp. Not tried yet. Loopback callbacks are already allowed, so this is the shortest to try.",
+  "groups": {
+    "blue": {
+      "label": "Codex",
+      "color": "blue"
+    },
+    "dark": {
+      "label": "Muse (Airline Connector)",
+      "color": "dark"
+    },
+    "green": {
+      "label": "PingOne",
+      "color": "green"
+    },
+    "red": {
+      "label": "Stops or flags",
+      "color": "red"
+    },
+    "amber": {
+      "label": "Gateway and policy",
+      "color": "amber"
+    }
+  },
+  "lanes": [
+    {
+      "id": "lane0",
+      "label": "F. Codex CLI: the company adds the connector once, Sam just connects",
+      "x": 10,
+      "y": 30,
+      "w": 1168,
+      "h": 464
+    }
+  ],
+  "nodes": [
+    {
+      "id": "f1",
+      "group": "blue",
+      "label": "1. The company adds it once",
+      "sub": [
+        "Company ships .codex/config.toml: [mcp_servers.airline] url = https://muse.ai-demo.ping-devops.com/mcp",
+        "or pushes it through MDM; requirements.toml allowlist"
+      ],
+      "x": 40,
+      "y": 74
+    },
+    {
+      "id": "f2",
+      "group": "blue",
+      "label": "2. Sam asks in Codex",
+      "sub": [
+        "\"How many airline points do I have?\""
+      ],
+      "x": 326,
+      "y": 74
+    },
+    {
+      "id": "f3",
+      "group": "blue",
+      "label": "3. Codex picks the tool",
+      "sub": [
+        "reads tool names and descriptions",
+        "the airline server is in config.toml"
+      ],
+      "x": 612,
+      "y": 74
+    },
+    {
+      "id": "f4",
+      "group": "dark",
+      "label": "4. /mcp answers 401",
+      "sub": [
+        "metadata points at /connector/authorize (PKCE S256, scope mcp)"
+      ],
+      "x": 898,
+      "y": 74
+    },
+    {
+      "id": "f5",
+      "group": "dark",
+      "label": "5. Codex gets a client ID",
+      "sub": [
+        "codex mcp login airline: registers itself",
+        "callback on localhost (loopback is already allowed)"
+      ],
+      "x": 40,
+      "y": 228
+    },
+    {
+      "id": "f6",
+      "group": "green",
+      "label": "6. PingOne sign-in",
+      "sub": [
+        "Muse's connector app (agents without their own app)",
+        "same DaVinci flow, login hint ends .conn"
+      ],
+      "x": 326,
+      "y": 228
+    },
+    {
+      "id": "f7",
+      "group": "red",
+      "label": "7. Protect: AI agent detected",
+      "sub": [
+        "Protect flags the connector app; the screen says the Airline Connector",
+        "the screen says how it knows"
+      ],
+      "x": 612,
+      "y": 228
+    },
+    {
+      "id": "f8",
+      "group": "green",
+      "label": "8. Sam consents",
+      "sub": [
+        "PingOne consent for the Airline Connector"
+      ],
+      "x": 898,
+      "y": 228
+    },
+    {
+      "id": "f9",
+      "group": "dark",
+      "label": "9. Muse gives Codex its own token",
+      "sub": [
+        "after the exchanges at /connector/token",
+        "the PingOne token never leaves Muse"
+      ],
+      "x": 40,
+      "y": 382
+    },
+    {
+      "id": "f10",
+      "group": "amber",
+      "label": "10. /mcp call, gateway decides",
+      "sub": [
+        "from Sam's own machine",
+        "points and tier come back to Codex"
+      ],
+      "x": 326,
+      "y": 382
+    }
+  ],
+  "edges": [
+    {
+      "source": "f1",
+      "target": "f2",
+      "label": "F1",
+      "name": "Ready to use"
+    },
+    {
+      "source": "f2",
+      "target": "f3",
+      "label": "F2",
+      "name": "Ask"
+    },
+    {
+      "source": "f3",
+      "target": "f4",
+      "label": "F3",
+      "name": "Call, no token"
+    },
+    {
+      "source": "f4",
+      "target": "f5",
+      "label": "F4",
+      "name": "401, sign in"
+    },
+    {
+      "source": "f5",
+      "target": "f6",
+      "label": "F5",
+      "name": "Authorize"
+    },
+    {
+      "source": "f6",
+      "target": "f7",
+      "label": "F6",
+      "name": "Protect check"
+    },
+    {
+      "source": "f7",
+      "target": "f8",
+      "label": "F7",
+      "name": "Consent"
+    },
+    {
+      "source": "f8",
+      "target": "f9",
+      "label": "F8",
+      "name": "Exchanges, token"
+    },
+    {
+      "source": "f9",
+      "target": "f10",
+      "label": "F9",
+      "name": "Call with token"
+    }
+  ],
+  "steps": [
+    {
+      "title": "Ready to use",
+      "what": "The company has already added the connector: Company ships .codex/config.toml: [mcp_servers.airline] url = https://muse.ai-demo.ping-devops.com/mcp; or pushes it through MDM; requirements.toml allowlist.",
+      "why": "The CLI has no directory, so the company ships the config instead.",
+      "edges": [
+        0
+      ]
+    },
+    {
+      "title": "Ask",
+      "what": "Sam asks Codex: \"How many airline points do I have?\".",
+      "why": "Codex acts only when asked.",
+      "edges": [
+        0,
+        1
+      ]
+    },
+    {
+      "title": "Call, no token",
+      "what": "Codex picks loyalty_balance from the Airline Connector and calls /mcp. It has no token yet.",
+      "why": "The model chooses from the tool names and descriptions. The airline's name in them is what steers it.",
+      "edges": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "title": "401, sign in",
+      "what": "/mcp answers 401 with metadata: sign in at /connector/authorize, PKCE S256, scope mcp.",
+      "why": "Codex learns where to sign in from the server, not from config.",
+      "edges": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "title": "Authorize",
+      "what": "Codex codex mcp login airline: registers itself, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in with Muse's connector app, because Codex has no app of its own.",
+      "why": "Fix the port with mcp_oauth_callback_port so the callback is predictable.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "title": "Protect check",
+      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect sees the connector app and flags an agent; it cannot tell which one.",
+      "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "title": "Consent",
+      "what": "PingOne shows the \"AI agent detected\" screen, then asks Sam to let Codex act for him. Sam agrees.",
+      "why": "No consent, no token: a \"no\" ends the flow with nothing issued.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "title": "Exchanges, token",
+      "what": "Muse does the code swap and both exchanges with Muse's connector app, then gives Codex its own access token at /connector/token.",
+      "why": "The PingOne token never leaves Muse. Codex holds only a Muse token for scope mcp.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "title": "Call with token",
+      "what": "Sam's own machine calls /mcp with that token. Muse calls the gateway, which checks the delegated token, and the points come back.",
+      "why": "Not tried yet. Loopback callbacks are already allowed, so this is the shortest to try.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    }
+  ]
+}
