@@ -70,7 +70,7 @@ With one connector app, every client's sign-in has the same `targetResource.id`.
 
 ### Real model back ends (our UI, their model)
 The vendors' APIs can call a remote MCP server themselves. So each skin can be driven by the vendor's real model, not a script:
-- **Claude:** the Messages API's MCP connector. `mcp_servers: [{type: "url", url: "https://muse.ai-demo.ping-devops.com/mcp", name: "airline", authorization_token: <delegated token>}]` plus `tools: [{type: "mcp_toolset", mcp_server_name: "airline"}]`, beta `mcp-client-2025-11-20`, model `claude-opus-5-5`. Checked against the Claude API docs on 2026-10-28.
+- **Claude:** the Messages API's MCP connector. `mcp_servers: [{type: "url", url: "https://agent-connect.ai-demo.ping-devops.com/mcp", name: "airline", authorization_token: <delegated token>}]` plus `tools: [{type: "mcp_toolset", mcp_server_name: "airline"}]`, beta `mcp-client-2025-11-20`, model `claude-opus-5-5`. Checked against the Claude API docs on 2026-10-28.
 - **ChatGPT:** the OpenAI Responses API's remote MCP tool (`{type: "mcp", server_url, authorization}`). From memory, **not yet checked against OpenAI's docs**.
 - **Codex:** the Codex SDK or `codex exec` in the pod, with the airline in its `config.toml`. **Not yet checked.**
 - **Meta's Muse:** no public API known. It stays the hand-added connector.

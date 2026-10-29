@@ -2,7 +2,13 @@
 
 Status as of 2026-10-29. Covers only Client ID Metadata Documents. The wider Muse agent-clients work (Claude/ChatGPT/Codex skins, app-per-agent) is in `docs/plan-agent-clients.md`.
 
-## Where things stand
+## Update 2026-10-29 (late): where CIMD actually runs
+
+Owner decisions since this doc was written: DCR where a platform supports it, CIMD where it supports it, and **real PingFederate does the CIMD**. Muse's own connector does NOT get CIMD: it fronts PingOne, which has no CIMD (its metadata does not advertise it), so apps register with Muse by DCR. The section "What building CIMD in Muse's connector would take" below is **superseded** and kept only as a record.
+
+What exists now: `/cimd.html` (PRs #20, #27, #31, #32, #42) with the real ChatGPT, Codex and Claude Code documents, real Linear and Notion exchanges, and a PingFederate step with agents-f5's capture (400 before a policy; after one, PF fetches and validates client.dev and our own hosted document and serves its sign-in; the missing `authz_req` mapping trap). United's #41 added the CIMD path with real PF to the platform engine (`/api/sim/start` with `server:'pf'`). PF as a CIMD client is unverified; the authorization code itself was not captured. Site name is now Agent Connect; hosts are `https://agent-connect.ai-demo.ping-devops.com` and `https://agent-connect-mock.ai-demo.ping-devops.com`.
+
+## Where things stood when this doc was written
 
 | Item | State |
 |---|---|
@@ -12,7 +18,7 @@ Status as of 2026-10-29. Covers only Client ID Metadata Documents. The wider Mus
 | PingFederate CIMD policy for client.dev | **Not created.** The accepted path is not captured |
 | Live CIMD demo (client.dev port with PF as the server) | Planned in the PingFederate standalone by another session. Not started here |
 
-Branch `docs/cimd-explainer`, PR https://github.com/cmuir_pingcorp/muse/pull/20. Live URLs after deploy: `https://muse.ai-demo.ping-devops.com/cimd.html` and `https://muse.ai-demo.ping-devops.com/how-muse-works.html#cimd`.
+Branch `docs/cimd-explainer`, PR https://github.com/cmuir_pingcorp/muse/pull/20. Live URLs after deploy: `https://agent-connect.ai-demo.ping-devops.com/cimd.html` and `https://agent-connect.ai-demo.ping-devops.com/how-muse-works.html#cimd`.
 
 ## What was verified
 

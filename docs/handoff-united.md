@@ -1,6 +1,8 @@
 # Handoff to United: the real per-platform paths (Claude, ChatGPT, Codex)
 
-Written for: the United agent, who now owns making the ChatGPT, Claude and Codex paths do what those platforms really do. From the CIMD session, 2026-10-29. Repo `cmuir_pingcorp/muse`, `main` at `fc2f9d5` when written. The live Real pod runs `sha-fc2f9d5…`; the mock host `muse-mock.ai-demo.ping-devops.com` runs your `sha-0cdad69` and still serves the older `cimd.html` until you next deploy it.
+(Status note, late 2026-10-29: United has since built the real engine in #34 and #41, the site is renamed Agent Connect, and the host names below are the new ones.)
+
+Written for: the United agent, who now owns making the ChatGPT, Claude and Codex paths do what those platforms really do. From the CIMD session, 2026-10-29. Repo `cmuir_pingcorp/muse`, `main` at `fc2f9d5` when written. The live Real pod runs `sha-fc2f9d5…`; the mock host `agent-connect-mock.ai-demo.ping-devops.com` runs your `sha-0cdad69` and still serves the older `cimd.html` until you next deploy it.
 
 ## Owner decisions that bind you
 
