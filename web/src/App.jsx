@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 import PatternFlow from './PatternFlow.jsx';
 import DiscoveryPanel from './DiscoveryPanel.jsx';
-import ConnectorPanel from './ConnectorPanel.jsx';
+import AssistantConnect from './AssistantConnect.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import TextSize from './TextSize.jsx';
@@ -259,7 +259,7 @@ export default function App() {
           <p className="page-band__eyebrow">Personal Agents</p>
           <h1>Muse</h1>
           <p className="page-band__summary">A personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
-          <p className="page-band__links"><a href="/how-muse-works.html">How it works</a><a href="/how-muse-works.html#publish">Add to Claude, ChatGPT, Codex</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
+          <p className="page-band__links"><a href="/how-muse-works.html">How it works</a><a href="/how-muse-works.html#connect">Connect from your assistant</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
         </div>
         {session.signedIn && (
           <div className="top-actions">
@@ -305,7 +305,7 @@ export default function App() {
             <p className="muted">{session.mode === 'live' ? 'Muse only redirects. PingOne runs the login, Protect and consent.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
             <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
             <UserLoginPanel session={session} api={api} guarded={guarded} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
-            <ConnectorPanel connector={session.connector} />
+            <AssistantConnect session={session} api={api} guarded={guarded} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
             {session.picker && (
               <label className="field">
                 <span>Persona</span>

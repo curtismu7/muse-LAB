@@ -42,6 +42,16 @@ export function connectorConfig(env, live) {
   return { publicUrl: pu.origin, hosts, staticClient, agents };
 }
 
+// The assistants a customer can connect from (the demo's "find the airline in your assistant, click Connect" path).
+// Meta AI has no app directory, so it uses Muse's own app through the Airline Connector; ChatGPT and Claude use their own apps.
+// Returns the PingOne app (idp) for each; only names and keys ever leave the server.
+export function assistantsFor(env, live) {
+  const cfg = connectorConfig(env, live);
+  if (!cfg) return [];
+  const own = cfg.agents.map((a) => ({ key: a.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name: a.name, idp: { ...live.idp, clientId: a.clientId, clientSecret: a.clientSecret } }));
+  return [...own, { key: 'meta-ai', name: 'Meta AI', idp: live.idp }];
+}
+
 // The PingOne app a sign-in uses: the agent's own when its callback host is listed, otherwise Muse's.
 const idpFor = (cfg, live, redirectUri) => {
   let h = '';
@@ -216,5 +226,5 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   });
   app.get('/mcp', (req, res) => res.status(405).set('Allow', 'POST').end());
   app.delete('/mcp', (req, res) => res.status(405).set('Allow', 'POST').end());
-  return { name: prm.resource_name, url: `${PUBLIC}/mcp`, authorizeUrl: `${PUBLIC}/connector/authorize`, tokenUrl: `${PUBLIC}/connector/token`, scope: 'mcp', clientId: cfg.staticClient?.id ?? null, redirectUri: cfg.staticClient?.redirectUris[0] ?? null };
+  return { name: prm.resource_name, url: `${PUBLIC}/mcp`, authorizeUrl: `${PUBLIC}/connector/authorize`, tokenUrl: `${PUBLIC}/connector/token`, scope: 'mcp', clientId: cfg.staticClient?.id ?? null, redirectUri: cfg.staticClient?.redirectUris[0] ?? null, airline: airline || null, assistants: assistantsFor(env, live).map(({ key, name }) => ({ key, name })) };
 }
