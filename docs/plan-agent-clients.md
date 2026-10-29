@@ -13,7 +13,7 @@ One page, `/clients`, with a picker: Muse, Claude-style, ChatGPT-style, Codex-st
 3. **Sign-in style: decided.** MCP clients sign in through an OAuth redirect, as the spec requires. The connector is the stated exception to "pi.flow only", as it is today.
 4. **Route.** `/clients?client=claude`, public like `/diagram`. The picker remembers the choice.
 5. **Build order.** Claude, then ChatGPT, then Codex.
-6. **Connect path (owner rule, 2026-10-28, relayed by the United session, PR #18):** customers connect ONLY from their assistant's directory. No paste-the-URL or client-ID copy anywhere. **Open:** Codex has no directory, so its path (a shipped `config.toml` or `codex mcp add`) needs an owner call: an exception, or drop Codex.
+6. **Connect path (owner rule, 2026-10-28, relayed by the United session, PR #18):** customers connect ONLY from their assistant's directory. No paste-the-URL or client-ID copy anywhere. **Codex exception (owner, 2026-10-28):** Codex has no directory, so the company ships the connector in `.codex/config.toml` or through MDM. The customer never types a URL or client ID; they only run `codex mcp login airline`. No `codex mcp add` copy is shown to customers.
 
 ## How it works
 
