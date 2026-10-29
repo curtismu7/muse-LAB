@@ -145,6 +145,8 @@ export default function App() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+  // The site's name comes from customer.config (the session carries it): browser tab title and the band.
+  useEffect(() => { if (session?.customer?.brandName) document.title = `${session.customer.brandName}: personal agent demo`; }, [session?.customer?.brandName]);
   useEffect(() => { feedEnd.current?.scrollIntoView({ block: 'end' }); }, [feed]);
 
   async function guarded(action) {
@@ -257,8 +259,8 @@ export default function App() {
       <header className="page-band">
         <div className="page-band__copy">
           <p className="page-band__eyebrow">Personal Agents</p>
-          <h1>Muse</h1>
-          <p className="page-band__summary">A personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
+          <h1>{session.customer?.brandName ?? 'Agent Connect'}</h1>
+          <p className="page-band__summary">{session.customer?.agentName ?? 'Muse'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
           <p className="page-band__links"><a href="/how-muse-works.html">How it works</a><a href="/how-muse-works.html#connect">Connect from your assistant</a><a href="/clients.html">Claude, ChatGPT, Codex</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
         </div>
         {session.signedIn && (

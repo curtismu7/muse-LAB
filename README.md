@@ -19,6 +19,11 @@ The most restrictive answer wins. Held calls wait for a simulated CIBA approval.
     npm test
     npm run build
 
+## Branding, stories and the network guard
+- **Name and wording** come from `server/src/customer.config.json` (set `MUSE_CUSTOMER_CONFIG` to use your own file): `brandName` is the site's name, `agentName` the personal agent in the story, `vertical` the default story.
+- **Stories** are data in `server/src/stories.json`: three vertical packs (airline, bank, hotel), each with a cast and text using `{{cast.x}}` tokens. `GET /api/story?vertical=bank` serves one; the clients page has a story picker. A typo in a token fails the tests.
+- **Network guard:** in mock mode the server refuses every outbound call that is not loopback and counts them; `GET /api/netguard` shows the count and its self-test, and `node scripts/doctor.mjs` fails if it is not zero.
+
 ## Hosted builds (SE cluster)
 `k8s/deploy.sh` deploys the same image in one of two modes (`APP_NAME` names every object):
 
