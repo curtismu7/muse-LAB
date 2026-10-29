@@ -1,6 +1,6 @@
 # Plan: Claude, ChatGPT and Codex as Muse-style clients
 
-Status: plan only (2026-10-28). Mock: `docs/mocks/agent-clients.html`. Nothing here is built yet.
+Status (2026-10-29): a first version is built as the static page `web/public/clients.html` (`/clients.html`): the four look-alike skins, a scripted run, and a **Sign in live** button. Live does not use the engine below. It reuses the directory Connect path (`POST /api/live/signin` as=assistant, then `/api/callback`, with an allow-listed `returnTo` back to the page) and shows the real points or the gateway's real refusal. Claude and ChatGPT use their own PingOne apps from `MUSE_CONNECTOR_AGENTS`; Codex has no app of its own and uses Muse's connector app. Not built: the in-browser MCP engine (401, register, PKCE, token, `tools/call`), the stub connector for the mock-only build, the Protect "which agent" wording on the page, and P2b/P3. Original mock: `docs/mocks/agent-clients.html`.
 
 ## Goal
 

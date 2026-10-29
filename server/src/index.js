@@ -229,7 +229,9 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       const client = { clientId: a.idp.clientId, redirectUri: live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback` };
       const r = startSignIn(learned, client, null, { forceLogin: true, loginHint: a.idp.loginHint ? `${a.idp.loginHint}.conn${req.body?.mfa === 'off' ? '.nomfa' : ''}` : null });
       for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
-      pending.set(r.state, { wsId: ws.id, verifier: r.verifier, learned, client, as: 'assistant', assistant: { key: a.key, name: a.name }, idp: a.idp, at: Date.now() });
+      // Where the browser lands afterwards: only the clients page, from a short fixed pattern. Anything else goes home.
+      const returnTo = /^\/clients\.html\?client=[a-z]{1,12}$/.test(String(req.body?.returnTo ?? '')) ? String(req.body.returnTo) : '/';
+      pending.set(r.state, { wsId: ws.id, verifier: r.verifier, learned, client, as: 'assistant', assistant: { key: a.key, name: a.name }, idp: a.idp, returnTo, at: Date.now() });
       ws.assistant = null;
       return res.json({ url: r.url });
     }
@@ -261,7 +263,7 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
     const p = pending.get(String(req.query.state ?? ''));
     pending.delete(String(req.query.state ?? ''));
     const ws = p && Date.now() - p.at <= PENDING_MS ? workspaces.find(p.wsId) : null;
-    const done = (msg) => res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Muse</title><p>${msg}</p><script>location.replace('/')</script>`);
+    const done = (msg) => res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Muse</title><p>${msg}</p><script>location.replace(${JSON.stringify(p?.returnTo ?? '/')})</script>`);
     if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Muse.');
     if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Muse.'); }
     if (p.as === 'user') {

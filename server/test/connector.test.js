@@ -271,3 +271,19 @@ test('Connect from your assistant: each listed assistant signs in with its own P
   assert.equal(s1.assistant.name, 'ChatGPT'); assert.equal(s1.assistant.points.points, 52000); assert.equal(s1.assistant.error, null);
   } finally { await a.close(); }
 });
+
+test('after an assistant sign-in the browser returns to the clients page only; any other return address goes home', async () => {
+  const AGENTS = JSON.stringify([{ name: 'Claude', hosts: ['claude.example'], clientId: 'cl-app', clientSecret: 'cl-sekret' }]);
+  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS });
+  try {
+    const jar = {}; const cookie = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
+    const keep = (r) => { for (const c of r.headers.getSetCookie?.() ?? []) { const [kv] = c.split(';'); const [k, v] = kv.split('='); jar[k] = v; } return r; };
+    const call = async (m, p, body) => keep(await fetch(a.base + p, { method: m, redirect: 'manual', headers: { 'content-type': 'application/json', cookie: cookie() }, body: body ? JSON.stringify(body) : undefined }));
+    await call('GET', '/api/session');
+    for (const [returnTo, expect] of [['/clients.html?client=claude', '/clients.html?client=claude'], ['https://evil.example/', '/'], ['//evil.example', '/'], ['/clients.html?client=claude&x=1', '/'], [undefined, '/']]) {
+      const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'claude', returnTo })).json();
+      const html = await (await call('GET', `/api/callback?code=c&state=${new URL(si.url).searchParams.get('state')}`)).text();
+      assert.ok(html.includes(`location.replace(${JSON.stringify(expect)})`), `${returnTo} -> ${expect}: ${html.slice(0, 200)}`);
+    }
+  } finally { await a.close(); }
+});
