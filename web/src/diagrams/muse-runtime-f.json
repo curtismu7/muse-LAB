@@ -41,7 +41,7 @@
       "group": "blue",
       "label": "1. The company adds it once",
       "sub": [
-        "Company ships .codex/config.toml: [mcp_servers.airline] url = https://muse.ai-demo.ping-devops.com/mcp",
+        "Company ships .codex/config.toml: [mcp_servers.airline] url = {{origin}}/mcp",
         "or pushes it through MDM; requirements.toml allowlist"
       ],
       "x": 40,
@@ -204,7 +204,7 @@
   "steps": [
     {
       "title": "Ready to use",
-      "what": "The company has already added the connector: Company ships .codex/config.toml: [mcp_servers.airline] url = https://muse.ai-demo.ping-devops.com/mcp; or pushes it through MDM; requirements.toml allowlist.",
+      "what": "The company has already added the connector: Company ships .codex/config.toml: [mcp_servers.airline] url = {{origin}}/mcp; or pushes it through MDM; requirements.toml allowlist.",
       "why": "The CLI has no directory, so the company ships the config instead.",
       "edges": [
         0

@@ -250,20 +250,21 @@ location: https://api.notion.com/v1/oauth/authorize?client_id=1f8d872b-594c-80a4
       <details>
         <summary id="r7">Also tried: real PingFederate with client.dev's example document</summary>
         <div class="step">
-        <p>PingFederate 13.1 added CIMD. Both a local 13.1.3 and the SE one (<code>cmuir-pf.ping-devops.com</code>) advertise <code>client_id_metadata_document_supported: true</code> and list <code>none</code> and <code>private_key_jwt</code>.</p>
+        <p class="muted">Host names of the PingFederate servers are replaced with <code>.example</code> names here. The responses are as captured.</p>
+        <p>PingFederate 13.1 added CIMD. Both a local 13.1.3 and the SE one (<code>pf.example</code>) advertise <code>client_id_metadata_document_supported: true</code> and list <code>none</code> and <code>private_key_jwt</code>.</p>
         <p><strong>First try: refused.</strong> An authorize request with <code>client_id=https://client.dev/oauth/metadata.json</code> returned <code>400 - Invalid client_id</code>. Reading the SE server's configuration showed why: CIMD was on, but only three policies existed, each allowing one exact metadata URL (PKCE required), and client.dev was in none of them. PingFederate rejects a CIMD request when no enabled policy matches.</p>
 <pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
-Host: local.ping-devops.com:9031
+Host: pf-local.example:9031
 
 HTTP/2 400
 400 - Invalid client_id</pre>
         <p><strong>After adding a policy for client.dev only</strong> (one new policy and an opaque-token access token manager, with the owner's approval; the other three untouched), the same request on the SE server:</p>
 <pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
-Host: cmuir-pf.ping-devops.com
+Host: pf.example
 
 HTTP/2 302
 location: https://client.dev/oauth/callback?error=server_error&amp;error_description=There+are+no+authentication+methods+available+for+OAuth.&amp;state=x</pre>
-        <p>The 400 is gone, so PingFederate fetched and validated the document: the client is accepted. It then could not finish the sign-in and sent the error back to the callback the document lists. The cause is on the new access token manager I describe above, not on CIMD: it has no access-token mapping for the login adapter. The fix is one additive mapping that is waiting for the owner's approval, and nothing shared would be edited. Not captured yet: the sign-in and the code. The Acme PingFederate (<code>cmuir-pf-acme.ping-devops.com</code>) does not advertise CIMD at all.</p>
+        <p>The 400 is gone, so PingFederate fetched and validated the document: the client is accepted. It then could not finish the sign-in and sent the error back to the callback the document lists. The cause is on the new access token manager I describe above, not on CIMD: it has no access-token mapping for the login adapter. The fix is one additive mapping that is waiting for the owner's approval, and nothing shared would be edited. Not captured yet: the sign-in and the code. A second PingFederate (<code>pf-acme.example</code>) does not advertise CIMD at all.</p>
         </div>
       </details>
     </section>
@@ -279,11 +280,11 @@ location: https://client.dev/oauth/callback?error=server_error&amp;error_descrip
       <div class="step">
         <h3 id="m1">1. Muse advertises CIMD</h3>
 <pre>GET /.well-known/oauth-authorization-server
-Host: muse.ai-demo.ping-devops.com
+Host: <span data-host>muse.example</span>
 
 200 OK
 {
-  "issuer": "https://muse.ai-demo.ping-devops.com",
+  "issuer": "<span data-origin>https://muse.example</span>",
   "authorization_endpoint": ".../connector/authorize",
   "token_endpoint": ".../connector/token",
   "code_challenge_methods_supported": ["S256"],
@@ -377,6 +378,10 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
 (function(){document.documentElement.classList.add('js');var T=[['t-real','p-real'],['t-mock','p-mock']];
 function pick(i){T.forEach(function(x,j){var b=document.getElementById(x[0]),p=document.getElementById(x[1]);b.setAttribute('aria-selected',String(i===j));p.hidden=i!==j})}
 T.forEach(function(x,i){document.getElementById(x[0]).addEventListener('click',function(){pick(i)})});pick(0)})();
+</script>
+<script>
+(function(){var h=location.host||'muse.example',o=location.origin&&location.origin!=='null'?location.origin:'https://muse.example';
+document.querySelectorAll('[data-host]').forEach(function(e){e.textContent=h});document.querySelectorAll('[data-origin]').forEach(function(e){e.textContent=o})})();
 </script>
 <script>
 (function(){var K='muse.theme',O=['system','light','dark'],L={system:'System',light:'Light',dark:'Dark'},b=document.getElementById('theme-btn');

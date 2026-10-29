@@ -25,8 +25,11 @@ const REGISTRY = {
   'muse-runtime-f': museRuntimeF,
 };
 
+// The address a diagram names for this server is a {{origin}} token, filled in with the address the page is served from, so a copy run anywhere shows its own.
+const origin = () => (typeof window !== 'undefined' && window.location?.origin) || 'https://muse.example';
 export function loadDiagram(id) {
   const d = REGISTRY[id];
   if (!d || d.schema !== 'diagram-studio/1') throw new Error(`no diagram named ${id}`);
-  return d;
+  const text = JSON.stringify(d);
+  return text.includes('{{origin}}') ? JSON.parse(text.replaceAll('{{origin}}', origin())) : d;
 }
