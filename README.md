@@ -25,6 +25,17 @@ The most restrictive answer wins. Held calls wait for a simulated CIBA approval.
 - **Mock-only** (`MODE=mock`, the default): live mode is refused even if a Secret is present; sign-in, Protect and the gateway run in the existing offline mock (no stub servers), the Airline Connector is off (`/mcp` answers 404), `/clients.html` plays its scripted run, and the page says "This is the hosted, mock-only build". Per-visitor workspaces, no secrets. The owner runs a hosted copy on the SE cluster as `APP_NAME=muse-mock`.
 - **Real** (`MODE=live`, owner-run): reads the Secret `<APP_NAME>-real`, which holds `ALLOW_LIVE=1`, `MUSE_ALLOW_LIVE_HOSTED=1`, `MUSE_PUBLIC_URL` and the tenant settings. Nothing tenant-specific is in this repo. The server refuses `MODE=live` without `ALLOW_LIVE=1`.
 
+## Use your own PingOne and PingFederate
+`cp .env.example .env`, fill it in, then `npm start`. The server reads `.env` when it starts; anything already set in the environment wins. Without a `.env` Muse is the offline mock. Real mode runs with `npm start` only: the Docker image is the hosted build (`MUSE_HOSTED=1`), which allows real mode only behind an https public address.
+
+What to create in your PingOne environment (the `.env.example` comments name the matching setting):
+1. **Muse's app**: OIDC web app with authorization code + PKCE, client credentials and token exchange, client secret post. Redirect URIs `<MUSE_PUBLIC_URL>/api/callback` and, for the connector, `<MUSE_PUBLIC_URL>/connector/callback`.
+2. **Resources and scopes**: a workload resource with `agent:invoke` (Muse's own agent token) and the gateway's resource with the scope in `MUSE_P1_GATEWAY_SCOPE`. Grant both to Muse's app. The token exchange must set `act` to Muse's client id.
+3. **Your gateway** (`MUSE_LIVE_GATEWAY_URL`) must accept PingOne tokens for that audience and an `act` of each agent app.
+4. Optional: a user app with no agent (`MUSE_USER_CLIENT_ID`), one app per assistant (`MUSE_CONNECTOR_AGENTS`), and a DaVinci sign-in flow with Protect, consent and the agent screen, assigned to those apps. The login hint suffixes `.conn` and `.nomfa` are how the flow tells the paths apart.
+
+PingFederate is not used yet. The next change adds the CIMD path: ChatGPT, Claude and Codex present their client ID metadata document to a real PingFederate 13.1 or later, with CIMD on and a CIMD policy per document. The commented PingFederate lines in `.env.example` say what it will need.
+
 ## Real or fake Agent Privilege (owner-run)
 On the sign-in screen, **Call Agent Privilege with no token** shows the 401 and the two metadata reads. The switch picks which Agent Privilege answers:
 **Fake** is static and never leaves the page; **Real** calls one Agent Privilege endpoint you name, read-only (one unauthenticated POST and two GETs).
