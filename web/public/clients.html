@@ -12,6 +12,7 @@
   --bg: #eef1f6; --surface: #ffffff; --fg: #14213d; --muted: #5b6577; --line: #d9dee8;
   --band-a: #0b1f44; --band-b: #1c3f7a; --accent: #b3261e; --accent-soft: #fbe9e7;
   --ok: #1d6b35; --warn: #8a5a00; --warn-soft: #fff6e0;
+  --control-border: #6f7c8a;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: Montserrat, "Avenir Next", "Segoe UI", system-ui, sans-serif;
   color-scheme: light;
@@ -20,18 +21,20 @@
   :root:not([data-theme="light"]) {
     --bg: #0c1220; --surface: #141c2e; --fg: #e8ecf4; --muted: #9aa5ba; --line: #26324a;
     --band-a: #08142c; --band-b: #16315f; --accent: #ff8a80; --accent-soft: #3a1e1e;
-    --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; color-scheme: dark;
+    --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; --control-border: #c3c8d0; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0c1220; --surface: #141c2e; --fg: #e8ecf4; --muted: #9aa5ba; --line: #26324a;
   --band-a: #08142c; --band-b: #16315f; --accent: #ff8a80; --accent-soft: #3a1e1e;
-  --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; color-scheme: dark;
+  --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; --control-border: #c3c8d0; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); }
 code { font: 13px var(--mono); overflow-wrap: anywhere; }
 button { font: inherit; cursor: pointer; color: inherit; }
+button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.band button:focus-visible { outline-color: #fff; }
 img { display: block; }
 
 /* ---------- Page chrome (Muse look) ---------- */
@@ -46,14 +49,14 @@ img { display: block; }
 .band p { margin: 0; max-width: 72ch; opacity: .88; }
 .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .picker { display: inline-flex; flex-wrap: wrap; gap: 4px; background: rgba(255,255,255,.1); padding: 4px; border-radius: 12px; }
-.picker button { border: 0; background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; display: inline-flex; gap: 7px; align-items: center; }
+.picker button { border: 1px solid #c3c8d0; background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; display: inline-flex; gap: 7px; align-items: center; }
 .picker button img { width: 16px; height: 16px; }
 .picker button .inv { filter: invert(1); }
-.picker button[aria-pressed="true"] { background: #fff; color: var(--band-a); font-weight: 600; }
+.picker button[aria-pressed="true"] { background: #fff; color: var(--band-a); font-weight: 600; border-color: #fff; }
 .picker button[aria-pressed="true"] .inv { filter: none; }
 .picker .m { width: 16px; height: 16px; border-radius: 5px; background: #fff; color: var(--band-a); font: 700 11px/16px var(--sans); text-align: center; }
 .picker button[aria-pressed="true"] .m { background: var(--band-a); color: #fff; }
-.ctl { border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; }
+.ctl { border: 1px solid #c3c8d0; background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; }
 .ctl:disabled { opacity: .4; cursor: default; }
 .stepname { font-size: 14px; opacity: .85; }
 .ribbon { max-width: 1440px; margin: 14px auto 0; padding: 0 16px; }
@@ -96,7 +99,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .muse .card b { font-size: 15px; }
 .muse .btn { justify-self: start; border-radius: 8px; padding: 6px 12px; border: 0; background: #1c3f7a; color: #fff; }
 .muse .tool { font: 13px var(--mono); }
-.muse .cmp { margin: 0 18px 18px; border: 1px solid var(--line); background: var(--bg); border-radius: 14px; padding: 11px 14px; display: flex; justify-content: space-between; color: var(--muted); }
+.muse .cmp { margin: 0 18px 18px; border: 1px solid var(--control-border); background: var(--bg); border-radius: 14px; padding: 11px 14px; display: flex; justify-content: space-between; color: var(--muted); }
 
 /* ======================= Claude ======================= */
 .claude { --c-bg: #faf9f5; --c-side: #f5f4ed; --c-fg: #141413; --c-mut: #73726c; --c-line: #e3e1d7; --c-bub: #f0eee6; --c-box: #ffffff; --c-clay: #d97757; --c-ava: #3d3d3a;
@@ -109,7 +112,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .claude .main { display: grid; grid-template-rows: auto minmax(0,1fr) auto; min-width: 0; }
 .claude .hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; gap: 8px; }
 .claude .hd .t { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
-.claude .hd .share { border: 1px solid var(--c-line); background: var(--c-box); border-radius: 8px; padding: 4px 12px; font-size: 13px; }
+.claude .hd .share { border: 1px solid var(--control-border); background: var(--c-box); border-radius: 8px; padding: 4px 12px; font-size: 13px; }
 .claude .log { padding: 8px 16px 16px; }
 .claude .col { max-width: 700px; margin: 0 auto; display: grid; gap: 18px; }
 .claude .u { justify-self: end; display: flex; gap: 10px; align-items: flex-start; background: var(--c-bub); border-radius: 12px; padding: 10px 14px; max-width: 90%; }
@@ -127,13 +130,13 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .claude .auth .tile { width: 32px; height: 32px; border-radius: 8px; background: #1c3f7a; color: #fff; display: grid; place-items: center; font: 700 14px system-ui; flex: none; }
 .claude .auth .btn { justify-self: start; background: var(--c-fg); color: var(--c-bg); border: 0; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
 .claude .cmp { margin: 0 16px 14px; }
-.claude .box { max-width: 700px; margin: 0 auto; background: var(--c-box); border: 1px solid var(--c-line); border-radius: 18px; box-shadow: 0 4px 18px rgba(0,0,0,.05); padding: 12px 12px 10px 16px; display: grid; gap: 12px; }
+.claude .box { max-width: 700px; margin: 0 auto; background: var(--c-box); border: 1px solid var(--control-border); border-radius: 18px; box-shadow: 0 4px 18px rgba(0,0,0,.05); padding: 12px 12px 10px 16px; display: grid; gap: 12px; }
 .claude .box .ph { color: var(--c-mut); }
 .claude .box .row { display: flex; align-items: center; gap: 8px; color: var(--c-mut); }
-.claude .box .ib { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--c-line); display: grid; place-items: center; }
+.claude .box .ib { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--control-border); display: grid; place-items: center; }
 .claude .box .model { margin-left: auto; font-size: 13px; display: inline-flex; gap: 2px; align-items: center; }
 .claude .box .send { width: 32px; height: 32px; border-radius: 8px; background: var(--c-clay); color: #fff; display: grid; place-items: center; }
-.claude .box .chip { font-size: 12px; border: 1px solid var(--c-line); border-radius: 999px; padding: 3px 10px; display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.claude .box .chip { font-size: 12px; border: 1px solid var(--control-border); border-radius: 999px; padding: 3px 10px; display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
 .claude .disc { text-align: center; font-size: 11.5px; color: var(--c-mut); margin-top: 6px; }
 @media (max-width: 640px) { .claude { grid-template-columns: minmax(0,1fr); } .claude .rail { display: none; } .claude .box .chip { display: none; } }
 
@@ -155,7 +158,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .gpt .hd { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; gap: 8px; }
 .gpt .hd .mdl { font-size: 17px; display: inline-flex; gap: 4px; align-items: center; padding: 4px 8px; border-radius: 8px; }
 .gpt .hd .right { display: flex; gap: 10px; align-items: center; color: var(--g-mut); }
-.gpt .hd .share { border: 1px solid var(--g-line); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--g-fg); display: inline-flex; gap: 6px; align-items: center; }
+.gpt .hd .share { border: 1px solid var(--control-border); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--g-fg); display: inline-flex; gap: 6px; align-items: center; }
 .gpt .log { padding: 8px 16px 16px; }
 .gpt .col { max-width: 720px; margin: 0 auto; display: grid; gap: 22px; }
 .gpt .u { justify-self: end; background: var(--g-bub); border-radius: 18px; padding: 9px 16px; max-width: 75%; }
@@ -170,10 +173,10 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .gpt .conn .apptile { width: 40px; height: 40px; border-radius: 10px; font-size: 16px; }
 .gpt .conn small { color: var(--g-mut); display: block; }
 .gpt .conn .btns { display: flex; gap: 8px; }
-.gpt .pill { border-radius: 999px; padding: 7px 16px; border: 1px solid var(--g-line); background: transparent; font-size: 14px; }
+.gpt .pill { border-radius: 999px; padding: 7px 16px; border: 1px solid var(--control-border); background: transparent; font-size: 14px; }
 .gpt .pill.k { background: var(--g-fg); color: var(--g-bg); border-color: var(--g-fg); }
 .gpt .cmp { padding: 0 16px 10px; }
-.gpt .box { max-width: 720px; margin: 0 auto; background: var(--g-box); border: 1px solid var(--g-line); border-radius: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.06); padding: 10px 10px 10px 12px; display: flex; gap: 8px; align-items: center; color: var(--g-mut); }
+.gpt .box { max-width: 720px; margin: 0 auto; background: var(--g-box); border: 1px solid var(--control-border); border-radius: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.06); padding: 10px 10px 10px 12px; display: flex; gap: 8px; align-items: center; color: var(--g-mut); }
 .gpt .box .ph { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gpt .box .chip { display: inline-flex; gap: 6px; align-items: center; color: #2b6fd6; background: rgba(43,111,214,.1); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 13px; }
 .gpt .box .chip .apptile { width: 18px; height: 18px; font-size: 9px; border-radius: 5px; }
@@ -194,7 +197,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .codex .dim { color: var(--x-dim); } .codex .cy { color: var(--x-cy); } .codex .gr { color: var(--x-gr); } .codex .rd { color: var(--x-rd); } .codex .yl { color: var(--x-yl); } .codex .mg { color: var(--x-mg); }
 .codex .usr { background: #1a1a1a; border-left: 2px solid var(--x-cy); padding: 2px 8px; margin: 8px 0; }
 .codex .gap { height: 8px; }
-.codex .cmp { margin: 0 16px; border: 1px solid #3a3a3a; border-radius: 6px; padding: 8px 10px; display: flex; gap: 8px; }
+.codex .cmp { margin: 0 16px; border: 1px solid var(--control-border); border-radius: 6px; padding: 8px 10px; display: flex; gap: 8px; }
 .codex .cmp .ph { color: var(--x-dim); }
 .codex .foot { display: flex; justify-content: space-between; gap: 10px; padding: 6px 16px 10px; color: var(--x-dim); font-size: 12px; flex-wrap: wrap; }
 
@@ -283,7 +286,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     muse:    { label: 'Muse', who: 'Muse', vendor: null, app: "Muse's PingOne app", own: true, cb: '/api/callback' },
     claude:  { label: 'Claude', who: 'Claude', vendor: 'Anthropic', app: "Claude's own PingOne app", own: true, cb: '/clients/callback' },
     chatgpt: { label: 'ChatGPT', who: 'ChatGPT', vendor: 'OpenAI', app: "ChatGPT's own PingOne app", own: true, cb: '/clients/callback' },
-    codex:   { label: 'Codex', who: 'Codex CLI', vendor: 'OpenAI', app: "Muse's connector app (no app of its own)", own: false, cb: 'http://127.0.0.1:8765/callback' }
+    codex:   { label: 'Codex', who: 'Codex CLI', vendor: 'OpenAI', app: "Codex's own PingOne app", own: true, cb: 'http://127.0.0.1:8765/callback' }
   };
   var ASK = 'How many airline points do I have?';
   var D = { points: 52000, tier: 'Gold', live: false };
@@ -371,7 +374,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     steps: [
       function () { add('<p class="ln usr in">› ' + ASK + '</p>'); },
       function () { add('<p class="ln in"><span class="mg">•</span> Calling <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in rd">  └ MCP server "airline" requires authentication (401)</p><p class="ln in yl">  └ run: codex mcp login airline</p>'); },
-      function (c) { add('<p class="ln usr in">› !codex mcp login airline</p><p class="ln in dim">  Registered OAuth client "Codex CLI (simulated)"</p><p class="ln in dim">  Opening the browser to sign in… waiting on 127.0.0.1:8765</p>'); signin(c); },
+      function (c) { add('<p class="ln usr in">› !codex mcp add airline --url ' + esc(location.origin) + '/mcp</p><p class="ln in dim">  Added MCP server "airline"</p><p class="ln usr in">› !codex mcp login airline</p><p class="ln in dim">  Registered OAuth client "Codex CLI (simulated)"</p><p class="ln in dim">  Opening the browser to sign in… waiting on 127.0.0.1:8765</p>'); signin(c); },
       detected, consent,
       function () { clearPop(); add('<p class="ln in gr">  ✓ Successfully logged in to MCP server "airline"</p>'); },
       function () { add('<p class="ln in"><span class="mg">•</span> Called <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in dim">  └ {"points":' + D.points + ',"tier":"' + esc(D.tier) + '"}</p>'); },
@@ -406,7 +409,9 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   function chrome() {
     var c = C[cur];
     stage.innerHTML = S[cur].shell();
-    document.getElementById('ribbon').textContent = c.vendor
+    document.getElementById('ribbon').textContent = cur === 'codex'
+      ? 'Developer path: Codex has no app directory, so a developer adds the server address once. Customers connect from the directory in Claude, ChatGPT and Meta AI. This is a simulated Codex talking to Muse\'s real back end, not OpenAI\'s app.'
+      : c.vendor
       ? 'Demo: a simulated ' + c.label + ' talking to Muse\'s real back end. This is not ' + c.vendor + '\'s app; the ' + c.label + ' name and logo belong to ' + c.vendor + '.'
       : 'Muse, the existing app, shown for comparison.';
     document.getElementById('trace-sub').textContent = 'Client: ' + c.who + ' · signs in with ' + c.app + ' · callback ' + c.cb;
@@ -466,7 +471,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   function liveState() {
     var b = document.getElementById('live'), n = document.getElementById('livenote'), k = cur === 'muse' ? null : keyFor(cur);
     b.disabled = !k;
-    n.textContent = cur === 'muse' ? 'Muse is the home page.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.' : k !== 'meta-ai' ? 'Live: signs in with ' + C[cur].who + "'s own PingOne app." : 'Live: ' + C[cur].who + " has no PingOne app of its own, so it signs in with Muse's connector app.";
+    n.textContent = cur === 'muse' ? 'Muse is the home page.' : cur === 'codex' && L.assistants.length && k ? 'Developer path. ' + (k !== 'meta-ai' ? 'Live: signs in with Codex\'s own PingOne app.' : 'Live: Codex has no PingOne app in this server yet, so it signs in with Muse\'s connector app.') : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.' : k !== 'meta-ai' ? 'Live: signs in with ' + C[cur].who + "'s own PingOne app." : 'Live: ' + C[cur].who + " has no PingOne app of its own, so it signs in with Muse's connector app.";
   }
   function note(t) { document.getElementById('livenote').textContent = t; }
   document.getElementById('live').addEventListener('click', function () {
