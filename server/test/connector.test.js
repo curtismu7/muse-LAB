@@ -4,7 +4,7 @@ import net from 'node:net';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { createApp } from '../src/index.js';
-import { connectorConfig, toolsFor } from '../src/connector.js';
+import { assistantsFor, connectorConfig, toolsFor } from '../src/connector.js';
 import { liveConfig } from '../src/discovery.js';
 
 const GW = 'https://gw.example/muse-ig/mcp';
@@ -285,5 +285,29 @@ test('after an assistant sign-in the browser returns to the clients page only; a
       const html = await (await call('GET', `/api/callback?code=c&state=${new URL(si.url).searchParams.get('state')}`)).text();
       assert.ok(html.includes(`location.replace(${JSON.stringify(expect)})`), `${returnTo} -> ${expect}: ${html.slice(0, 200)}`);
     }
+  } finally { await a.close(); }
+});
+
+test('an agent with no callback host (Codex) has its own app in the directory Connect path and is never picked by host', async () => {
+  const AGENTS = JSON.stringify([{ name: 'Codex', hosts: [], clientId: 'cx-app', clientSecret: 'cx-sekret' }, { name: 'Claude', hosts: ['claude.example'], clientId: 'cl-app', clientSecret: 'cl-sekret' }]);
+  const live = liveConfig({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example' });
+  const cfg = connectorConfig({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example', MUSE_CONNECTOR_AGENTS: AGENTS }, live);
+  assert.deepEqual(cfg.agents.map((x) => x.name), ['Codex', 'Claude']);
+  assert.deepEqual(cfg.hosts, ['claude.example'], 'no host is added for Codex');
+  assert.deepEqual(assistantsFor({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example', MUSE_CONNECTOR_AGENTS: AGENTS }, live).map((x) => x.key), ['codex', 'claude', 'meta-ai']);
+  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS });
+  try {
+    const jar = {}; const cookie = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
+    const keep = (r) => { for (const c of r.headers.getSetCookie?.() ?? []) { const [kv] = c.split(';'); const [k, v] = kv.split('='); jar[k] = v; } return r; };
+    const call = async (m, p, body) => keep(await fetch(a.base + p, { method: m, redirect: 'manual', headers: { 'content-type': 'application/json', cookie: cookie() }, body: body ? JSON.stringify(body) : undefined }));
+    await call('GET', '/api/session');
+    const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'codex' })).json();
+    assert.equal(new URL(si.url).searchParams.get('client_id'), 'cx-app', 'Codex signs in with its own app');
+    // A loopback callback (what Codex uses) is still Muse's app on the MCP path, since Codex has no host to match.
+    const LOOP = 'http://127.0.0.1:8765/callback';
+    const reg = await (await a.post('/connector/register', { redirect_uris: [LOOP] })).json();
+    const { challenge } = pkce();
+    const au = await a.get(`/connector/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: LOOP, state: 's', code_challenge: challenge, code_challenge_method: 'S256' })}`);
+    assert.notEqual(new URL(au.headers.get('location')).searchParams.get('client_id'), 'cx-app');
   } finally { await a.close(); }
 });

@@ -457,7 +457,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 
   // ---------- live: the real PingOne sign-in, through the same path as "Connect from your assistant" on Muse's home page ----------
   var L = { assistants: [], session: null };
-  var KEYS = { claude: 'claude', chatgpt: 'chatgpt', codex: 'meta-ai' };
+  var KEYS = { claude: 'claude', chatgpt: 'chatgpt', codex: 'codex' };
   function keyFor(id) {
     var ks = L.assistants.map(function (a) { return a.key; });
     if (KEYS[id] && ks.indexOf(KEYS[id]) > -1) return KEYS[id];
