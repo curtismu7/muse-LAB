@@ -98,7 +98,8 @@ test('without MUSE_PF_ISSUER nothing of the PingFederate path is served', async 
   const server = createApp({ ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: 'https://gw.example/x/mcp', MUSE_PUBLIC_URL: base }).listen(port, '127.0.0.1');
   await once(server, 'listening');
   try {
-    assert.equal((await fetch(`${base}/sim/chatgpt/client.json`)).status, 404);
+    const d = await fetch(`${base}/sim/chatgpt/client.json`);
+    assert.ok(d.status === 404 || !String(d.headers.get('content-type')).includes('json'), 'no client document (a built page may answer GETs with index.html)');
     assert.equal((await fetch(`${base}/mcp-pf`, { method: 'POST' })).status, 404);
   } finally { await new Promise((r) => server.close(r)); }
 });
