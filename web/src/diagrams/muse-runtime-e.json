@@ -94,7 +94,7 @@
       "group": "green",
       "label": "6. PingOne sign-in",
       "sub": [
-        "ChatGPT's own PingOne app, picked by callback host chatgpt.com",
+        "the \"ChatGPT agent login\" PingOne app, picked by callback host chatgpt.com",
         "same DaVinci flow, login hint ends .conn"
       ],
       "x": 326,
@@ -116,7 +116,8 @@
       "group": "green",
       "label": "8. Sam consents",
       "sub": [
-        "PingOne consent for the Airline Connector"
+        "agreement \"ChatGPT Consent\"",
+        "the flow picks it from the app id"
       ],
       "x": 898,
       "y": 228
@@ -241,7 +242,7 @@
     },
     {
       "title": "Authorize",
-      "what": "ChatGPT registers itself, or the admin pastes a client ID, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in with ChatGPT's own PingOne app, chosen because the callback host is chatgpt.com.",
+      "what": "ChatGPT registers itself, or the admin pastes a client ID, then sends Sam to /connector/authorize. Muse starts the PingOne sign-in with the \"ChatGPT agent login\" PingOne app, chosen because the callback host is chatgpt.com.",
       "why": "chatgpt.com is a listed agent host (MUSE_CONNECTOR_AGENTS), so it may register.",
       "edges": [
         0,
@@ -253,8 +254,8 @@
     },
     {
       "title": "Protect check",
-      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect sees ChatGPT's own PingOne app and names ChatGPT.",
-      "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows.",
+      "what": "PingOne runs the DaVinci flow: password, Protect risk, MFA on medium risk. Protect sees the \"ChatGPT agent login\" PingOne app and names ChatGPT.",
+      "why": "The agent is recognised by PingOne, not by its own word. The screen must say how it knows. Protect's museAgentClient predictor already lists that app (HIGH).",
       "edges": [
         0,
         1,
@@ -280,7 +281,7 @@
     },
     {
       "title": "Exchanges, token",
-      "what": "Muse does the code swap and both exchanges with ChatGPT's own PingOne app, then gives ChatGPT its own access token at /connector/token.",
+      "what": "Muse does the code swap and both exchanges with the \"ChatGPT agent login\" PingOne app, then gives ChatGPT its own access token at /connector/token.",
       "why": "So act names ChatGPT. The PingOne token never leaves Muse. ChatGPT holds only a Muse token for scope mcp.",
       "edges": [
         0,

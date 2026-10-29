@@ -116,7 +116,8 @@
       "group": "green",
       "label": "8. Sam consents",
       "sub": [
-        "PingOne consent for the Airline Connector"
+        "agreement \"Airline Connector Consent\"",
+        "the connector agreement"
       ],
       "x": 898,
       "y": 228
