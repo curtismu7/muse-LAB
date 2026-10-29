@@ -108,7 +108,7 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
     const authorizeUrl = `${asMeta.authorization_endpoint}?${q}`;
     steps.push({ n: 5, title: 'Send the customer to sign in', request: { method: 'GET', url: authorizeUrl.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: 'Authorization code with PKCE S256, and resource = the MCP server. The browser leaves the platform for the server\'s sign-in.' });
     while (pending.size >= CAP) pending.delete(pending.keys().next().value);
-    pending.set(state, { key, wsId, verifier, clientId, redirectUri, tokenEndpoint: asMeta.token_endpoint, resource, mcpUrl, method, signs: method === 'cimd' && p.cimd.auth === 'private_key_jwt', steps, returnTo, at: Date.now() });
+    pending.set(state, { key, wsId, verifier, clientId, redirectUri, tokenEndpoint: asMeta.token_endpoint, issuer: asMeta.issuer, resource, mcpUrl, method, signs: method === 'cimd' && p.cimd.auth === 'private_key_jwt', steps, returnTo, at: Date.now() });
     return { steps, authorizeUrl, method };
   }
 
@@ -124,10 +124,10 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
     const form = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: s.redirectUri, client_id: s.clientId, code_verifier: s.verifier, resource: s.resource });
     if (s.signs && signer) {
       form.set('client_assertion_type', 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer');
-      form.set('client_assertion', clientAssertion(signer, s.clientId, s.tokenEndpoint));
+      form.set('client_assertion', clientAssertion(signer, s.clientId, s.issuer ?? s.tokenEndpoint));
     }
     const t = await record(s.steps, 7, 'Swap the code for an access token', s.tokenEndpoint, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form.toString() },
-      s.signs ? 'PKCE verifier, the same redirect URI and resource, and a client assertion signed with the key in the document\'s jwks_uri (private_key_jwt).' : 'PKCE verifier, the same redirect URI and resource. A public client: no secret.');
+      s.signs ? 'PKCE verifier, the same redirect URI and resource, and a client assertion signed with the key in the document\'s jwks_uri (private_key_jwt; aud = the issuer, typ client-authentication+jwt, as PingFederate requires).' : 'PKCE verifier, the same redirect URI and resource. A public client: no secret.');
     const token = t.body?.access_token;
     if (t.r.status !== 200 || !token) { out.error = `The token request was refused (${t.r.status}).`; return out; }
     const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18' };
@@ -152,11 +152,13 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
   return { start, finish };
 }
 
-// private_key_jwt (RFC 7523): a short JWT naming the client and the token endpoint, signed with the client's key.
-function clientAssertion(signer, clientId, tokenEndpoint) {
+// private_key_jwt (RFC 7523): a short JWT naming the client, signed with the client's key. aud = the authorization server's issuer and
+// typ = client-authentication+jwt are what PingFederate 13.1 requires (it refuses aud = token endpoint and typ JWT); what ChatGPT itself
+// sends is not confirmed.
+function clientAssertion(signer, clientId, audience) {
   const now = Math.floor(Date.now() / 1000);
   const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  const head = `${enc({ alg: 'RS256', typ: 'JWT', kid: signer.kid })}.${enc({ iss: clientId, sub: clientId, aud: tokenEndpoint, jti: rand(16), iat: now, exp: now + 300 })}`;
+  const head = `${enc({ alg: 'RS256', typ: 'client-authentication+jwt', kid: signer.kid })}.${enc({ iss: clientId, sub: clientId, aud: audience, jti: rand(16), iat: now, exp: now + 300 })}`;
   return `${head}.${signData('RSA-SHA256', Buffer.from(head), signer.privateKey).toString('base64url')}`;
 }
 

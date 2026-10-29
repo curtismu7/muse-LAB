@@ -199,12 +199,12 @@ test('the session tells the page which assistants can connect, and says nothing 
 });
 
 test('with an airline named, the tool descriptions and server name say which airline, and odd characters are dropped', async () => {
-  const a = await boot({ MUSE_CONNECTOR_AIRLINE: 'United <b>' });
+  const a = await boot({ MUSE_CONNECTOR_AIRLINE: 'SkyHigh <b>' });
   const prm = await (await a.get('/.well-known/oauth-protected-resource/mcp')).json();
-  assert.equal(prm.resource_name, 'United b Airline Connector');
+  assert.equal(prm.resource_name, 'SkyHigh b Airline Connector');
   await a.close();
-  assert.ok(toolsFor('United').every((x) => x.description.includes('United')));
-  assert.ok(toolsFor('').every((x) => !x.description.includes('United')));
+  assert.ok(toolsFor('SkyHigh').every((x) => x.description.includes('SkyHigh')));
+  assert.ok(toolsFor('').every((x) => !x.description.includes('SkyHigh')));
 });
 
 test('a dropped gateway connection is retried once, so the tool call still answers', async () => {
@@ -250,7 +250,7 @@ test('an agent with its own PingOne app (by callback host) signs in and acts wit
 
 test('Connect from your assistant: each listed assistant signs in with its own PingOne app, acts for the user and gets the points', async () => {
   const AGENTS = JSON.stringify([{ name: 'ChatGPT', hosts: ['chatgpt.example'], clientId: 'gpt-app', clientSecret: 'gpt-sekret' }]);
-  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS, MUSE_CONNECTOR_AIRLINE: 'United' });
+  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS, MUSE_CONNECTOR_AIRLINE: 'SkyHigh' });
   try {
   const jar = {}; const cookie = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
   const keep = (r) => { for (const c of r.headers.getSetCookie?.() ?? []) { const [kv] = c.split(';'); const [k, v] = kv.split('='); jar[k] = v; } return r; };
@@ -258,7 +258,7 @@ test('Connect from your assistant: each listed assistant signs in with its own P
   await call('GET', '/api/session');
   const s0 = await (await call('GET', '/api/session')).json();
   assert.deepEqual(s0.connector.assistants.map((x) => x.name), ['ChatGPT', 'Meta AI']);
-  assert.equal(s0.connector.airline, 'United');
+  assert.equal(s0.connector.airline, 'SkyHigh');
   assert.ok(!JSON.stringify(s0).includes('gpt-sekret'), 'no secret reaches the page');
   assert.equal((await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'nobody' })).status, 409);
   const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'chatgpt' })).json();
