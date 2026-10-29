@@ -9,6 +9,7 @@ import { signInTrace } from './signin.js';
 import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
 import { agentConfig, agentTools, normaliseResult, plan, reply } from './agent.js';
 import { assistantsFor, mountConnector } from './connector.js';
+import { PLATFORMS, createPlatformEngine } from './platforms.js';
 import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
@@ -92,6 +93,17 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
 
   // Muse as a connector for other agents (off unless MUSE_CONNECTOR=1 and real mode is configured).
   const connector = mountConnector(app, { env, live, fetchImpl }) || null;
+  // What ChatGPT, Claude, Codex and Meta AI do on Connect, run by Muse against its own connector (see platforms.js).
+  const platforms = connector ? createPlatformEngine({ publicUrl: new URL(connector.url).origin, fetchImpl }) : null;
+  // The stand-in platform callback. The sign-in comes back here instead of chatgpt.com or the customer's loopback.
+  app.get('/sim/:key/callback', async (req, res) => {
+    const out = platforms ? await platforms.finish(req.query.state, { code: req.query.code ? String(req.query.code) : null, error: req.query.error }).catch(() => null) : null;
+    const ws = out ? workspaces.find(out.wsId) : null;
+    if (!ws) return res.status(400).type('text').send('Unknown or expired connection. Start again from Muse.');
+    const { wsId, returnTo, ...view } = out;
+    ws.assistant = view;
+    res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Muse</title><p>Connected. Returning to Muse.</p><script>location.replace(${JSON.stringify(returnTo)})</script>`);
+  });
 
   app.use(express.json({ limit: '16kb' }));
 
@@ -214,6 +226,19 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
       ws.liveClient = r.client ?? null;
       ws.liveError = r.error ?? null;
       res.json({ registered: Boolean(r.client), error: r.error ?? null });
+    } catch (e) { res.status(502).json(failed(e)); }
+  });
+
+  // Connect from an assistant, the way that platform does it: discovery, registration, then the authorize URL the page navigates to.
+  app.post('/api/sim/start', limited, async (req, res) => {
+    const key = String(req.body?.platform ?? '');
+    if (!platforms || !PLATFORMS[key]) return res.status(409).json({ error: 'that assistant is not available here' });
+    const returnTo = /^\/clients\.html\?client=[a-z]{1,12}$/.test(String(req.body?.returnTo ?? '')) ? String(req.body.returnTo) : '/';
+    req.ws.assistant = null;
+    try {
+      const r = await platforms.start(key, { mcpUrl: connector.url, wsId: req.ws.id, returnTo });
+      if (!r.authorizeUrl) { req.ws.assistant = { key, name: PLATFORMS[key].name, method: null, realRedirect: PLATFORMS[key].realRedirect, steps: r.steps, points: null, error: r.error }; return res.status(502).json({ error: r.error }); }
+      res.json({ url: r.authorizeUrl, method: r.method });
     } catch (e) { res.status(502).json(failed(e)); }
   });
 

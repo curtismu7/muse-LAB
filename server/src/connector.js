@@ -6,6 +6,7 @@
 import express from 'express';
 import { createHash, randomBytes } from 'node:crypto';
 import { callGateway, delegate, exchangeCode, startSignIn } from './liveauth.js';
+import { SELF_MARK, simKeyOf } from './platforms.js';
 
 const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
@@ -53,15 +54,18 @@ export function assistantsFor(env, live) {
   return [...own, { key: 'meta-ai', name: 'Meta AI', idp: live.idp }];
 }
 
-// The PingOne app a sign-in uses: the agent's own when its callback host is listed, otherwise Muse's.
+// The PingOne app a sign-in uses: the agent's own when its callback host is listed (or when it is Muse's stand-in callback for that platform), otherwise Muse's.
 const idpFor = (cfg, live, redirectUri) => {
   let h = '';
   try { h = new URL(redirectUri).hostname.toLowerCase(); } catch { /* no host, Muse's app */ }
-  const a = cfg.agents.find((x) => x.hosts.some((y) => h === y || h.endsWith(`.${y}`)));
+  const sim = simKeyOf(cfg.publicUrl, redirectUri);
+  const a = sim ? cfg.agents.find((x) => x.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === sim) : cfg.agents.find((x) => x.hosts.some((y) => h === y || h.endsWith(`.${y}`)));
   return a ? { ...live.idp, clientId: a.clientId, clientSecret: a.clientSecret } : live.idp;
 };
 
-const okRedirect = (uri, hosts) => {
+const okRedirect = (uri, hosts, publicUrl) => {
+  // Muse's stand-in platform callbacks (/sim/<platform>/callback on its own address) may register too.
+  if (publicUrl && simKeyOf(publicUrl, uri)) return true;
   let u;
   try { u = new URL(uri); } catch { return false; }
   if (u.hash) return false;
@@ -89,6 +93,8 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
 
   // Public endpoints take no cookie, so they get their own small limiter (per address, and across everyone).
   const limit = (req, res, next) => {
+    // Muse's own platform runs (platforms.js) are not counted; the /api/sim/start route that starts them has its own per-visitor limit.
+    if (req.get('x-muse-self') === SELF_MARK) return next();
     const now = Date.now(); const key = req.ip || 'x';
     for (const [k, v] of hits) { const f = v.filter((t) => now - t < 60000); if (f.length) hits.set(k, f); else hits.delete(k); }
     const mine = hits.get(key) ?? []; const all = [...hits.values()].reduce((n, v) => n + v.length, 0);
@@ -103,18 +109,17 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   app.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], open, (req, res) => res.json(prm));
   app.get(['/.well-known/oauth-authorization-server', '/.well-known/openid-configuration'], open, (req, res) => res.json({
     issuer: PUBLIC, authorization_endpoint: `${PUBLIC}/connector/authorize`, token_endpoint: `${PUBLIC}/connector/token`,
-    ...(cfg.hosts.length ? { registration_endpoint: `${PUBLIC}/connector/register` } : {}),
+    registration_endpoint: `${PUBLIC}/connector/register`,
     response_types_supported: ['code'], grant_types_supported: ['authorization_code'], code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'], scopes_supported: ['mcp'],
   }));
 
-  // Dynamic registration (RFC 7591) only for redirect hosts the owner named. Public clients with PKCE; no secrets issued.
+  // Dynamic registration (RFC 7591) for redirect hosts the owner named, and for Muse's own stand-in platform callbacks. Public clients with PKCE; no secrets issued.
   app.post('/connector/register', limit, express.json({ limit: '8kb' }), (req, res) => {
     const uris = Array.isArray(req.body?.redirect_uris) ? req.body.redirect_uris.map(String) : [];
     // Hostnames only, so the owner can see what an agent asked for and decide whether to allow it.
     const hostsAsked = [...new Set(uris.slice(0, 5).map((u) => { try { return new URL(u).hostname; } catch { return '?'; } }))];
-    if (!cfg.hosts.length) { console.warn(`[connector] registration refused, no redirect hosts allowed. Agent asked for: ${hostsAsked.join(', ')}`); return oauthErr(res, 403, 'registration_not_allowed', 'This server has no redirect hosts configured.'); }
-    if (!uris.length || uris.length > 5 || !uris.every((u) => okRedirect(u, cfg.hosts))) { console.warn(`[connector] registration refused, redirect host not allowed: ${hostsAsked.join(', ')}`); return oauthErr(res, 400, 'invalid_redirect_uri', 'Every redirect URI must be https on an allowed host.'); }
+    if (!uris.length || uris.length > 5 || !uris.every((u) => okRedirect(u, cfg.hosts, PUBLIC))) { console.warn(`[connector] registration refused, redirect host not allowed: ${hostsAsked.join(', ')}`); return oauthErr(res, 400, 'invalid_redirect_uri', 'Every redirect URI must be https on an allowed host.'); }
     capped(clients);
     const id = `muse-${rand(12)}`;
     clients.set(id, { redirectUris: uris, name: String(req.body?.client_name ?? 'Agent').slice(0, 60) });
