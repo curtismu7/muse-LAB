@@ -508,5 +508,7 @@ export function start(env = process.env) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  // Your own settings (see .env.example). Values already in the environment win; no .env means the mock demo.
+  if (typeof process.loadEnvFile === 'function' && existsSync('.env')) process.loadEnvFile('.env');
   start();
 }
