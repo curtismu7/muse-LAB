@@ -216,3 +216,31 @@ test('a dropped gateway connection is retried once, so the tool call still answe
   assert.equal((await call()).result.isError, true, 'two in a row is reported, not hidden');
   await a.close();
 });
+
+test('an agent with its own PingOne app (by callback host) signs in and acts with that app, others keep Muse\'s', async () => {
+  const AGENTS = JSON.stringify([{ name: 'ChatGPT', hosts: ['chatgpt.example'], clientId: 'gpt-app', clientSecret: 'gpt-sekret' }, { name: 'Broken', hosts: ['x.example'] }]);
+  const live = liveConfig({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example' });
+  const cfg = connectorConfig({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example', MUSE_CONNECTOR_AGENTS: AGENTS }, live);
+  assert.deepEqual(cfg.agents.map((x) => x.name), ['ChatGPT'], 'an entry without a client id and secret is dropped');
+  assert.ok(cfg.hosts.includes('chatgpt.example'), 'the agent\'s host may register');
+  assert.equal(connectorConfig({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example', MUSE_CONNECTOR_AGENTS: '{nope' }, live).agents.length, 0, 'bad JSON means no agents, not a crash');
+
+  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS });
+  const GPT = 'https://chatgpt.example/connector_platform_oauth_redirect';
+  const reg = await (await a.post('/connector/register', { redirect_uris: [GPT] })).json();
+  const { challenge } = pkce();
+  const au = await a.get(`/connector/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: GPT, state: 's', code_challenge: challenge, code_challenge_method: 'S256' })}`);
+  const loc = new URL(au.headers.get('location'));
+  assert.equal(loc.searchParams.get('client_id'), 'gpt-app', 'PingOne sees ChatGPT\'s own app');
+  assert.equal(loc.searchParams.get('login_hint'), 'demouser.conn');
+  const cb = await a.get(`/connector/callback?code=pingone-code&state=${loc.searchParams.get('state')}`);
+  assert.ok(new URL(cb.headers.get('location')).searchParams.get('code'));
+  const posts = a.seen.filter((x) => x.url === `${P1}/token`).map((x) => new URLSearchParams(x.init.body));
+  assert.equal(posts.length, 4);
+  assert.ok(posts.every((f) => f.get('client_id') === 'gpt-app' && f.get('client_secret') === 'gpt-sekret'), 'the code swap and both exchanges use ChatGPT\'s app');
+
+  const other = await signedIn(a);
+  assert.ok(other.back.searchParams.get('code'));
+  assert.ok(a.seen.filter((x) => x.url === `${P1}/token`).slice(4).every((x) => new URLSearchParams(x.init.body).get('client_id') === 'c1'), 'an agent with no app of its own keeps Muse\'s');
+  await a.close();
+});

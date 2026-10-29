@@ -1,4 +1,4 @@
-// The Airline Connector: Muse's server as a custom connector for other agents (for example Meta's Muse at muse.ai). Standard MCP over HTTP with OAuth:
+// The Airline Connector: Muse's server as a custom connector for other agents (for example Meta's Muse at muse.ai, ChatGPT, Claude). Standard MCP over HTTP with OAuth:
 //   agent -> /mcp (401 + metadata) -> /connector/authorize -> PingOne (the same DaVinci flow: login, Protect, agent-detected, consent)
 //   -> /connector/callback (Muse does the on-behalf-of exchanges) -> /connector/token -> agent calls /mcp with the token.
 // Muse is both the OAuth authorization server the agent talks to and the MCP server. The tools it serves are a fixed list,
@@ -32,8 +32,23 @@ export function connectorConfig(env, live) {
   // A client the owner names up front, for agents that ask you to type a client id instead of registering.
   const staticUris = (env.MUSE_CONNECTOR_REDIRECT_URIS ?? '').split(',').map((u) => u.trim()).filter(Boolean);
   const staticClient = env.MUSE_CONNECTOR_CLIENT_ID && staticUris.length ? { id: env.MUSE_CONNECTOR_CLIENT_ID, redirectUris: staticUris, name: 'Pre-registered agent' } : null;
-  return { publicUrl: pu.origin, hosts, staticClient };
+  // Agents with their own PingOne app (MUSE_CONNECTOR_AGENTS, JSON), picked by the agent's callback host, so Protect and the PingOne screens can name them.
+  // Their hosts are allowed to register too. A bad entry is dropped, and that agent falls back to Muse's app.
+  let agents = [];
+  try { agents = JSON.parse(env.MUSE_CONNECTOR_AGENTS || '[]'); } catch { agents = []; }
+  agents = (Array.isArray(agents) ? agents : []).filter((a) => a && typeof a.clientId === 'string' && a.clientId && typeof a.clientSecret === 'string' && a.clientSecret && Array.isArray(a.hosts) && a.hosts.length)
+    .map((a) => ({ name: String(a.name ?? 'Agent').slice(0, 40), clientId: a.clientId, clientSecret: a.clientSecret, hosts: a.hosts.map((h) => String(h).trim().toLowerCase()).filter(Boolean) }));
+  for (const a of agents) for (const h of a.hosts) if (!hosts.includes(h)) hosts.push(h);
+  return { publicUrl: pu.origin, hosts, staticClient, agents };
 }
+
+// The PingOne app a sign-in uses: the agent's own when its callback host is listed, otherwise Muse's.
+const idpFor = (cfg, live, redirectUri) => {
+  let h = '';
+  try { h = new URL(redirectUri).hostname.toLowerCase(); } catch { /* no host, Muse's app */ }
+  const a = cfg.agents.find((x) => x.hosts.some((y) => h === y || h.endsWith(`.${y}`)));
+  return a ? { ...live.idp, clientId: a.clientId, clientSecret: a.clientSecret } : live.idp;
+};
 
 const okRedirect = (uri, hosts) => {
   let u;
@@ -110,9 +125,10 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     if (!q.code_challenge || q.code_challenge_method !== 'S256') return back('invalid_request');
     // '.conn' on the login hint tells the PingOne flow this sign-in came through the Airline Connector, so its screens name it.
     const learned = { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] };
-    const r = startSignIn(learned, { clientId: live.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: live.idp.loginHint ? `${live.idp.loginHint}.conn` : null });
+    const idp = idpFor(cfg, live, String(q.redirect_uri));
+    const r = startSignIn(learned, { clientId: idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: idp.loginHint ? `${idp.loginHint}.conn` : null });
     capped(pending);
-    pending.set(r.state, { client: String(q.client_id), redirectUri: String(q.redirect_uri), state: q.state ? String(q.state) : null, challenge: String(q.code_challenge), verifier: r.verifier, learned, at: Date.now() });
+    pending.set(r.state, { client: String(q.client_id), redirectUri: String(q.redirect_uri), state: q.state ? String(q.state) : null, challenge: String(q.code_challenge), verifier: r.verifier, learned, idp, at: Date.now() });
     res.redirect(302, r.url);
   });
 
@@ -124,9 +140,9 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     const back = (params) => { const u = new URL(p.redirectUri); for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v); if (p.state) u.searchParams.set('state', p.state); return res.redirect(302, u.href); };
     if (req.query.error) return back({ error: 'access_denied' });
     try {
-      const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: { clientId: live.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, resource: null, clientSecret: live.idp.clientSecret }, fetchImpl);
+      const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: { clientId: p.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, resource: null, clientSecret: p.idp.clientSecret }, fetchImpl);
       if (!r.token) return back({ error: 'server_error' });
-      const d = await delegate(live, live.idp, r.token, fetchImpl);
+      const d = await delegate(live, p.idp, r.token, fetchImpl);
       if (!d.token) return back({ error: 'server_error' });
       capped(codes);
       const code = rand(24);
