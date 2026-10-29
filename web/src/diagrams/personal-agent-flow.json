@@ -30,7 +30,7 @@
         "Signed in with PingOne (simulated)"
       ],
       "x": 0,
-      "y": 80
+      "y": 0
     },
     {
       "id": "muse",
@@ -39,8 +39,8 @@
       "sub": [
         "Personal agent"
       ],
-      "x": 200,
-      "y": 80
+      "x": 300,
+      "y": 0
     },
     {
       "id": "gateway",
@@ -49,8 +49,8 @@
       "sub": [
         "Privilege: answers 401 without a token"
       ],
-      "x": 400,
-      "y": 80
+      "x": 600,
+      "y": 0
     },
     {
       "id": "pingone",
@@ -59,8 +59,8 @@
       "sub": [
         "Authorization + sign-in (simulated)"
       ],
-      "x": 600,
-      "y": 80
+      "x": 900,
+      "y": 0
     },
     {
       "id": "protect",
@@ -69,8 +69,8 @@
       "sub": [
         "Muse or a person? DaVinci flow (simulated)"
       ],
-      "x": 800,
-      "y": 80
+      "x": 1200,
+      "y": 0
     },
     {
       "id": "consent",
@@ -79,8 +79,8 @@
       "sub": [
         "Muse only: \"this is a bot, allow it?\""
       ],
-      "x": 1000,
-      "y": 80
+      "x": 1200,
+      "y": 190
     },
     {
       "id": "coarse",
@@ -89,8 +89,8 @@
       "sub": [
         "Which personas may call the tool"
       ],
-      "x": 1200,
-      "y": 80
+      "x": 900,
+      "y": 190
     },
     {
       "id": "fine",
@@ -99,8 +99,8 @@
       "sub": [
         "Business rule for this call"
       ],
-      "x": 1400,
-      "y": 80
+      "x": 600,
+      "y": 190
     },
     {
       "id": "resource",
@@ -109,8 +109,8 @@
       "sub": [
         "The tool runs (simulated)"
       ],
-      "x": 1600,
-      "y": 80
+      "x": 300,
+      "y": 190
     }
   ],
   "edges": [

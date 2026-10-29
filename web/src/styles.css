@@ -10,6 +10,8 @@
   --line: #dbe2ea;
   /* Edge of unselected buttons, tabs, chips, toggles and inputs: 3:1 or more on every surface (STANDALONE-RULES dark mode control contrast). */
   --control-border: #6f7c8a;
+  /* Diagram edges and arrowheads: 3:1 or more on the canvas in both themes. */
+  --diagram-edge: #6f7c8a;
   --accent: #16325c;
   --accent-text: #ffffff;
   --ok: #1d6b35;
@@ -37,6 +39,8 @@
     --muted: #9aa0ab;
     --line: #2a2f38;
     --control-border: #c3c8d0;
+  --diagram-edge: #aeb5c0;
+    --diagram-edge: #aeb5c0;
     --accent: #6ea8e6;
     --accent-text: #051727;
     --ok: #6fd08c;
@@ -285,8 +289,19 @@ button.approve { border-radius: 8px; width: 100%; }
 .hop-done { border-color: var(--ok) !important; }
 .hop-blocked { border-color: var(--bad) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent); }
 .hop-held { border-color: var(--warn) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent); }
-.hop-idle { opacity: 0.7; }
-.hop-edge path { stroke: var(--muted); }
+.hop-idle { opacity: 0.92; }
+.hop-edge path { stroke: var(--diagram-edge); }
+/* React Flow reads these, so edges, arrowheads, edge labels and the dotted canvas follow the theme in every diagram. */
+.react-flow {
+  --xy-edge-stroke: var(--diagram-edge);
+  --xy-edge-stroke-width: 1.6;
+  --xy-edge-label-background-color: var(--surface);
+  --xy-edge-label-color: var(--text);
+  --xy-background-pattern-dots-color: var(--line);
+  --xy-controls-box-shadow: none;
+}
+.react-flow__edge-text { font-size: calc(13px * var(--fs, 1)); }
+.react-flow__edge-textbg { stroke: var(--line); stroke-width: 1px; }
 .react-flow__handle { opacity: 0; }
 
 /* Group colours from diagram-studio/1 data: studio palette names mapped to theme tokens. */
@@ -314,6 +329,7 @@ button.approve { border-radius: 8px; width: 100%; }
   .flow-row { padding: 0 16px 20px; }
 }
 .flow-canvas--tall { height: 460px; }
+.flow-canvas--two-row { height: 340px; }
 .grp-red.hop-active, .grp-red.hop-done { border-color: var(--bad) !important; }
 .grp-amber.hop-active, .grp-amber.hop-done { border-color: var(--warn) !important; }
 .hop-skipped { opacity: 0.45; border-style: dashed !important; }
@@ -403,11 +419,11 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .diagram-page { max-width: none; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-left, 0px)) 32px; display: grid; gap: 12px; }
 .diagram-page h1 { margin: 0; font-size: calc(29px * var(--fs, 1)); }
 
-/* Zoom buttons: the app's round white buttons hid the icons in dark mode. */
-.mflow .react-flow__controls { box-shadow: none; border: 1px solid var(--control-border); border-radius: 10px; overflow: hidden; }
-.mflow .react-flow__controls-button { background: var(--surface) !important; color: var(--text) !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; width: 30px; height: 30px; padding: 0; }
-.mflow .react-flow__controls-button:hover { background: var(--panel) !important; }
-.mflow .react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
+/* Zoom buttons, every diagram: the app's round white buttons hid the icons in dark mode. */
+.react-flow__controls { box-shadow: none; border: 1px solid var(--control-border); border-radius: 10px; overflow: hidden; }
+.react-flow__controls-button { background: var(--surface) !important; color: var(--text) !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; width: 30px; height: 30px; padding: 0; }
+.react-flow__controls-button:hover { background: var(--panel) !important; }
+.react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
 .mflow .seg { flex-wrap: wrap; border-radius: 14px; }
 
 /* AI-DEMO2 look: Core Dark gradient band, navy emphasis, pill controls. */

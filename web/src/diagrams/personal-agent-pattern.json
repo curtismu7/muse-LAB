@@ -37,7 +37,7 @@
       "sub": [
         "Sign-in and token exchange"
       ],
-      "x": 40,
+      "x": 60,
       "y": -190
     },
     {
@@ -47,7 +47,7 @@
       "sub": [
         "Business-level rules"
       ],
-      "x": 900,
+      "x": 1110,
       "y": -190
     },
     {
@@ -63,7 +63,7 @@
       "group": "agent",
       "label": "Personal Agent",
       "sub": [],
-      "x": 200,
+      "x": 260,
       "y": 80
     },
     {
@@ -71,7 +71,7 @@
       "group": "path",
       "label": "LLM",
       "sub": [],
-      "x": 200,
+      "x": 260,
       "y": 260
     },
     {
@@ -81,7 +81,7 @@
       "sub": [
         "MCP, tool-level authorization"
       ],
-      "x": 470,
+      "x": 560,
       "y": 80
     },
     {
@@ -89,7 +89,7 @@
       "group": "path",
       "label": "MCP",
       "sub": [],
-      "x": 740,
+      "x": 860,
       "y": 80
     },
     {
@@ -97,7 +97,7 @@
       "group": "path",
       "label": "API GW",
       "sub": [],
-      "x": 940,
+      "x": 1110,
       "y": 80
     },
     {
@@ -105,7 +105,7 @@
       "group": "path",
       "label": "Resource",
       "sub": [],
-      "x": 1140,
+      "x": 1360,
       "y": 80
     }
   ],
