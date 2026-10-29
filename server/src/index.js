@@ -471,7 +471,10 @@ export function createApp(env = process.env, { fetchImpl = fetch } = {}) {
 }
 
 export function start(env = process.env) {
-  if (env.MODE && env.MODE !== 'mock') throw new Error('this build is mock-only: MODE must be "mock"');
+  // MODE=mock: mock-only. MODE=live: the owner's real build, so it needs ALLOW_LIVE=1. Anything else is refused.
+  if (env.MODE && env.MODE !== 'mock' && !(env.MODE === 'live' && env.ALLOW_LIVE === '1')) {
+    throw new Error('MODE must be "mock", or "live" with ALLOW_LIVE=1');
+  }
   const bind = env.MUSE_BIND ?? '127.0.0.1';
   if (!LOOPBACK_BINDS.has(bind) && env.MUSE_HOSTED !== '1') {
     throw new Error('refusing to bind a non-loopback address without MUSE_HOSTED=1');

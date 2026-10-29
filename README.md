@@ -1,5 +1,7 @@
 # Muse
 
+Tier: Demo
+
 A personal agent demo. Muse is a browser front end. It signs in with a simulated PingOne flow, which calls a
 DaVinci-shaped detection flow ("Muse-detect"). Each tool call then passes a Agent Privilege-shaped gateway:
 
@@ -16,6 +18,12 @@ The most restrictive answer wins. Held calls wait for a simulated CIBA approval.
 ## Test
     npm test
     npm run build
+
+## Hosted builds (SE cluster)
+`k8s/deploy.sh` deploys the same image in one of two modes (`APP_NAME` names every object):
+
+- **Mock-only** (`MODE=mock`, the default): live mode is refused even if a Secret is present; sign-in, Protect, the gateway and the connector are all simulated, and the page says "This is the hosted, mock-only build". Per-visitor workspaces, no secrets. Live at https://muse-mock.ai-demo.ping-devops.com/ (`APP_NAME=muse-mock`).
+- **Real** (`MODE=live`, owner-run): reads the Secret `<APP_NAME>-real`, which holds `ALLOW_LIVE=1`, `MUSE_ALLOW_LIVE_HOSTED=1`, `MUSE_PUBLIC_URL` and the tenant settings. Nothing tenant-specific is in this repo. The server refuses `MODE=live` without `ALLOW_LIVE=1`.
 
 ## Real or fake Agent Privilege (owner-run)
 On the sign-in screen, **Call Agent Privilege with no token** shows the 401 and the two metadata reads. The switch picks which Agent Privilege answers:

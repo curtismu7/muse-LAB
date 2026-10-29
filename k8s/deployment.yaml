@@ -1,22 +1,23 @@
-# Hosted build of Muse for the SE cluster. By default it is MOCK-ONLY (rule 18). Real mode is switched on only when the owner creates the
-# Secret `muse-real` (see k8s/README-real.md): the Secret holds every tenant id, address and credential, so none of them are in this repo. Same image as the local standalone; MODE=mock and MUSE_HOSTED=1
-# switch on the hosted banner, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids, no volumes with data.
-# Placeholders (__IMAGE__, __SE_HOST__) are filled by k8s/deploy.sh. No namespace: deploy.sh takes NAMESPACE.
+# Hosted build of Muse for the SE cluster (rule 18). MODE=mock (deploy.sh default) is the MOCK-ONLY build: live mode is refused
+# even if a Secret exists. MODE=live is the owner's real build: it reads the Secret `__NAME__-real` (see the README, "Hosted builds"), which
+# holds every tenant id, address and credential, so none of them are in this repo. Same image as the local standalone; MUSE_HOSTED=1
+# switches on the hosted banner, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids, no volumes with data.
+# Placeholders (__IMAGE__, __SE_HOST__, __NAME__, __MODE__) are filled by k8s/deploy.sh. No namespace: deploy.sh takes NAMESPACE.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: muse
-  labels: { app: muse }
+  name: __NAME__
+  labels: { app: __NAME__ }
 spec:
   # ONE pod on purpose: workspaces live in this process's memory, so a second replica would give a visitor an empty workspace
   # on every other request. Do not scale this without moving workspaces out of process.
   replicas: 1
   strategy: { type: Recreate }
   selector:
-    matchLabels: { app: muse }
+    matchLabels: { app: __NAME__ }
   template:
     metadata:
-      labels: { app: muse }
+      labels: { app: __NAME__ }
     spec:
       automountServiceAccountToken: false
       imagePullSecrets:
@@ -33,7 +34,7 @@ spec:
           ports:
             - { name: http, containerPort: 5100 }
           env:
-            - { name: MODE, value: mock }
+            - { name: MODE, value: __MODE__ }
             - { name: MUSE_HOSTED, value: "1" }
             - { name: PORT, value: "5100" }
             - { name: MUSE_BIND, value: 0.0.0.0 }
@@ -44,7 +45,7 @@ spec:
           # Optional. Absent = the mock-only build. Present = real mode (ALLOW_LIVE, MUSE_ALLOW_LIVE_HOSTED, MUSE_PUBLIC_URL, MUSE_LIVE_GATEWAY_URL,
           # MUSE_P1_ENV_ID, MUSE_P1_CLIENT_ID, MUSE_P1_CLIENT_SECRET, MUSE_P1_LANE). Created by the owner, never committed.
           envFrom:
-            - secretRef: { name: muse-real, optional: true }
+            - secretRef: { name: __NAME__-real, optional: true }
           readinessProbe:
             httpGet: { path: /api/health, port: http }
             periodSeconds: 10
