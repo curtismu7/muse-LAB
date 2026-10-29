@@ -2,9 +2,9 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: muse
+  name: __NAME__
 spec:
-  secretName: muse-tls
+  secretName: __NAME__-tls
   dnsNames:
     - __SE_HOST__
   issuerRef:

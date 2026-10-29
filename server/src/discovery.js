@@ -43,6 +43,8 @@ export function mockDiscovery() {
 
 // Live mode needs ALLOW_LIVE=1 and MUSE_LIVE_GATEWAY_URL, and is never available on the hosted build.
 export function liveConfig(env) {
+  // MODE=mock is the mock-only build (rule 18): no live mode, whatever else is set.
+  if (env.MODE === 'mock') return null;
   // Hosted builds stay mock-only unless the owner turns real mode on deliberately (MUSE_ALLOW_LIVE_HOSTED=1) and names the
   // public https address the PingOne return comes back to.
   const hostedLive = env.MUSE_HOSTED === '1' && env.MUSE_ALLOW_LIVE_HOSTED === '1';

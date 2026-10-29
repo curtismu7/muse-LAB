@@ -19,6 +19,18 @@ test('a hosted build stays mock-only unless real mode is turned on on purpose, w
   assert.equal(liveConfig({ ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: GW, MUSE_ALLOW_LIVE_HOSTED: '1', MUSE_PUBLIC_URL: 'https://muse.example' }).publicUrl, null, 'a local run ignores the public address');
 });
 
+test('MODE=mock is mock-only even with every real-mode setting present', async () => {
+  const full = { ...BASE, ...P1, MUSE_ALLOW_LIVE_HOSTED: '1', MUSE_PUBLIC_URL: 'https://muse.example', MUSE_P1_CLIENT_SECRET: 's', MUSE_CONNECTOR: '1' };
+  assert.ok(liveConfig(full), 'the same settings without MODE give real mode');
+  assert.equal(liveConfig({ ...full, MODE: 'mock' }), null);
+  const a = await boot({ ...full, MODE: 'mock' }, async () => { throw new Error('no network in the mock-only build'); });
+  try {
+    const s = (await a.call('GET', '/api/session')).j;
+    assert.equal(s.live.available, false);
+    assert.equal((await a.call('POST', '/api/gateway-mode', { mode: 'live' })).s, 403);
+  } finally { await a.close(); }
+});
+
 async function boot(env, fetchImpl) {
   const server = createApp(env, { fetchImpl }).listen(0, '127.0.0.1');
   await once(server, 'listening');

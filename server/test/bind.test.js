@@ -9,8 +9,12 @@ test('a non-loopback bind is refused unless MUSE_HOSTED=1', async () => {
   await new Promise((r) => server.close(r));
 });
 
-test('a build that is not MODE=mock refuses to start', () => {
-  assert.throws(() => start({ MODE: 'live', PORT: '0' }), /mock-only/);
+test('MODE must be mock, or live with ALLOW_LIVE=1', async () => {
+  assert.throws(() => start({ MODE: 'live', PORT: '0' }), /MODE must be/);
+  assert.throws(() => start({ MODE: 'real', PORT: '0', ALLOW_LIVE: '1' }), /MODE must be/);
+  const server = start({ MODE: 'live', ALLOW_LIVE: '1', PORT: '0' });
+  await new Promise((r) => server.once('listening', r));
+  await new Promise((r) => server.close(r));
 });
 
 test('the default bind is loopback only', async () => {
