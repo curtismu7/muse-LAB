@@ -5,7 +5,7 @@
 // Two things are stand-ins and say so: the callback (Muse cannot receive at chatgpt.com or on the customer's loopback, so it listens on its own
 // /sim/<platform>/callback), and the model (the platform's model picks the tool from tools/list; here the choice is fixed).
 // Platform facts are from their published client documents (fetched 2026-10-29) and their docs; anything not confirmed is marked.
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, sign as signData } from 'node:crypto';
 
 const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
@@ -50,7 +50,7 @@ export const simKeyOf = (publicUrl, uri) => {
 };
 
 // Muse's own address is fetched with the plain fetch (a real HTTP call to itself, as the platform would make); anything else goes through fetchImpl.
-export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch = fetch }) {
+export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch = fetch, signer = null }) {
   const pending = new Map(); // state -> { key, wsId, verifier, clientId, redirectUri, tokenEndpoint, resource, mcpUrl, method, steps, returnTo, at }
   const go = (url, init) => (String(url).startsWith(publicUrl)
     ? selfFetch(url, { redirect: 'manual', ...init, headers: { ...(init?.headers ?? {}), 'x-muse-self': SELF_MARK } })
@@ -64,6 +64,7 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
     const shownBody = init.body && typeof init.body === 'string' ? (init.headers?.['content-type']?.includes('json') ? JSON.parse(init.body) : Object.fromEntries(new URLSearchParams(init.body))) : undefined;
     if (shownBody?.code_verifier) shownBody.code_verifier = '(sent)';
     if (shownBody?.code) shownBody.code = '(sent)';
+    if (shownBody?.client_assertion) shownBody.client_assertion = '(signed JWT, sent)';
     steps.push({ n, title, request: { method: init.method ?? 'GET', url: String(url), ...(shownBody ? { body: shownBody } : {}) }, response: { status: r.status, headers, body: redact(body) }, note });
     return { r, body };
   };
@@ -85,8 +86,11 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
     // How the platform identifies itself: its client document if the server supports CIMD, otherwise dynamic registration.
     const canCimd = p.cimd && asMeta?.client_id_metadata_document_supported === true && (!p.cimd.needsNone || (asMeta.token_endpoint_auth_methods_supported ?? []).includes('none'));
     let clientId; let method;
-    if (canCimd && p.cimd.url) {
-      return { steps, error: `This server supports CIMD, so ${p.name} would present ${p.cimd.url}. The CIMD path runs against PingFederate and is not built yet.` };
+    if (canCimd) {
+      // No registration: the client_id IS the address of the platform's client document, which the server fetches and checks.
+      method = 'cimd';
+      clientId = `${publicUrl}/sim/${key}/client.json`;
+      steps.push({ n: 4, title: `${p.name} presents its client ID metadata document (CIMD)`, request: { method: 'GET', url: clientId }, note: `The server advertises client_id_metadata_document_supported, so there is no registration: client_id = the document's address, and the server fetches it. This is Muse's labelled copy of ${p.cimd.url ?? 'the platform\'s document'}, with Muse's callback.${p.cimd.auth === 'private_key_jwt' ? ' It asks for private_key_jwt: the token request is signed with the key in its jwks_uri.' : ''}` });
     } else if (asMeta?.registration_endpoint) {
       method = 'dcr';
       const why = asMeta?.client_id_metadata_document_supported ? '' : 'The server does not advertise client ID metadata documents, so the platform registers. ';
@@ -104,7 +108,7 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
     const authorizeUrl = `${asMeta.authorization_endpoint}?${q}`;
     steps.push({ n: 5, title: 'Send the customer to sign in', request: { method: 'GET', url: authorizeUrl.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: 'Authorization code with PKCE S256, and resource = the MCP server. The browser leaves the platform for the server\'s sign-in.' });
     while (pending.size >= CAP) pending.delete(pending.keys().next().value);
-    pending.set(state, { key, wsId, verifier, clientId, redirectUri, tokenEndpoint: asMeta.token_endpoint, resource, mcpUrl, method, steps, returnTo, at: Date.now() });
+    pending.set(state, { key, wsId, verifier, clientId, redirectUri, tokenEndpoint: asMeta.token_endpoint, resource, mcpUrl, method, signs: method === 'cimd' && p.cimd.auth === 'private_key_jwt', steps, returnTo, at: Date.now() });
     return { steps, authorizeUrl, method };
   }
 
@@ -118,7 +122,12 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
     if (error || !code) { out.error = `The sign-in did not finish (${String(error ?? 'no code').slice(0, 40)}).`; return out; }
     s.steps.push({ n: 6, title: `The sign-in returns to ${p.name}`, request: { method: 'GET', url: `${s.redirectUri}?code=(sent)&state=(sent)` }, note: `Stands in for ${p.realRedirect}. The platform checks the state it sent.` });
     const form = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: s.redirectUri, client_id: s.clientId, code_verifier: s.verifier, resource: s.resource });
-    const t = await record(s.steps, 7, 'Swap the code for an access token', s.tokenEndpoint, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form.toString() }, 'PKCE verifier, the same redirect URI and resource. A public client: no secret.');
+    if (s.signs && signer) {
+      form.set('client_assertion_type', 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer');
+      form.set('client_assertion', clientAssertion(signer, s.clientId, s.tokenEndpoint));
+    }
+    const t = await record(s.steps, 7, 'Swap the code for an access token', s.tokenEndpoint, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form.toString() },
+      s.signs ? 'PKCE verifier, the same redirect URI and resource, and a client assertion signed with the key in the document\'s jwks_uri (private_key_jwt).' : 'PKCE verifier, the same redirect URI and resource. A public client: no secret.');
     const token = t.body?.access_token;
     if (t.r.status !== 200 || !token) { out.error = `The token request was refused (${t.r.status}).`; return out; }
     const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18' };
@@ -141,6 +150,14 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
   }
 
   return { start, finish };
+}
+
+// private_key_jwt (RFC 7523): a short JWT naming the client and the token endpoint, signed with the client's key.
+function clientAssertion(signer, clientId, tokenEndpoint) {
+  const now = Math.floor(Date.now() / 1000);
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const head = `${enc({ alg: 'RS256', typ: 'JWT', kid: signer.kid })}.${enc({ iss: clientId, sub: clientId, aud: tokenEndpoint, jti: rand(16), iat: now, exp: now + 300 })}`;
+  return `${head}.${signData('RSA-SHA256', Buffer.from(head), signer.privateKey).toString('base64url')}`;
 }
 
 // Tokens and codes never go to the page.
