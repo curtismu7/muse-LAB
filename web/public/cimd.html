@@ -263,7 +263,7 @@ Host: cmuir-pf.ping-devops.com
 
 HTTP/2 302
 location: https://client.dev/oauth/callback?error=server_error&amp;error_description=There+are+no+authentication+methods+available+for+OAuth.&amp;state=x</pre>
-        <p>The 400 is gone, so PingFederate fetched and accepted the document: the client is valid. It then could not sign anyone in, because the default authentication policy's two selectors do not match this client, and it sent the error back to the callback the document lists. Still open: an authentication path for CIMD clients, which is a shared default-policy change and the owner's decision. Not captured: the sign-in and the code. The Acme PingFederate (<code>cmuir-pf-acme.ping-devops.com</code>) does not advertise CIMD at all.</p>
+        <p>The 400 is gone, so PingFederate fetched and validated the document: the client is accepted. It then could not finish the sign-in and sent the error back to the callback the document lists. The cause is on the new access token manager I describe above, not on CIMD: it has no access-token mapping for the login adapter. The fix is one additive mapping that is waiting for the owner's approval, and nothing shared would be edited. Not captured yet: the sign-in and the code. The Acme PingFederate (<code>cmuir-pf-acme.ping-devops.com</code>) does not advertise CIMD at all.</p>
         </div>
       </details>
     </section>
@@ -366,7 +366,7 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
     <h2 id="after">What each side does</h2>
     <ul>
       <li><span class="tag real">Real</span> ChatGPT, Codex and Claude Code host their own documents. Linear and Notion accept ChatGPT's and Codex's, and refuse a callback that is not in the document.</li>
-      <li><span class="tag real">Real</span> PingFederate 13.1.x advertises CIMD. It refused client.dev until a policy allowed it, then fetched and accepted the document but had no sign-in path for it yet.</li>
+      <li><span class="tag real">Real</span> PingFederate 13.1.x advertises CIMD. It refused client.dev until a policy allowed it, then fetched and validated the document. The sign-in then failed on a missing token mapping, which is not CIMD.</li>
       <li><span class="tag sim">Mock</span> Muse's connector accepting a document address. <strong>Not built.</strong> Muse does not do CIMD today.</li>
       <li><span class="tag todo">Open</span> The token step with a real signed-in user, for ChatGPT (<code>private_key_jwt</code>) and Codex. Whether ChatGPT falls back to <code>none</code> when a server lacks <code>private_key_jwt</code> is not verified.</li>
     </ul>
