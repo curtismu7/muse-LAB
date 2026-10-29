@@ -213,6 +213,9 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .trace .who { font-size: 12px; color: var(--muted); }
 .trace .txt { overflow-wrap: anywhere; }
 .trace .st { font: 12px var(--mono); }
+.trace details.raw { margin-top: 6px; }
+.trace details.raw summary { cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid var(--control-border); border-radius: 6px; padding: 2px 8px; display: inline-block; }
+.trace details.raw pre { margin: 6px 0 0; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
 .st.e { color: var(--accent); } .st.k { color: var(--ok); }
 .same { margin: 0; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 </style>
@@ -417,7 +420,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     document.getElementById('trace-sub').textContent = 'Client: ' + c.who + ' · signs in with ' + c.app + ' · callback ' + c.cb;
     trace.innerHTML = (LIVE_ROWS || traceRows(c)).map(function (r, i) {
       var cls = /^4|refused|no answer/.test(r[3]) ? 'e' : 'k';
-      return '<li data-s="' + r[0] + '"><span class="n">' + (i + 1) + '</span><span class="txt"><span class="who">' + esc(r[1]) + '</span><br>' + esc(r[2]) + '<br><span class="st ' + cls + '">' + esc(r[3]) + '</span></span></li>';
+      return '<li data-s="' + r[0] + '"><span class="n">' + (i + 1) + '</span><span class="txt"><span class="who">' + esc(r[1]) + '</span><br>' + esc(r[2]) + '<br><span class="st ' + cls + '">' + esc(r[3]) + '</span>' + (r[4] ? '<details class="raw"><summary>request and response</summary><pre>' + esc(r[4]) + '</pre></details>' : '') + '</span></li>';
     }).join('');
     document.querySelectorAll('.picker button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.c === cur)); });
   }
@@ -460,43 +463,37 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   });
 
 
-  // ---------- live: the real PingOne sign-in, through the same path as "Connect from your assistant" on Muse's home page ----------
+  // ---------- live: the platform's real client steps against Muse's /mcp (server: POST /api/sim/start), then the real PingOne sign-in ----------
   var L = { assistants: [], session: null };
-  var KEYS = { claude: 'claude', chatgpt: 'chatgpt', codex: 'codex' };
-  function keyFor(id) {
-    var ks = L.assistants.map(function (a) { return a.key; });
-    if (KEYS[id] && ks.indexOf(KEYS[id]) > -1) return KEYS[id];
-    return ks.indexOf('meta-ai') > -1 ? 'meta-ai' : null;
-  }
+  function liveOk() { return cur !== 'muse' && L.assistants.length > 0; }
   function liveState() {
-    var b = document.getElementById('live'), n = document.getElementById('livenote'), k = cur === 'muse' ? null : keyFor(cur);
-    b.disabled = !k;
-    n.textContent = cur === 'muse' ? 'Muse is the home page.' : cur === 'codex' && L.assistants.length && k ? 'Developer path. ' + (k !== 'meta-ai' ? 'Live: signs in with Codex\'s own PingOne app.' : 'Live: Codex has no PingOne app in this server yet, so it signs in with Muse\'s connector app.') : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.' : k !== 'meta-ai' ? 'Live: signs in with ' + C[cur].who + "'s own PingOne app." : 'Live: ' + C[cur].who + " has no PingOne app of its own, so it signs in with Muse's connector app.";
+    var b = document.getElementById('live'), n = document.getElementById('livenote');
+    b.disabled = !liveOk();
+    n.textContent = cur === 'muse' ? 'Muse is the home page.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.'
+      : (cur === 'codex' ? 'Developer path. ' : '') + 'Live: runs ' + C[cur].who + "'s real client steps against Muse's /mcp, then signs in at PingOne.";
   }
   function note(t) { document.getElementById('livenote').textContent = t; }
   document.getElementById('live').addEventListener('click', function () {
-    var key = keyFor(cur); if (!key) return;
+    if (!liveOk()) return;
     reset(); advance(); advance();
-    var off = false; try { off = localStorage.getItem('muse.p1mfa') === '0'; } catch (e) {}
     try { sessionStorage.setItem('clients.live', cur); } catch (e) {}
-    note('Opening PingOne…');
-    fetch('/api/live/signin', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ as: 'assistant', assistant: key, mfa: off ? 'off' : 'on', returnTo: '/clients.html?client=' + cur }) })
-      .then(function (r) { return r.json().then(function (j) { return [r.ok, j]; }); })
-      .then(function (x) { if (!x[0] || !x[1].url) { note(x[1].error || 'Could not start the sign-in.'); return; } setTimeout(function () { location.assign(x[1].url); }, 900); })
+    note('Running the client steps…');
+    fetch('/api/sim/start', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ platform: cur, returnTo: '/clients.html?client=' + cur }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return [r.ok, j]; }); })
+      .then(function (x) { if (!x[0] || !x[1].url) { try { sessionStorage.removeItem('clients.live'); } catch (e) {} note(x[1].error || 'Could not start the sign-in.'); return; } note('Opening PingOne…'); setTimeout(function () { location.assign(x[1].url); }, 900); })
       .catch(function () { note('Could not start the sign-in.'); });
   });
 
+  var clip = function (v) { var t = typeof v === 'string' ? v : JSON.stringify(v, null, 1); return t && t.length > 3000 ? t.slice(0, 3000) + '\n… (' + (t.length - 3000) + ' more characters)' : t; };
+  // One row per real step the server ran, with its raw request and response.
   function liveRows(a) {
-    var own = a.key !== 'meta-ai', app = own ? a.name + "'s own PingOne app" : "Muse's connector app";
-    var act = a.claims && a.claims.act ? String(a.claims.act.sub || a.claims.act.client_id || '') : '';
-    return [
-      [1, 'Browser → Muse', 'POST /api/live/signin as=assistant, assistant=' + a.key, '200 · authorize URL'],
-      [2, 'Muse → PingOne', 'authorize with ' + app + ' · PKCE · prompt=login', '302 → DaVinci'],
-      [3, 'PingOne', 'DaVinci: Protect, "AI agent detected", consent (the screens you just saw)', a.claims || a.points ? 'approved' : 'ended'],
-      [5, 'PingOne → Muse', '/api/callback · code → token, then the on-behalf-of exchange with ' + app, a.claims ? 'act: ' + act.slice(0, 8) + '…' : 'refused'],
-      [6, 'Muse → Gateway', 'tools/call get_loyalty_status · Bearer (sub Sam, act agent)', a.points ? '200 · ' + fmt(a.points.points) + ' pts' : 'no answer']
-    ];
+    return (a.steps || []).map(function (st) {
+      var req = st.request || {}, res = st.response || {}, u = String(req.url || '');
+      var path = u.replace(/^https?:\/\/[^/]+/, '') || u;
+      var raw = 'REQUEST\n' + (req.method || '') + ' ' + u + (req.body !== undefined ? '\n' + clip(req.body) : '') + '\n\nRESPONSE ' + (res.status !== undefined ? res.status : '') + '\n' + (res.headers ? clip(res.headers) + '\n' : '') + (res.body !== undefined ? clip(res.body) : '') + (st.note ? '\n\nNOTE: ' + st.note : '');
+      return [1, (req.method || '') + ' ' + path.slice(0, 70), st.title || ('Step ' + st.n), res.status !== undefined ? String(res.status) : '', raw];
+    });
   }
   // Back from PingOne: replay the chat with the real answer. The PingOne screens were real, so none is drawn again.
   function returned() {
@@ -514,14 +511,14 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     for (var i = 0; i < (ok ? STEPS.length : 2); i++) advance();
     quiet = false;
     lightTrace();
-    var own = a.key !== 'meta-ai', app = own ? a.name + "'s own PingOne app" : "Muse's connector app";
-    document.getElementById('ribbon').textContent = 'Live: the PingOne sign-in and the gateway call were real. The chat window is a look-alike of ' + C[cur].label + ', not ' + (C[cur].vendor || 'its') + "'s own app.";
-    document.getElementById('trace-sub').textContent = 'Client: ' + C[cur].who + ' · signed in with ' + app;
+    var how = String(a.method || 'dcr').toUpperCase();
+    document.getElementById('ribbon').textContent = 'Live: these are the steps ' + C[cur].who + ' really runs (' + how + '), the PingOne sign-in and the gateway call. The chat window is a look-alike of ' + C[cur].label + ', not ' + (C[cur].vendor || 'its') + "'s own app, and its callback is Muse's simulated one.";
+    document.getElementById('trace-sub').textContent = 'Client: ' + C[cur].who + ' · registered by ' + how + ' · ' + (a.steps || []).length + ' real steps';
     var rb = document.getElementById('realbox'); rb.hidden = false; rb.className = 'real-box' + (ok ? '' : ' bad');
-    var cl = a.claims ? 'sub ' + String(a.claims.sub).slice(0, 8) + '…, act ' + String((a.claims.act && (a.claims.act.sub || a.claims.act.client_id)) || 'none').slice(0, 8) + '…' : null;
+    var rr = a.realRedirect ? '<span>The callback the real ' + esc(a.name || C[cur].label) + ' uses: <code>' + esc(a.realRedirect) + '</code>. This run used Muse\'s own.</span>' : '';
     rb.innerHTML = ok
-      ? '<strong>Real result</strong><span>Signed in with ' + esc(app) + (cl ? '. Token: ' + esc(cl) : '') + '. The points came back from the gateway.</span>'
-      : '<strong>Real result: no points</strong><span>' + esc(a.error || 'The gateway did not answer.') + '</span><span>The sign-in itself did happen at PingOne. This is the gateway saying no, and it is shown as it came back.</span>';
+      ? '<strong>Real result</strong><span>Registered by ' + esc(how) + ', signed in at PingOne, and the points came back from the gateway: ' + fmt(a.points.points) + ', ' + esc(a.points.tier) + '.</span>' + rr
+      : '<strong>Real result: no points</strong><span>' + esc(a.error || 'The gateway did not answer.') + '</span><span>Every step it got through is listed on the right, as it came back.</span>' + rr;
     stepname.textContent = ok ? 'Live run complete' : 'Live run stopped: ' + (a.error || 'no answer');
     if (!ok) { var l = document.getElementById('col') || document.getElementById('log'); var d = document.createElement('div'); d.className = 'in'; d.innerHTML = '<div class="real-box bad"><strong>Could not get your points</strong><span>' + esc(a.error || 'The gateway did not answer.') + '</span></div>'; l.appendChild(d); }
     return true;
