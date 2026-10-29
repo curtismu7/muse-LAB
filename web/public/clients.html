@@ -374,7 +374,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     steps: [
       function () { add('<p class="ln usr in">› ' + ASK + '</p>'); },
       function () { add('<p class="ln in"><span class="mg">•</span> Calling <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in rd">  └ MCP server "airline" requires authentication (401)</p><p class="ln in yl">  └ run: codex mcp login airline</p>'); },
-      function (c) { add('<p class="ln usr in">› !codex mcp login airline</p><p class="ln in dim">  Registered OAuth client "Codex CLI (simulated)"</p><p class="ln in dim">  Opening the browser to sign in… waiting on 127.0.0.1:8765</p>'); signin(c); },
+      function (c) { add('<p class="ln usr in">› !codex mcp add airline --url ' + esc(location.origin) + '/mcp</p><p class="ln in dim">  Added MCP server "airline"</p><p class="ln usr in">› !codex mcp login airline</p><p class="ln in dim">  Registered OAuth client "Codex CLI (simulated)"</p><p class="ln in dim">  Opening the browser to sign in… waiting on 127.0.0.1:8765</p>'); signin(c); },
       detected, consent,
       function () { clearPop(); add('<p class="ln in gr">  ✓ Successfully logged in to MCP server "airline"</p>'); },
       function () { add('<p class="ln in"><span class="mg">•</span> Called <span class="cy">airline</span>.loyalty_balance({})</p><p class="ln in dim">  └ {"points":' + D.points + ',"tier":"' + esc(D.tier) + '"}</p>'); },
@@ -409,7 +409,9 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   function chrome() {
     var c = C[cur];
     stage.innerHTML = S[cur].shell();
-    document.getElementById('ribbon').textContent = c.vendor
+    document.getElementById('ribbon').textContent = cur === 'codex'
+      ? 'Developer path: Codex has no app directory, so a developer adds the server address once. Customers connect from the directory in Claude, ChatGPT and Meta AI. This is a simulated Codex talking to Muse\'s real back end, not OpenAI\'s app.'
+      : c.vendor
       ? 'Demo: a simulated ' + c.label + ' talking to Muse\'s real back end. This is not ' + c.vendor + '\'s app; the ' + c.label + ' name and logo belong to ' + c.vendor + '.'
       : 'Muse, the existing app, shown for comparison.';
     document.getElementById('trace-sub').textContent = 'Client: ' + c.who + ' · signs in with ' + c.app + ' · callback ' + c.cb;
@@ -469,7 +471,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   function liveState() {
     var b = document.getElementById('live'), n = document.getElementById('livenote'), k = cur === 'muse' ? null : keyFor(cur);
     b.disabled = !k;
-    n.textContent = cur === 'muse' ? 'Muse is the home page.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.' : k !== 'meta-ai' ? 'Live: signs in with ' + C[cur].who + "'s own PingOne app." : 'Live: ' + C[cur].who + " has no PingOne app of its own, so it signs in with Muse's connector app.";
+    n.textContent = cur === 'muse' ? 'Muse is the home page.' : cur === 'codex' && L.assistants.length && k ? 'Developer path. ' + (k !== 'meta-ai' ? 'Live: signs in with Codex\'s own PingOne app.' : 'Live: Codex has no PingOne app in this server yet, so it signs in with Muse\'s connector app.') : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.' : k !== 'meta-ai' ? 'Live: signs in with ' + C[cur].who + "'s own PingOne app." : 'Live: ' + C[cur].who + " has no PingOne app of its own, so it signs in with Muse's connector app.";
   }
   function note(t) { document.getElementById('livenote').textContent = t; }
   document.getElementById('live').addEventListener('click', function () {
