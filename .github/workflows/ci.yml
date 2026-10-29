@@ -21,8 +21,14 @@ jobs:
         run: IMAGE=registry.invalid/muse:ci SE_HOST=muse.invalid k8s/deploy.sh --dry-run > /dev/null
       - name: Doctor against a local build
         run: |
-          (PORT=5100 node server/src/index.js &) && sleep 2
-          node scripts/doctor.mjs http://127.0.0.1:5100
+          # A free port, not 5100: the runner is a shared machine and something else (a local Docker copy of this app) may already hold 5100,
+          # which made the doctor check that other copy instead of this build.
+          PORT=$(node -e "const s=require('net').createServer();s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close()})")
+          PORT=$PORT node server/src/index.js &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          sleep 2
+          node scripts/doctor.mjs http://127.0.0.1:$PORT
   secrets:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","macOS"]') }}
     steps:
