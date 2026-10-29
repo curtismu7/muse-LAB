@@ -13,9 +13,11 @@ A personal-agent demo with two modes. Pick the mode before you package.
 | Pages | `/`, `/diagram`, `/how-muse-works.html`, `/cimd.html`, `/clients.html` | the same, plus a working **Sign in live** on `/clients.html` and "Connect from your assistant" on `/` |
 | Right for a zip? | **Yes.** No tenant, no secrets | **No.** It would carry tenant identifiers |
 
-Live today at `https://muse.ai-demo.ping-devops.com/` (Real mode; pod image `ghcr.io/cmuir_pingcorp/muse:sha-f66bdca1afe08ec672326928f832f9494ff627de`).
+**Update 2026-10-29 (late):** the site is renamed **Agent Connect** (the personal agent inside it is still Muse; the repo keeps its name). Hosts: real `https://agent-connect.ai-demo.ping-devops.com/` (Real mode) and mock-only `https://agent-connect-mock.ai-demo.ping-devops.com/`; the old `muse` and `muse-mock` hosts answer 301 to them. Both run `sha-17e5dea` (conformance #43 and the dark-mode diagram fix #44). Everything below that names the old hosts or older images is kept as written but is out of date on those two points.
 
-**Update 2026-10-29 (after #26, by United's session):** the mock-only SE build now exists and is live at `https://muse-mock.ai-demo.ping-devops.com/` (`APP_NAME=muse-mock`, `MODE=mock`, image `sha-0cdad69`). Checked by content: `/api/health` is `demo-health/1`, `/api/session` shows `mode: mock`, live unavailable, no connector. A zip exists at `~/Downloads/demo-rollout/muse-1e14802.zip`. United rebuilt it to follow the include/leave-out lists below (76 files; per United, 110 tests pass from a fresh unzip; I have not re-run that). The connector is off on the mock host (`POST /mcp` is 404, per United). `README.md` has a "Hosted builds" section from #26; it is current for `MODE` and `APP_NAME`. The owner decision that no separate stub connector or gateway is built still stands: the mock build is Muse's existing offline mock (simulated sign-in, Protect and gateway), not a new stub.
+Live today at `https://agent-connect.ai-demo.ping-devops.com/` (Real mode; pod image `ghcr.io/cmuir_pingcorp/muse:sha-f66bdca1afe08ec672326928f832f9494ff627de`).
+
+**Update 2026-10-29 (after #26, by United's session):** the mock-only SE build now exists and is live at `https://agent-connect-mock.ai-demo.ping-devops.com/` (`APP_NAME=muse-mock`, `MODE=mock`, image `sha-0cdad69`). Checked by content: `/api/health` is `demo-health/1`, `/api/session` shows `mode: mock`, live unavailable, no connector. A zip exists at `~/Downloads/demo-rollout/muse-1e14802.zip`. United rebuilt it to follow the include/leave-out lists below (76 files; per United, 110 tests pass from a fresh unzip; I have not re-run that). The connector is off on the mock host (`POST /mcp` is 404, per United). `README.md` has a "Hosted builds" section from #26; it is current for `MODE` and `APP_NAME`. The owner decision that no separate stub connector or gateway is built still stands: the mock build is Muse's existing offline mock (simulated sign-in, Protect and gateway), not a new stub.
 
 Owner decision 2026-10-29: `/clients.html` with its scripted run is the mock-only version. Do not build a separate stub connector or gateway.
 
@@ -59,9 +61,9 @@ Never put in a zip or an image: any value from the `muse-real` Secret, PingOne c
 
 ## Known problems to fix before calling a zip portable
 
-1. **Hard-coded SE host.** `muse.ai-demo.ping-devops.com` appears in `web/public/cimd.html` (2), `web/public/clients.html` (1), `web/src/diagrams/muse-config.json` (3), `muse-runtime-d.json` (2), `muse-runtime-f.json` (2), and `README.md` (1). The standalone rules allow only `.example` / `.invalid` hosts. Decide: replace with `https://muse.example` or drive from `MUSE_PUBLIC_URL`. The hostname is public, not a secret, but the zip would point at our site.
+1. **(Fixed in #35, pinned by the portable guard test from #38/#39.)** Hard-coded SE host. `muse.ai-demo.ping-devops.com` appears in `web/public/cimd.html` (2), `web/public/clients.html` (1), `web/src/diagrams/muse-config.json` (3), `muse-runtime-d.json` (2), `muse-runtime-f.json` (2), and `README.md` (1). The standalone rules allow only `.example` / `.invalid` hosts. Decide: replace with `https://muse.example` or drive from `MUSE_PUBLIC_URL`. The hostname is public, not a secret, but the zip would point at our site.
 2. **Stale docs in the repo.** `README.md`, `CLAUDE.md` and `docs/HANDOFF.md` say "mock only, no tenant, no OBO". The code now has Real mode. Do not trust those three for behaviour; this file is current.
-3. **Conformance gate** (`node ~/Development/demo-kit-base/scripts/conformance.mjs <repo>`, run 2026-10-29): 15 pass, **4 FAIL**, 1 warn.
+3. **(Fixed in #43: the gate now shows 0 failed, 0 warnings; the list below is the state before.)** Conformance gate (`node ~/Development/demo-kit-base/scripts/conformance.mjs <repo>`, run 2026-10-29): 15 pass, **4 FAIL**, 1 warn.
    - FAIL rule 1: netguard (zero outbound by default).
    - FAIL rule 12: `customer.config`.
    - FAIL rule 13: workspace id.
