@@ -9,7 +9,7 @@ One page, `/clients`, with a picker: Muse, Claude-style, ChatGPT-style, Codex-st
 ## Decisions (owner, 2026-10-28)
 
 1. **Branding: decided.** The skins use each app's real colours and real logos. Logo files come from each vendor's official brand or press page into `web/public/brands/`. They are never redrawn by hand. Each skin still keeps the "Simulated" chip and the ribbon saying it is a demo client talking to Muse's back end and not the vendor's own app (the rulebook's "honest about what is simulated").
-2. **One PingOne app: decided.** One connector app. The client is told apart by a login-hint marker (`.claude`, `.chatgpt`, `.codex`, the same trick as `.conn`). Protect detection for each client goes into the DaVinci flow (see "Protect detection" below).
+2. **A PingOne app per agent: decided (changed 2026-10-28, PR #17 merged).** Agents listed in `MUSE_CONNECTOR_AGENTS` (JSON: name, clientId, clientSecret, hosts) sign in with their own PingOne app, picked by the agent's callback host (`claude.ai`, `chatgpt.com`). The sign-in, the code swap and both token exchanges then use that app, so Protect and the PingOne screens can name the agent, and `act` is that agent. Agents that aren't listed (Codex on localhost, Meta's Muse) keep Muse's connector app, as before. This replaces the earlier login-hint-marker idea. Protect detection for each agent goes into the DaVinci flow (see "Protect detection" below).
 3. **Sign-in style: decided.** MCP clients sign in through an OAuth redirect, as the spec requires. The connector is the stated exception to "pi.flow only", as it is today.
 4. **Route.** `/clients?client=claude`, public like `/diagram`. The picker remembers the choice.
 5. **Build order.** Claude, then ChatGPT, then Codex.
@@ -47,21 +47,21 @@ The engine emits one event stream. Each skin renders the same events in its own 
 - A diagram-studio JSON for the clients flow, loaded by id (rule 17), with the four clients as one swimlane that switches.
 
 ### Server (this repo)
-- `/connector/authorize`: accept an optional `client` from an allowlist (`claude|chatgpt|codex`) and add it to the login hint (`sam.claude`). Unknown values are dropped.
+- `/connector/authorize` already picks the agent's PingOne app by callback host (#17). The simulated skins call back to our own host (`/clients/callback`), so they need one more rule: a same-origin registration may name an agent from the `MUSE_CONNECTOR_AGENTS` list (allowlisted name, never a free-form value). It then uses that agent's app. Unknown names fall back to Muse's app.
 - Allow `${MUSE_PUBLIC_URL}/clients/callback` as a redirect for these simulated registrations only.
 - **Mock connector.** The connector is only on in real mode today. The SE mock-only build (rule 18) needs a stub authorization server: the same `/connector/*` shapes, with a stub PingOne page that shows the same screens (agent detected naming the client, consent) and a stub gateway. Same `MODE` switch, live code refused when hosted-mock.
-- Tests: the allowlist, marker injection (no `.` or `@` smuggling in `client`), the redirect rule, a mock end-to-end per client.
+- Tests: an agent name off the list falls back to Muse's app, a cross-origin registration cannot claim an agent name, the redirect rule, a mock end-to-end per client.
 
 ### PingOne tenant (owner-run, needs approval)
-- DaVinci "Read login hint": learn `.claude`, `.chatgpt` and `.codex`, strip them, and output `agentName` ("Claude-style client" and so on). **Clone the tail, never merge a branch into an existing EVAL**, back up first, and test sign-in start after every PUT (see muse memory).
-- The consent agreement text uses `agentName`.
+- One PingOne app per listed agent (Claude, ChatGPT), each with `${MUSE_PUBLIC_URL}/connector/callback` as a redirect URI and the same DaVinci sign-on policy. Their client id and secret go into `MUSE_CONNECTOR_AGENTS` in the `muse-real` Secret (owner-set; it is **not set on SE yet**).
+- The DaVinci flow names the agent from the app id (the same pattern that skips the agent screen for "Muse user login"), and the consent agreement text uses that name. **Clone the tail, never merge a branch into an existing EVAL**, back up first, and test sign-in start after every PUT (see muse memory).
 
 ### Protect detection (DaVinci flow, owner-run)
 With one connector app, every client's sign-in has the same `targetResource.id`. Protect can say "this is an agent" from that, but not which agent. The plan layers it:
-- **Layer A (proven pattern):** the `museAgentClient` MAP predictor gains the connector app id, so Protect rates every connector sign-in an agent, HIGH. The flow names the client from the marker.
+- **Layer A (proven pattern):** the `museAgentClient` MAP predictor on `targetResource.id` gains each agent's app id, so Protect rates the sign-in an agent, HIGH, **and** says which one. The connector app stays in the list for agents without their own app.
 - **Layer B (live today):** native bot detection through the "Capture Protect device data" node (headless browser and automation signals). This is what catches a real automated client.
-- **Layer C (spike first, unverified):** a per-client Protect predictor. The idea is to pass the marker into the Protect evaluation as a custom attribute and map it, giving claims such as `agentClient=claude` and its reason. Whether a Protect risk evaluation takes a custom attribute that a predictor can read is **not yet tested**. Spike it in P2 against a backup of the flow. If it doesn't work, the fallback is one PingOne app per client, so the proven MAP on `targetResource.id` tells them apart. That would reverse decision 2 for Protect's sake, so it goes back to the owner.
-- **"How we know" rule:** the agent screen always names the source. Each predictor writes its reason into `museAgentReason`, for example "Protect: connector app (HIGH); client from login hint .claude" or "Protect bot detection: headless browser".
+- **Layer C (dropped):** passing a marker into Protect as a custom attribute isn't needed now that each agent has its own app id.
+- **"How we know" rule:** the agent screen always names the source. Each predictor writes its reason into `museAgentReason`, for example "Protect: Claude's PingOne app (HIGH)" or "Protect bot detection: headless browser".
 - New subflow claims (`agentClient`, `agentClientReason`) are added next to `museAgentLevel` and `botLevel`, through a cloned tail, never by merging into an existing EVAL.
 
 ### Real model back ends (our UI, their model)
@@ -71,10 +71,10 @@ The vendors' APIs can call a remote MCP server themselves. So each skin can be d
 - **Codex:** the Codex SDK or `codex exec` in the pod, with the airline in its `config.toml`. **Not yet checked.**
 - **Meta's Muse:** no public API known. It stays the hand-added connector.
 
-How it fits: our engine still runs steps 1 to 5 (401, register, PingOne with the marker, consent, token), so Protect and consent stay in the flow. It then hands the access token to the vendor API as the MCP authorization. The vendor's servers call `/mcp` directly, so the host must be public (it is). Our server is the only place the API keys live. They are owner-set Secrets (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`), never sent to the browser, and refused in the hosted-mock build. A per-visitor rate limit caps the spend. Each skin gets a Scripted | Live model toggle, with Scripted the default and the only option in the mock build.
+How it fits: our engine still runs steps 1 to 5 (401, register, PingOne with the agent's own app, consent, token), so Protect and consent stay in the flow. It then hands the access token to the vendor API as the MCP authorization. The vendor's servers call `/mcp` directly, so the host must be public (it is). Our server is the only place the API keys live. They are owner-set Secrets (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`), never sent to the browser, and refused in the hosted-mock build. A per-visitor rate limit caps the spend. Each skin gets a Scripted | Live model toggle, with Scripted the default and the only option in the mock build.
 
 ### Real clients (last phase)
-- Let the real Claude, ChatGPT and Codex reach the same `/mcp`: add `claude.ai` and `chatgpt.com` to `MUSE_CONNECTOR_REDIRECT_HOSTS` (loopback is already allowed for Codex), add the redirect URIs on PingOne, and add the matching markers. Then the simulated client and the real one can be shown side by side.
+- Let the real Claude, ChatGPT and Codex reach the same `/mcp`: set `MUSE_CONNECTOR_AGENTS` with Claude's and ChatGPT's apps (their hosts may then register; loopback is already allowed for Codex), and add each app's id to the Protect predictor. Then the simulated client and the real one can be shown side by side.
 
 ## Phases and done criteria
 
@@ -88,7 +88,7 @@ How it fits: our engine still runs steps 1 to 5 (401, register, PingOne with the
 
 ## Risks and traps
 - **Vendor marks.** Real logos on a public SE page are the owner's call (decision 1). Use the vendors' own files unchanged, and keep the Simulated chip and ribbon, so no one takes the page for the real app.
-- **Protect per-client detection** depends on the Layer C spike. Until it passes, only "agent" comes from Protect, and "which agent" comes from the marker. The screen says so.
+- **Protect per-agent detection** needs each agent's app id in the predictor. Agents without their own app (Codex, Meta's Muse) are only "an agent through the connector", and the screen says so.
 - **Headless bot detection.** Protect rates headless Chrome as a bot HIGH, so Playwright runs hit the red "Muse Agent Detected (Bot)" path, or the blank High Risk page on other apps. Test against the mock, or run headed for live.
 - **MFA on the connector path.** The live connector sign-in needs MFA unless the flow's MEDIUM compare is changed for testing. Plan tests around it and never leave the flow edited.
 - **CI.** The muse repo still has no runner. "Green" means the local runs with pasted counts until one is installed.

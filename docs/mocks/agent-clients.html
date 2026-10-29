@@ -239,7 +239,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     <h2 id="trace-h">What the back end did</h2>
     <p class="sub" id="trace-sub"></p>
     <ol id="trace"></ol>
-    <p class="same">The same code runs for every client: Muse's <code>/mcp</code> and <code>/connector/*</code>, the PingOne DaVinci flow (Protect, agent detected, consent), the on-behalf-of exchange and the gateway. The client only sets its name, its callback and the login-hint marker.</p>
+    <p class="same">The same code runs for every client: Muse's <code>/mcp</code> and <code>/connector/*</code>, the PingOne DaVinci flow (Protect, agent detected, consent), the on-behalf-of exchange and the gateway. The client only changes its name, its callback, and which PingOne app signs Sam in (its own when it has one).</p>
   </aside>
 </div>
 
@@ -271,10 +271,10 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   var OA = '<img class="logo" src="brands/openai-symbol.svg" alt="" ';
 
   var C = {
-    muse:    { label: 'Muse', who: 'Muse', vendor: null, marker: '', cb: '/api/callback' },
-    claude:  { label: 'Claude', who: 'Claude', vendor: 'Anthropic', marker: '.claude', cb: '/clients/callback' },
-    chatgpt: { label: 'ChatGPT', who: 'ChatGPT', vendor: 'OpenAI', marker: '.chatgpt', cb: '/clients/callback' },
-    codex:   { label: 'Codex', who: 'Codex CLI', vendor: 'OpenAI', marker: '.codex', cb: 'http://127.0.0.1:8765/callback' }
+    muse:    { label: 'Muse', who: 'Muse', vendor: null, app: "Muse's PingOne app", own: true, cb: '/api/callback' },
+    claude:  { label: 'Claude', who: 'Claude', vendor: 'Anthropic', app: "Claude's own PingOne app", own: true, cb: '/clients/callback' },
+    chatgpt: { label: 'ChatGPT', who: 'ChatGPT', vendor: 'OpenAI', app: "ChatGPT's own PingOne app", own: true, cb: '/clients/callback' },
+    codex:   { label: 'Codex', who: 'Codex CLI', vendor: 'OpenAI', app: "Muse's connector app (no app of its own)", own: false, cb: 'http://127.0.0.1:8765/callback' }
   };
   var ASK = 'How many airline points do I have?';
   var RESULT = '{\n  "points": 52000,\n  "tier": "Gold",\n  "status": "active"\n}';
@@ -286,10 +286,10 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
       [1, c.who + ' → Muse', 'POST /mcp initialize', '401 · resource_metadata'],
       [1, c.who + ' → Muse', 'GET /.well-known/oauth-protected-resource and oauth-authorization-server', '200'],
       [2, c.who + ' → Muse', 'POST /connector/register client_name "' + name + '"', '201 · client_id issued'],
-      [2, 'Muse → PingOne', 'authorize · login_hint sam' + c.marker + ' · PKCE', '302 → DaVinci'],
-      [3, 'PingOne', 'DaVinci: Protect risk, then "AI agent detected: ' + c.who + '"', 'agent · HIGH'],
+      [2, 'Muse → PingOne', 'authorize with ' + c.app + ' · PKCE', '302 → DaVinci'],
+      [3, 'PingOne', 'DaVinci: Protect risk, then "AI agent detected: ' + (c.own ? c.who : 'Airline Connector') + '"', 'agent · HIGH'],
       [4, 'PingOne', 'Consent agreement for ' + c.who, 'approved'],
-      [5, 'Muse → PingOne', '/connector/callback · code → token, on-behalf-of exchange', 'act: Airline Connector'],
+      [5, 'Muse → PingOne', '/connector/callback · code → token, on-behalf-of exchange with ' + c.app, 'act: ' + (c.own ? c.who : 'Airline Connector')],
       [5, c.who + ' → Muse', 'POST /connector/token · redirect ' + c.cb, '200 · access_token'],
       [6, 'Muse → Gateway', 'tools/call loyalty_balance · Bearer (sub Sam, act agent)', '200 · 52,000 pts']
     ];
@@ -370,7 +370,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 
   // ---------- shared PingOne screens ----------
   function signin() { pop('Sign On', '<div class="field">sam</div><div class="field">••••••••••</div><button class="go" type="button">Sign On</button><span class="small">Signing in to Airline Connector</span>'); }
-  function detected(c) { pop('AI agent detected', '<p class="flag" style="margin:0"><strong>' + esc(c.who) + '</strong> is asking to act for you.</p><p style="margin:0">How we know: Protect rated the sign-in an agent (connector app, HIGH). The sign-in came through the Airline Connector for ' + esc(c.who) + ' (login hint <code>sam' + esc(c.marker) + '</code>).</p><button class="go" type="button">Continue</button>'); }
+  function detected(c) { pop('AI agent detected', '<p class="flag" style="margin:0"><strong>' + esc(c.who) + '</strong> is asking to act for you.</p><p style="margin:0">How we know: ' + (c.own ? 'Protect saw ' + esc(c.app) + ' and rated the sign-in an agent (HIGH).' : 'Protect saw the Airline Connector app and rated the sign-in an agent (HIGH). ' + esc(c.who) + ' has no PingOne app of its own, so Protect cannot say which agent.') + '</p><button class="go" type="button">Continue</button>'); }
   function consent(c) { pop('Allow ' + esc(c.who) + '?', '<p class="flag blue" style="margin:0">' + esc(c.who) + ' may read your points balance and loyalty tier. It cannot book, pay or change your account.</p><button class="go" type="button">Allow</button><span class="small">You can revoke this at any time in your PingOne account.</span>'); }
 
   var stage = document.getElementById('stage'), trace = document.getElementById('trace'), next = document.getElementById('next'),
@@ -396,7 +396,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     document.getElementById('ribbon').textContent = c.vendor
       ? 'Demo: a simulated ' + c.label + ' talking to Muse\'s real back end. This is not ' + c.vendor + '\'s app; the ' + c.label + ' name and logo belong to ' + c.vendor + '.'
       : 'Muse, the existing app, shown for comparison.';
-    document.getElementById('trace-sub').textContent = 'Client: ' + c.who + ' · login hint marker ' + (c.marker || '(none)') + ' · callback ' + c.cb;
+    document.getElementById('trace-sub').textContent = 'Client: ' + c.who + ' · signs in with ' + c.app + ' · callback ' + c.cb;
     trace.innerHTML = traceRows(c).map(function (r, i) {
       var cls = /^4/.test(r[3]) ? 'e' : 'k';
       return '<li data-s="' + r[0] + '"><span class="n">' + (i + 1) + '</span><span class="txt"><span class="who">' + esc(r[1]) + '</span><br>' + esc(r[2]) + '<br><span class="st ' + cls + '">' + esc(r[3]) + '</span></span></li>';
