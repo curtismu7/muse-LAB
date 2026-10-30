@@ -16,6 +16,8 @@ COPY web/package.json web/
 RUN npm ci --omit=dev --ignore-scripts -w server
 COPY server/src server/src
 COPY --from=build /app/web/dist web/dist
+# Where MUSE_CLIENTS_FILE may point: owned by the app user so registrations can be saved.
+RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 5100
 # Publish on loopback only: docker run -p 127.0.0.1:5100:5100 ...
