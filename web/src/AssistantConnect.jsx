@@ -12,7 +12,7 @@ export default function AssistantConnect({ session, api, guarded }) {
   const [pick, setPick] = useState(session.assistant?.key ?? list[0]?.key ?? null);
   const [open, setOpen] = useState(null);
   // After the sign-in the card comes back showing the server the last connection used.
-  const [server, setServer] = useState(session.assistant?.method === 'cimd' ? 'pf' : 'muse');
+  const [server, setServer] = useState(session.pf || session.assistant?.method === 'cimd' ? 'pf' : 'muse');
   if (!list.length) return null;
   const a = list.find((x) => x.key === pick) ?? list[0];
   const airline = c.airline || 'the airline';

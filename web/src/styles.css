@@ -383,6 +383,9 @@ button.approve { border-radius: 8px; width: 100%; }
 
 .assistant-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .assistant-tabs button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+/* The selected choice also has a check mark and bold text, so it does not depend on colour alone. */
+.assistant .seg button[aria-pressed="true"]::before, .assistant-tabs button.on::before { content: "\2713\00a0"; }
+.assistant .seg button[aria-pressed="true"], .assistant-tabs button.on { font-weight: 700; border: 2px solid var(--accent); }
 .assistant-dir { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; display: grid; gap: 8px; }
 .assistant-dir-top { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .assistant-search { border: 1px solid var(--control-border); border-radius: 999px; padding: 2px 12px; font-size: calc(13px * var(--fs, 1)); }
