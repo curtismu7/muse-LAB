@@ -378,3 +378,29 @@ test('the request trace logs shapes and hosts only, never codes, verifiers, asse
   assert.match(trace[3], /POST \/mcp -> 401/); assert.match(trace[3], /"bearer":true/);
   assert.doesNotMatch(trace.join('\n'), /SECRET/);
 });
+
+test('with MUSE_CONNECTOR_SIGNOUT_FIRST the browser signs out of PingOne first, then resumes to the prepared sign-in; off by default', async () => {
+  const off = await boot();
+  const regOff = await (await off.post('/connector/register', { redirect_uris: [REDIRECT] })).json();
+  const { challenge } = pkce();
+  const q = (id) => new URLSearchParams({ response_type: 'code', client_id: id, redirect_uri: REDIRECT, state: 'st', code_challenge: challenge, code_challenge_method: 'S256' });
+  assert.match((await off.get(`/connector/authorize?${q(regOff.client_id)}`)).headers.get('location'), /\/authorize\?/, 'off: straight to sign-in');
+  await off.close();
+  const a = await boot({ MUSE_CONNECTOR_SIGNOUT_FIRST: '1' });
+  try {
+    const reg = await (await a.post('/connector/register', { redirect_uris: [REDIRECT] })).json();
+    const r = await a.get(`/connector/authorize?${q(reg.client_id)}`);
+    const out = new URL(r.headers.get('location'));
+    assert.equal(out.origin + out.pathname, `${P1}/signoff`);
+    assert.equal(out.searchParams.get('post_logout_redirect_uri'), `${a.base}/connector/resume`);
+    const cookie = r.headers.get('set-cookie').split(';')[0];
+    assert.match(cookie, /^muse_resume=/);
+    const back = await a.get('/connector/resume', { headers: { cookie } });
+    assert.equal(back.status, 302);
+    const u = new URL(back.headers.get('location'));
+    assert.equal(u.origin + u.pathname, `${P1}/authorize`);
+    assert.equal(u.searchParams.get('prompt'), 'login');
+    assert.equal((await a.get('/connector/resume')).status, 400, 'no cookie, no resume');
+    assert.equal((await a.get('/connector/resume', { headers: { cookie: 'muse_resume=nope' } })).status, 400, 'an unknown id never redirects');
+  } finally { await a.close(); }
+});

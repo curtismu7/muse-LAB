@@ -82,6 +82,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   const cfg = connectorConfig(env, live);
   if (!cfg) return false;
   const PUBLIC = cfg.publicUrl;
+  const signoutFirst = env.MUSE_CONNECTOR_SIGNOUT_FIRST === '1';
   const airline = (env.MUSE_CONNECTOR_AIRLINE ?? '').trim().slice(0, 40).replace(/[^\p{L}\p{N} .&'-]/gu, '');
   const TOOLS = toolsFor(airline);
   const clients = new Map();   // client_id -> { redirectUris, name }
@@ -114,7 +115,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     if (req.path === '/mcp') return { bearer: /^Bearer /i.test(req.headers.authorization ?? ''), rpc: [].concat(req.body ?? []).slice(0, 5).map((m) => m?.method ?? null) };
     return null;
   };
-  app.use(['/connector/register', '/connector/authorize', '/connector/token', '/mcp'], (req, res, next) => {
+  app.use(['/connector/register', '/connector/authorize', '/connector/resume', '/connector/token', '/mcp'], (req, res, next) => {
     const path = req.baseUrl;
     res.on('finish', () => {
       const f = traceFields({ path, body: req.body, query: req.query, headers: req.headers });
@@ -164,8 +165,25 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     const idp = idpFor(cfg, live, String(q.redirect_uri));
     const r = startSignIn(learned, { clientId: idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: idp.loginHint ? `${idp.loginHint}.conn` : null });
     capped(pending);
-    pending.set(r.state, { client: String(q.client_id), redirectUri: String(q.redirect_uri), state: q.state ? String(q.state) : null, challenge: String(q.code_challenge), verifier: r.verifier, learned, idp, at: Date.now() });
+    pending.set(r.state, { client: String(q.client_id), redirectUri: String(q.redirect_uri), state: q.state ? String(q.state) : null, challenge: String(q.code_challenge), verifier: r.verifier, learned, idp, at: Date.now(), go: r.url });
+    // Optional: clear any PingOne session in this browser first (demo only), so the consent step cannot hit userSessionMismatch.
+    // PingOne sends the browser back to /connector/resume, which must be a registered post-logout redirect URI on the app.
+    const signoff = signoutFirst ? String(learned.authorizeEndpoint ?? '').replace(/\/authorize$/, '/signoff') : '';
+    if (signoff && signoff.endsWith('/signoff')) {
+      const u = new URL(signoff); u.searchParams.set('client_id', idp.clientId); u.searchParams.set('post_logout_redirect_uri', `${PUBLIC}/connector/resume`);
+      res.set('Set-Cookie', `muse_resume=${r.state}; Path=/connector; Max-Age=300; HttpOnly; SameSite=Lax${PUBLIC.startsWith('https:') ? '; Secure' : ''}`);
+      return res.redirect(302, u.href);
+    }
     res.redirect(302, r.url);
+  });
+
+  // The browser is back from PingOne's sign-out. Continue to the sign-in that /connector/authorize prepared. The address comes from our own record, never from the request.
+  app.get('/connector/resume', limit, (req, res) => {
+    const id = /(?:^|; )muse_resume=([\w-]+)/.exec(req.headers.cookie ?? '')?.[1];
+    const p = id ? pending.get(id) : null;
+    res.set('Set-Cookie', 'muse_resume=; Path=/connector; Max-Age=0');
+    if (!p || !p.go || Date.now() - p.at > PENDING_MS) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from the agent.');
+    res.redirect(302, p.go);
   });
 
   // PingOne sent the user back. Swap the code, act for the user, and give the agent our own one-time code.
