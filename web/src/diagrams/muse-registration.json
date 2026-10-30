@@ -1,0 +1,274 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-registration",
+ "title": "Who registers with whom: the agent and the connector, not PingOne",
+ "lede": "PingOne has no dynamic client registration and no CIMD, so the connector ends the registration itself. The agent's client ID never reaches PingOne.",
+ "groups": {
+  "blue": {
+   "label": "The agent",
+   "color": "blue"
+  },
+  "dark": {
+   "label": "The connector",
+   "color": "dark"
+  },
+  "green": {
+   "label": "PingOne",
+   "color": "green"
+  },
+  "amber": {
+   "label": "Tool call",
+   "color": "amber"
+  },
+  "red": {
+   "label": "Stops or never sent",
+   "color": "red"
+  }
+ },
+ "lanes": [
+  {
+   "id": "lane0",
+   "label": "Registration is between the agent and the connector; the connector signs in at PingOne with its own client ID",
+   "x": 10,
+   "y": 30,
+   "w": 1168,
+   "h": 464
+  }
+ ],
+ "nodes": [
+  {
+   "id": "a1",
+   "group": "blue",
+   "label": "1. Agent registers",
+   "sub": [
+    "POST /connector/register (DCR, RFC 7591)"
+   ],
+   "x": 40,
+   "y": 74
+  },
+  {
+   "id": "a2",
+   "group": "dark",
+   "label": "2. Connector hands out a client ID",
+   "sub": [
+    "a muse- ID, kept only in the connector's memory"
+   ],
+   "x": 326,
+   "y": 74
+  },
+  {
+   "id": "a3",
+   "group": "blue",
+   "label": "3. Agent starts a sign-in",
+   "sub": [
+    "its muse- ID, its own redirect address, PKCE S256"
+   ],
+   "x": 612,
+   "y": 74
+  },
+  {
+   "id": "a4",
+   "group": "dark",
+   "label": "4. Connector checks it",
+   "sub": [
+    "the redirect must match the registration exactly"
+   ],
+   "x": 898,
+   "y": 74
+  },
+  {
+   "id": "a5",
+   "group": "dark",
+   "label": "5. Connector signs in with its OWN app",
+   "sub": [
+    "its own PingOne client ID and callback; login hint marked .conn"
+   ],
+   "x": 898,
+   "y": 228
+  },
+  {
+   "id": "a6",
+   "group": "green",
+   "label": "6. PingOne signs the user in",
+   "sub": [
+    "it knows the connector's app, never the agent"
+   ],
+   "x": 612,
+   "y": 228
+  },
+  {
+   "id": "a7",
+   "group": "red",
+   "label": "Never sent to PingOne",
+   "sub": [
+    "the agent's muse- ID, redirect address and registration"
+   ],
+   "x": 326,
+   "y": 228
+  },
+  {
+   "id": "a8",
+   "group": "dark",
+   "label": "7. Connector swaps the PingOne code",
+   "sub": [
+    "acts for the user; keeps the PingOne tokens"
+   ],
+   "x": 612,
+   "y": 382
+  },
+  {
+   "id": "a9",
+   "group": "blue",
+   "label": "8. Agent gets the connector's own token",
+   "sub": [
+    "opaque, issued by the connector, not by PingOne"
+   ],
+   "x": 326,
+   "y": 382
+  }
+ ],
+ "edges": [
+  {
+   "source": "a1",
+   "target": "a2",
+   "label": "R1",
+   "name": "Registers"
+  },
+  {
+   "source": "a2",
+   "target": "a3",
+   "label": "R2",
+   "name": "Client ID"
+  },
+  {
+   "source": "a3",
+   "target": "a4",
+   "label": "R3",
+   "name": "Starts sign-in"
+  },
+  {
+   "source": "a4",
+   "target": "a5",
+   "label": "R4",
+   "name": "Checked"
+  },
+  {
+   "source": "a5",
+   "target": "a6",
+   "label": "R5",
+   "name": "Own client ID"
+  },
+  {
+   "source": "a5",
+   "target": "a7",
+   "label": "R6",
+   "name": "Not sent"
+  },
+  {
+   "source": "a6",
+   "target": "a8",
+   "label": "R7",
+   "name": "Code back"
+  },
+  {
+   "source": "a8",
+   "target": "a9",
+   "label": "R8",
+   "name": "Own token"
+  }
+ ],
+ "steps": [
+  {
+   "title": "Registers",
+   "what": "The agent registers at the connector's /connector/register with its redirect address. This is dynamic client registration (RFC 7591).",
+   "why": "PingOne cannot do this, so the connector does it for the agent.",
+   "edges": [
+    0
+   ]
+  },
+  {
+   "title": "Client ID",
+   "what": "The connector answers with a client ID that starts muse-. It lives only in the connector's memory.",
+   "why": "It is the agent's identity for the connector alone, and it is lost when the connector restarts.",
+   "edges": [
+    0,
+    1
+   ]
+  },
+  {
+   "title": "Starts sign-in",
+   "what": "The agent opens /connector/authorize with that ID, its redirect address and a PKCE challenge.",
+   "why": "This is the normal OAuth code flow with PKCE, aimed at the connector.",
+   "edges": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "title": "Checked",
+   "what": "The connector refuses an unknown ID or a redirect that does not match the registration exactly.",
+   "why": "A bad request never gets redirected anywhere.",
+   "edges": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "title": "Own client ID",
+   "what": "The connector sends the user to PingOne with its own PingOne client ID, its own callback and a login hint marked .conn.",
+   "why": "PingOne sees a known app, so no registration at PingOne is needed.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "title": "Not sent",
+   "what": "The agent's muse- ID, its redirect address and its registration are not sent to PingOne.",
+   "why": "If the agent used its muse- ID at PingOne directly, PingOne would refuse it as unknown.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "title": "Code back",
+   "what": "PingOne signs the user in and returns a code to the connector's callback. The connector swaps it and acts for the user.",
+   "why": "The PingOne tokens stay with the connector.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "title": "Own token",
+   "what": "The connector gives the agent its own one-time code, and the agent trades it, with its PKCE verifier, for the connector's own token.",
+   "why": "The agent holds a connector token, never a PingOne token.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  }
+ ]
+}

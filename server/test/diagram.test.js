@@ -54,7 +54,7 @@ for (const id of ['personal-agent-pattern', 'personal-agent-pattern-ig']) test(`
   assert.ok(!/https?:\/\/(?![a-z]+\.example)/.test(JSON.stringify(p)), 'only .example hosts');
 });
 
-for (const id of ['muse-overview', 'muse-config', 'muse-runtime-a', 'muse-runtime-b', 'muse-runtime-c', 'muse-runtime-d', 'muse-runtime-e', 'muse-runtime-f']) test(`${id}: ReactFlow data meets the diagram standard (numbered and named arrows, a card per step, cumulative steps)`, () => {
+for (const id of ['muse-overview', 'muse-config', 'muse-runtime-a', 'muse-runtime-b', 'muse-runtime-c', 'muse-runtime-d', 'muse-runtime-e', 'muse-runtime-f', 'muse-registration', 'muse-agent-connect']) test(`${id}: ReactFlow data meets the diagram standard (numbered and named arrows, a card per step, cumulative steps)`, () => {
   const p = JSON.parse(readFileSync(path.join(here, `../../web/src/diagrams/${id}.json`), 'utf8'));
   assert.equal(p.id, id); assert.equal(p.schema, 'diagram-studio/1');
   const ids = new Set(p.nodes.map((n) => n.id));

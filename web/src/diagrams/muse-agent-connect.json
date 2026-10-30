@@ -1,0 +1,274 @@
+{
+ "schema": "diagram-studio/1",
+ "id": "muse-agent-connect",
+ "title": "A real connect, as logged (Claude Code and Codex)",
+ "lede": "What the connector's log showed when Claude Code and Codex connected. Each box is a status the connector actually returned.",
+ "groups": {
+  "blue": {
+   "label": "The agent",
+   "color": "blue"
+  },
+  "dark": {
+   "label": "The connector",
+   "color": "dark"
+  },
+  "green": {
+   "label": "PingOne",
+   "color": "green"
+  },
+  "amber": {
+   "label": "Tool call",
+   "color": "amber"
+  },
+  "red": {
+   "label": "Stops or never sent",
+   "color": "red"
+  }
+ },
+ "lanes": [
+  {
+   "id": "lane0",
+   "label": "Measured on 2026-10-30; the last box is where the points balance stopped",
+   "x": 10,
+   "y": 30,
+   "w": 1168,
+   "h": 464
+  }
+ ],
+ "nodes": [
+  {
+   "id": "c1",
+   "group": "blue",
+   "label": "1. Agent calls /mcp",
+   "sub": [
+    "401 with sign-in metadata"
+   ],
+   "x": 40,
+   "y": 74
+  },
+  {
+   "id": "c2",
+   "group": "blue",
+   "label": "2. Agent registers",
+   "sub": [
+    "201, DCR, auth method none, loopback redirect"
+   ],
+   "x": 326,
+   "y": 74
+  },
+  {
+   "id": "c3",
+   "group": "dark",
+   "label": "3. /connector/authorize",
+   "sub": [
+    "302, to PingOne sign-out first"
+   ],
+   "x": 612,
+   "y": 74
+  },
+  {
+   "id": "c4",
+   "group": "green",
+   "label": "4. PingOne signs the browser out",
+   "sub": [
+    "clears an old session, so no userSessionMismatch"
+   ],
+   "x": 898,
+   "y": 74
+  },
+  {
+   "id": "c5",
+   "group": "dark",
+   "label": "5. /connector/resume",
+   "sub": [
+    "302, on to the prepared sign-in"
+   ],
+   "x": 898,
+   "y": 228
+  },
+  {
+   "id": "c6",
+   "group": "green",
+   "label": "6. Sign-in, Protect, consent",
+   "sub": [
+    "the demo user; the screen names the agent"
+   ],
+   "x": 612,
+   "y": 228
+  },
+  {
+   "id": "c7",
+   "group": "dark",
+   "label": "7. /connector/token",
+   "sub": [
+    "200, PKCE verifier checked"
+   ],
+   "x": 326,
+   "y": 228
+  },
+  {
+   "id": "c8",
+   "group": "amber",
+   "label": "8. Agent calls /mcp with the token",
+   "sub": [
+    "initialize and tools/list: 200"
+   ],
+   "x": 40,
+   "y": 228
+  },
+  {
+   "id": "c9",
+   "group": "red",
+   "label": "9. The gateway call stops",
+   "sub": [
+    "502 on SE (backends down); locally 403, scope airlines:read missing"
+   ],
+   "x": 40,
+   "y": 382
+  }
+ ],
+ "edges": [
+  {
+   "source": "c1",
+   "target": "c2",
+   "label": "M1",
+   "name": "401, then register"
+  },
+  {
+   "source": "c2",
+   "target": "c3",
+   "label": "M2",
+   "name": "Authorize"
+  },
+  {
+   "source": "c3",
+   "target": "c4",
+   "label": "M3",
+   "name": "Sign out first"
+  },
+  {
+   "source": "c4",
+   "target": "c5",
+   "label": "M4",
+   "name": "Back to resume"
+  },
+  {
+   "source": "c5",
+   "target": "c6",
+   "label": "M5",
+   "name": "Sign in"
+  },
+  {
+   "source": "c6",
+   "target": "c7",
+   "label": "M6",
+   "name": "Code, then token"
+  },
+  {
+   "source": "c7",
+   "target": "c8",
+   "label": "M7",
+   "name": "Bearer token"
+  },
+  {
+   "source": "c8",
+   "target": "c9",
+   "label": "M8",
+   "name": "tools/call"
+  }
+ ],
+ "steps": [
+  {
+   "title": "401, then register",
+   "what": "The agent calls /mcp with no token and gets a 401. It then registers (201).",
+   "why": "This is how every MCP client discovers it must sign in.",
+   "edges": [
+    0
+   ]
+  },
+  {
+   "title": "Authorize",
+   "what": "The agent opens /connector/authorize with PKCE. The connector answers 302.",
+   "why": "The connector validated the client and the redirect.",
+   "edges": [
+    0,
+    1
+   ]
+  },
+  {
+   "title": "Sign out first",
+   "what": "With the sign-out option on, the 302 goes to PingOne's sign-out.",
+   "why": "An old PingOne session in the browser caused userSessionMismatch on the consent step.",
+   "edges": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "title": "Back to resume",
+   "what": "PingOne signs the browser out and returns to /connector/resume (302).",
+   "why": "Resume continues to the sign-in the connector prepared; it never takes an address from the request.",
+   "edges": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "title": "Sign in",
+   "what": "The user signs in at PingOne; Protect checks it and the screen names the agent.",
+   "why": "This is the real PingOne flow.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "title": "Code, then token",
+   "what": "The connector gets the PingOne code, acts for the user, and the agent trades its code for the connector's token (200).",
+   "why": "The agent holds the connector's token only.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "title": "Bearer token",
+   "what": "The agent calls /mcp with the token: initialize and tools/list return 200.",
+   "why": "Sign-in and the tool list work end to end.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "title": "tools/call",
+   "what": "The tool call reaches the gateway chain and is refused: 502 through the real gateway (its backends were scaled to zero), or 403 against a local airline server (scope airlines:read missing).",
+   "why": "The balance needs the gateway's own token exchange, which adds airlines:read.",
+   "edges": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  }
+ ]
+}
