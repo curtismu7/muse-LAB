@@ -9,10 +9,10 @@ Two things are called "Muse" or "the connector" here, so to be exact:
 
 What was measured against a real connector (2026-10-30), per agent:
 
-| Agent | Registers by | Sign-in | Tool call | Status |
+| Agent | Registers by | Sign-in | Tool list | Tool call (points balance) |
 |---|---|---|---|---|
-| Claude Code (CLI) | dynamic registration (DCR) | works | `tools/list` works | balance call not proven |
-| Codex (CLI) | DCR | works | `tools/call` reaches the connector; the gateway answer was failing on the last run | in progress |
+| Claude Code (CLI) | dynamic registration (DCR) | works | works | not run end to end |
+| Codex (CLI) | DCR | works | works | blocked at the gateway, see "Why the balance is blocked" |
 | Claude web / Desktop | not tested | not tested | not tested | needs a public https host |
 | ChatGPT | not tested | not tested | not tested | needs a public https host |
 
@@ -60,3 +60,14 @@ Both connect from the vendor's cloud, so they cannot reach `127.0.0.1`. They nee
 ## 5. What to look at while it runs
 
 The connector logs one `[connector]` line per request: status, auth method, redirect host, PKCE, and whether the client id is a URL. It never logs codes, tokens, verifiers or secrets. In Docker: `docker logs agentconnect-local`. A good run shows, in order: `/mcp` 401, `/connector/register` 201, `/connector/authorize` 302, `/connector/resume` 302 (sign-out step, if on), `/connector/token` 200, then `/mcp` `initialize`, `tools/list`, `tools/call`. The line `[connector] gateway steps` shows the gateway status for each step of a tool call.
+
+## 6. Why the balance is blocked (measured 2026-10-30)
+
+The connector signs the user in, exchanges tokens, and then asks a gateway for the passenger record. Sign-in, the token and the tool list all worked. The tool call did not, for reasons that sit behind the connector:
+
+- **Through the real gateway:** the gateway answered 502. Its route points at a gateway proxy, which forwards to two airline backends. Both backends were scaled to zero, so the call failed inside the gateway's own chain. Scaling the one backend with the passenger database was not enough; the other one the proxy calls first was also down.
+- **Against a local copy of the airline server:** the first refusal was an audience mismatch (the Muse token is addressed to its own Privilege app, which the server did not list). Adding that audience to a separate copy of the server fixed it: the tool list returned 200. The next refusal was **"Insufficient scope for tool get_loyalty_status"**. The tool needs the scope `airlines:read`, and the Muse token carries `mcp:invoke`. In the real chain a further token exchange inside the gateway adds `airlines:read`. There is no local equivalent, and the server has no setting that maps one scope to the other.
+
+So a balance needs the real gateway chain with its backends running. A local stand-in would have to mint or substitute a token, which would lose the signed-in user's identity, so none is built.
+
+To see why a call was refused, read `[connector] gateway steps` and `[connector] gateway step N refused: ...` in the connector log. Step 7 is the gateway's `initialize`, 8 the tool list, 9 the tool call.
