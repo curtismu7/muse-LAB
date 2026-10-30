@@ -224,6 +224,7 @@ a { color: var(--accent); }
       </table>
     </div>
     <p>The agent's <code>muse-</code> ID, its redirect address and its registration are never sent to PingOne, so PingOne never has to know the agent. If an agent used its <code>muse-</code> ID at PingOne directly, PingOne would refuse it as unknown.</p>
+    <p class="small">See it as a diagram you can play: <a href="/diagram">the diagram page</a>, tab "Who registers with whom". The tab "A real connect, as logged" shows the same flow with the status codes the connector returned.</p>
     <ul>
       <li>The token the agent receives is the connector's own opaque token. The connector keeps the PingOne token and the delegated token behind it.</li>
       <li>Registrations live in memory, so a connector restart forgets every agent, and each one registers again.</li>

@@ -30,6 +30,8 @@ Agent  --- registers (DCR) --->  Connector  --- signs the user in, with its OWN 
 1. **Agent and connector.** The agent calls the connector's `/connector/register` (dynamic client registration, RFC 7591) and gets a client id that starts `muse-`. That id exists only in the connector's memory. The connector checks the agent's redirect address and PKCE against it. This is the DCR we measured for Claude Code and Codex.
 2. **Connector and PingOne.** To sign the user in, the connector redirects to PingOne with **its own** PingOne client id: Muse's app, or the agent's own PingOne app when the callback host is `claude.ai` or `chatgpt.com`. It returns to the connector's callback, with the login hint marked `.conn`. The agent's `muse-` id, its redirect address and its registration are never sent to PingOne, so PingOne never needs to know the agent.
 
+Both flows are also drawn on the `/diagram` page (tabs "Who registers with whom" and "A real connect, as logged"), with Simulate, Reset and draggable boxes.
+
 What follows from that:
 - PingOne does not register the agent, and it does not accept the agent's client id. If an agent used the `muse-` id directly at PingOne, PingOne would reject it as unknown.
 - The token the agent receives is the connector's own opaque token. The connector holds the PingOne token and the delegated token behind it.
