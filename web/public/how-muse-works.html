@@ -211,6 +211,26 @@ a { color: var(--accent); }
     <p class="note">The listing steps come from each vendor's documentation as of October 2026, and they change. A listing is the vendor's decision after review. This demo is not listed in any directory, which is why the card on the Muse page is a stand-in.</p>
   </section>
 
+  <section aria-labelledby="register">
+    <h2 id="register">Who registers with whom: the agent and the connector, not PingOne</h2>
+    <p>PingOne has no dynamic client registration (DCR) and no CIMD. The connector gets around that by ending the registration itself. There are two separate relationships, and they use different client IDs.</p>
+    <div class="wide">
+      <table>
+        <thead><tr><th>Between</th><th>What happens</th><th>Client ID used</th></tr></thead>
+        <tbody>
+          <tr><td>The agent and the connector</td><td>The agent registers at the connector's <code>/connector/register</code> (DCR, RFC 7591). The connector checks the agent's redirect address and PKCE against that registration.</td><td>A <code>muse-</code> ID the connector hands out. It exists only in the connector's memory.</td></tr>
+          <tr><td>The connector and PingOne</td><td>The connector sends the customer to PingOne to sign in, then PingOne returns to the connector. The login hint is marked <code>.conn</code> so the screens name the connector.</td><td>The connector's own PingOne app: Muse's app, or the assistant's own app when the callback host is <code>claude.ai</code> or <code>chatgpt.com</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The agent's <code>muse-</code> ID, its redirect address and its registration are never sent to PingOne, so PingOne never has to know the agent. If an agent used its <code>muse-</code> ID at PingOne directly, PingOne would refuse it as unknown.</p>
+    <ul>
+      <li>The token the agent receives is the connector's own opaque token. The connector keeps the PingOne token and the delegated token behind it.</li>
+      <li>Registrations live in memory, so a connector restart forgets every agent, and each one registers again.</li>
+      <li>Claude Code and Codex were measured doing exactly this against the connector. CIMD needs an authorization server that supports it, which here means PingFederate 13.1 used directly. It is not part of the connector's path.</li>
+    </ul>
+  </section>
+
   <section aria-labelledby="cimd">
     <h2 id="cimd">Client ID Metadata Documents (CIMD): no registration step</h2>
     <p>An OAuth server has to know who is asking before it sends someone to sign in. There are three ways it learns that. The company types in a client ID by hand, as in Meta's Muse. The app registers itself on first use (Dynamic Client Registration, DCR), and the server mints a new client every time. Or, with CIMD, the app's <code>client_id</code> is an HTTPS address, and the server fetches the document at that address to read the app's name and allowed callbacks. Nothing is registered, so nothing piles up on the server.</p>
