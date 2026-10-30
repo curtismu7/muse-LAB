@@ -11,13 +11,11 @@ export default function AssistantConnect({ session, api, guarded }) {
   const list = c?.assistants ?? [];
   const [pick, setPick] = useState(session.assistant?.key ?? list[0]?.key ?? null);
   const [open, setOpen] = useState(null);
-  // After the sign-in the card comes back showing the server the last connection used.
-  const [server, setServer] = useState(session.pf || session.assistant?.method === 'cimd' ? 'pf' : 'muse');
   if (!list.length) return null;
   const a = list.find((x) => x.key === pick) ?? list[0];
   const airline = c.airline || 'the airline';
   const done = session.assistant?.key === a.key ? session.assistant : null;
-  const connect = () => guarded(async () => { const r = await api('POST', '/api/sim/start', { platform: a.key, server: session.pf ? server : 'muse' }); window.location.assign(r.url); });
+  const connect = () => guarded(async () => { const r = await api('POST', '/api/sim/start', { platform: a.key, server: 'pf' }); window.location.assign(r.url); });
   const startOver = () => guarded(async () => { await api('POST', '/api/assistant/reset'); window.location.reload(); });
   return (
     <section className="disco assistant" aria-label="Connect from your assistant" data-testid="assistant-connect">
@@ -28,12 +26,6 @@ export default function AssistantConnect({ session, api, guarded }) {
           <button key={x.key} type="button" role="tab" aria-selected={x.key === a.key} className={x.key === a.key ? 'on' : ''} onClick={() => { setPick(x.key); setOpen(null); }}>{x.name}</button>
         ))}
       </div>
-      {session.pf && (
-        <div className="seg" role="group" aria-label="The airline's server" data-testid="assistant-server">
-          <button type="button" aria-pressed={server === 'muse'} onClick={() => setServer('muse')}>PingOne: registers (DCR)</button>
-          <button type="button" aria-pressed={server === 'pf'} onClick={() => setServer('pf')}>PingFederate: client document (CIMD)</button>
-        </div>
-      )}
       <div className="assistant-dir" data-testid="assistant-dir">
         <div className="assistant-dir-top"><span className="muted small">{a.name}: apps and connectors</span><span className="assistant-search" aria-hidden="true">{airline}</span></div>
         <div className="assistant-card">
