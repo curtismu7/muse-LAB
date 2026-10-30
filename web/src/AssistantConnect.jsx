@@ -70,7 +70,7 @@ export default function AssistantConnect({ session, api, guarded }) {
           )}
         </div>
       )}
-      <p className="muted small">Stand-ins: the directory card ({airline} has to be approved by each vendor before it appears), the callback address, and the model's choice of tool. Every request after Connect is real. <a href="/how-muse-works.html#connect">More</a></p>
+      <p className="muted small">Stand-ins: the directory card ({airline} has to be approved by each vendor before it appears), the callback address, and the model's choice of tool. Every request after Connect is real. <a href="/how-muse-works.html#connect">How customers connect</a></p>
     </section>
   );
 }
