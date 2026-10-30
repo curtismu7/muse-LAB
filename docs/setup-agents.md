@@ -16,7 +16,25 @@ What was measured against a real connector (2026-10-30), per agent:
 | Claude web / Desktop | not tested | not tested | not tested | needs a public https host |
 | ChatGPT | not tested | not tested | not tested | needs a public https host |
 
-Muse's connector does not use CIMD, because it sits in front of PingOne, which has no CIMD. CIMD is a PingFederate feature (see `/cimd.html`).
+**Registration here is between the agent and the connector, not PingOne.** PingOne has no dynamic client registration (DCR) and no CIMD. The connector works around that by ending the registration itself. See "Who registers with whom" below. CIMD is a PingFederate feature (see `/cimd.html`).
+
+## Who registers with whom
+
+Two separate relationships, with different client ids:
+
+```
+Agent  --- registers (DCR) --->  Connector  --- signs the user in, with its OWN client id --->  PingOne
+        client_id "muse-..."                       the connector's PingOne app
+```
+
+1. **Agent and connector.** The agent calls the connector's `/connector/register` (dynamic client registration, RFC 7591) and gets a client id that starts `muse-`. That id exists only in the connector's memory. The connector checks the agent's redirect address and PKCE against it. This is the DCR we measured for Claude Code and Codex.
+2. **Connector and PingOne.** To sign the user in, the connector redirects to PingOne with **its own** PingOne client id: Muse's app, or the agent's own PingOne app when the callback host is `claude.ai` or `chatgpt.com`. It returns to the connector's callback, with the login hint marked `.conn`. The agent's `muse-` id, its redirect address and its registration are never sent to PingOne, so PingOne never needs to know the agent.
+
+What follows from that:
+- PingOne does not register the agent, and it does not accept the agent's client id. If an agent used the `muse-` id directly at PingOne, PingOne would reject it as unknown.
+- The token the agent receives is the connector's own opaque token. The connector holds the PingOne token and the delegated token behind it.
+- The registration lives in memory, so a connector restart forgets every agent and each one must register again.
+- CIMD needs an authorization server that supports it. In this stack that is PingFederate 13.1, used directly. It is not part of this connector's path.
 
 ## 1. Run it
 
