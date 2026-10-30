@@ -1,0 +1,9 @@
+# Holds the connector's dynamic client registrations (MUSE_CLIENTS_FILE) so a restart does not drop them. Deployed by deploy.sh with the rest.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: __NAME__-clients
+  labels: { app: __NAME__ }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }

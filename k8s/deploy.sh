@@ -40,7 +40,7 @@ render() {
   fi
   printf '%s\n---\n' "$out"
 }
-FILES="deployment.yaml service.yaml certificate.yaml ingress.yaml"
+FILES="clients-pvc.yaml deployment.yaml service.yaml certificate.yaml ingress.yaml"
 if [ "$DRY" = 1 ]; then for f in $FILES; do render "$f"; done; exit 0; fi
 for f in $FILES; do render "$f" | kubectl -n "$NAMESPACE" apply -f -; done
 kubectl -n "$NAMESPACE" rollout status deployment/"$APP_NAME" --timeout=120s
