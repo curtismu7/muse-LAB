@@ -13,7 +13,7 @@ Discovery, already checked live on 2026-10-30:
 ## Before any client
 
 1. Confirm the connector is on: `GET /api/session` shows a `connector` block (it does today).
-2. Start a log watch on the pod so each client's requests are captured: `kubectl -n ping-devops-cmuir logs -f deploy/muse` (watch for `/connector/register`, `/connector/authorize`, `/connector/token`, `/mcp`).
+2. Start a log watch on the pod so each client's requests are captured: `kubectl -n ping-devops-cmuir logs -f deploy/muse`. This needs the request trace from PR #50 deployed first (the server logged nothing per request before). Each line starts `[connector]` and shows shapes and hosts only, never codes or tokens.
 3. Use the demo user (the one used for the live sign-in on `/clients.html`). Do not paste its password into any chat.
 
 ## Per client
