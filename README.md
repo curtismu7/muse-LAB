@@ -30,6 +30,9 @@ The most restrictive answer wins. Held calls wait for a simulated CIBA approval.
 - **Mock-only** (`MODE=mock`, the default): live mode is refused even if a Secret is present; sign-in, Protect and the gateway run in the existing offline mock (no stub servers), the Airline Connector is off (`/mcp` answers 404), `/clients.html` plays its scripted run, and the page says "This is the hosted, mock-only build". Per-visitor workspaces, no secrets. The owner runs a hosted copy on the SE cluster as `APP_NAME=muse-mock`.
 - **Real** (`MODE=live`, owner-run): reads the Secret `<APP_NAME>-real`, which holds `ALLOW_LIVE=1`, `MUSE_ALLOW_LIVE_HOSTED=1`, `MUSE_PUBLIC_URL` and the tenant settings. Nothing tenant-specific is in this repo. The server refuses `MODE=live` without `ALLOW_LIVE=1`.
 
+## Real mode in local Docker (owner-run)
+The image is the hosted build, which refuses real mode on a plain-http address. For local Docker only, set `MUSE_ALLOW_LIVE_LOOPBACK=1` with `MUSE_ALLOW_LIVE_HOSTED=1` and a loopback `MUSE_PUBLIC_URL` (for example `http://127.0.0.1:5102`), and publish the port on `127.0.0.1` only (`-p 127.0.0.1:5102:5100`). The opt-in does not allow any other http address. The PingOne apps need `<MUSE_PUBLIC_URL>/connector/callback` as a redirect URI (and `<MUSE_PUBLIC_URL>/connector/resume` as a post-logout redirect URI when `MUSE_CONNECTOR_SIGNOUT_FIRST=1`).
+
 ## Use your own PingOne and PingFederate
 `cp .env.example .env`, fill it in, then `npm start`. The server reads `.env` when it starts; anything already set in the environment wins. Without a `.env` Muse is the offline mock. Real mode runs with `npm start` only: the Docker image is the hosted build (`MUSE_HOSTED=1`), which allows real mode only behind an https public address.
 

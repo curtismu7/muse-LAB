@@ -60,3 +60,12 @@ test('starting real flows is limited per visitor', async () => {
   assert.deepEqual(codes, [200, 200, 200, 429, 429]);
   await a.close();
 });
+
+test('a plain-http public address is refused for hosted real mode unless the owner opts in AND it is loopback (local Docker)', () => {
+  const on = { ...BASE, MUSE_ALLOW_LIVE_HOSTED: '1' };
+  assert.equal(liveConfig({ ...on, MUSE_PUBLIC_URL: 'http://127.0.0.1:5102' }), null, 'no opt-in');
+  assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'http://muse.example' }), null, 'opt-in does not allow a non-loopback http address');
+  assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'http://127.0.0.1.evil.example' }), null, 'lookalike host');
+  assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'http://127.0.0.1:5102/x' }).publicUrl, 'http://127.0.0.1:5102');
+  assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'https://muse.example' }).publicUrl, 'https://muse.example', 'https still works');
+});

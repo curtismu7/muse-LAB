@@ -46,12 +46,18 @@ export function liveConfig(env) {
   // MODE=mock is the mock-only build (rule 18): no live mode, whatever else is set.
   if (env.MODE === 'mock') return null;
   // Hosted builds stay mock-only unless the owner turns real mode on deliberately (MUSE_ALLOW_LIVE_HOSTED=1) and names the
-  // public https address the PingOne return comes back to.
+  // public https address the PingOne return comes back to (or, with MUSE_ALLOW_LIVE_LOOPBACK=1, a loopback http address for local Docker).
   const hostedLive = env.MUSE_HOSTED === '1' && env.MUSE_ALLOW_LIVE_HOSTED === '1';
   if ((env.MUSE_HOSTED === '1' && !hostedLive) || env.ALLOW_LIVE !== '1' || !env.MUSE_LIVE_GATEWAY_URL) return null;
   let publicUrl = null;
   if (hostedLive) {
-    try { const pu = new URL(env.MUSE_PUBLIC_URL ?? ''); if (pu.protocol !== 'https:') return null; publicUrl = pu.origin; } catch { return null; }
+    try {
+      const pu = new URL(env.MUSE_PUBLIC_URL ?? '');
+      // Local Docker only: the owner may opt in (MUSE_ALLOW_LIVE_LOOPBACK=1) to a plain-http loopback address, which must be published on 127.0.0.1 only.
+      const loopbackOk = env.MUSE_ALLOW_LIVE_LOOPBACK === '1' && pu.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(pu.hostname);
+      if (pu.protocol !== 'https:' && !loopbackOk) return null;
+      publicUrl = pu.origin;
+    } catch { return null; }
   }
   let u;
   try { u = new URL(env.MUSE_LIVE_GATEWAY_URL); } catch { return null; }
