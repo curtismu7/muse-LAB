@@ -59,8 +59,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
               <div className="msg">
                 <span className="avatar sm" aria-hidden="true">M</span>
                 <div className="bubble muse">
-                  <span>I called the gateway without a token and it answered <strong>401</strong>. {la.signedIn ? 'You signed in, so I asked again with a token for you.' : auto ? 'Taking you to PingOne to sign in…' : 'I need you to sign in at PingOne first.'}</span>
-                  {!la.signedIn && !auto && <button type="button" className="primary" onClick={signIn} disabled={busy}>Continue to PingOne</button>}
+                  <span>I called the gateway without a token and it answered <strong>401</strong>. {la.signedIn ? 'You signed in, so I asked again with a token for you.' : ''}</span>
                 </div>
               </div>
             )}
