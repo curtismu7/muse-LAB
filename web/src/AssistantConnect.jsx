@@ -18,6 +18,7 @@ export default function AssistantConnect({ session, api, guarded }) {
   const airline = c.airline || 'the airline';
   const done = session.assistant?.key === a.key ? session.assistant : null;
   const connect = () => guarded(async () => { const r = await api('POST', '/api/sim/start', { platform: a.key, server: session.pf ? server : 'muse' }); window.location.assign(r.url); });
+  const startOver = () => guarded(async () => { await api('POST', '/api/assistant/reset'); window.location.reload(); });
   return (
     <section className="disco assistant" aria-label="Connect from your assistant" data-testid="assistant-connect">
       <strong>Connect from your assistant</strong>
@@ -44,6 +45,7 @@ export default function AssistantConnect({ session, api, guarded }) {
           <button type="button" onClick={connect} data-testid="assistant-connect-btn">{done?.points ? 'Connected' : 'Connect'}</button>
         </div>
       </div>
+      {done && <button type="button" onClick={startOver} data-testid="assistant-start-over">Start over</button>}
       {done && (
         <div className="small" data-testid="assistant-result">
           {done.points && <p><strong>Connected in {done.name}.</strong> Asked "How many points do I have?": {done.points.points.toLocaleString()} points, {done.points.tier}, for {done.points.passenger}.</p>}
