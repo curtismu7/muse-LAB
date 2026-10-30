@@ -1,7 +1,7 @@
 # Hosted build of Muse for the SE cluster (rule 18). MODE=mock (deploy.sh default) is the MOCK-ONLY build: live mode is refused
 # even if a Secret exists. MODE=live is the owner's real build: it reads the Secret `__NAME__-real` (see the README, "Hosted builds"), which
 # holds every tenant id, address and credential, so none of them are in this repo. Same image as the local standalone; MUSE_HOSTED=1
-# switches on the hosted banner, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids, no volumes with data.
+# switches on the hosted banner, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids. The only volume holds client registrations (no user data).
 # Placeholders (__IMAGE__, __SE_HOST__, __NAME__, __MODE__) are filled by k8s/deploy.sh. No namespace: deploy.sh takes NAMESPACE.
 apiVersion: apps/v1
 kind: Deployment
@@ -42,10 +42,14 @@ spec:
             - { name: MUSE_ALLOWED_HOSTS, value: "__SE_HOST__" }
             # A public link needs a visitor cap. Workspaces are per visitor and live in memory.
             - { name: MUSE_MAX_WORKSPACES, value: "60" }
+            # Dynamic client registrations (Claude Code, Codex, ChatGPT) survive a restart: they are saved on the clients volume.
+            - { name: MUSE_CLIENTS_FILE, value: /data/clients.json }
           # Optional. Absent = the mock-only build. Present = real mode (ALLOW_LIVE, MUSE_ALLOW_LIVE_HOSTED, MUSE_PUBLIC_URL, MUSE_LIVE_GATEWAY_URL,
           # MUSE_P1_ENV_ID, MUSE_P1_CLIENT_ID, MUSE_P1_CLIENT_SECRET, MUSE_P1_LANE). Created by the owner, never committed.
           envFrom:
             - secretRef: { name: __NAME__-real, optional: true }
+          volumeMounts:
+            - { name: clients, mountPath: /data }
           readinessProbe:
             httpGet: { path: /api/health, port: http }
             periodSeconds: 10
@@ -60,3 +64,5 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: { drop: ["ALL"] }
+      volumes:
+        - { name: clients, persistentVolumeClaim: { claimName: __NAME__-clients } }
