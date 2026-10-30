@@ -238,7 +238,8 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
         // Both tools read the airline passenger record (get_loyalty_status) through the gateway, so the balance and the status can never disagree.
         // The gateway sits behind a load balancer and now and then drops a connection; one retry covers it.
         const ask = () => callGateway(live, session.delegated, fetchImpl, { tool: 'get_loyalty_status' });
-        const steps = await ask().catch(() => ask());
+        const steps = await ask().catch((e) => { console.log(`[connector] gateway call failed once: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return ask(); });
+        console.log(`[connector] gateway steps ${JSON.stringify(steps.map((x) => [x.n, x.skipped ? 'skipped' : x.response?.status ?? null]))}`);
         const resp = steps.find((s) => s.n === 9)?.response;
         const content = resp?.status === 200 ? resp.body?.result?.content : null;
         if (Array.isArray(content) && content.length) {
@@ -253,7 +254,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
           return rpc(id, { content: content.slice(0, 5).map((c) => ({ type: 'text', text: String(c.text ?? '').slice(0, 4000) })), isError: false });
         }
         return rpc(id, { content: [{ type: 'text', text: `The gateway did not allow or complete this call (${resp?.status ?? 'no answer'}).` }], isError: true });
-      } catch { return rpc(id, { content: [{ type: 'text', text: 'The gateway could not be reached.' }], isError: true }); }
+      } catch (e) { console.log(`[connector] gateway call failed: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return rpc(id, { content: [{ type: 'text', text: 'The gateway could not be reached.' }], isError: true }); }
     }
     return id === undefined ? null : rpcErr(id, -32601, 'Method not found');
   }
