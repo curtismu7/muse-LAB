@@ -240,6 +240,11 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
         const ask = () => callGateway(live, session.delegated, fetchImpl, { tool: 'get_loyalty_status' });
         const steps = await ask().catch((e) => { console.log(`[connector] gateway call failed once: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return ask(); });
         console.log(`[connector] gateway steps ${JSON.stringify(steps.map((x) => [x.n, x.skipped ? 'skipped' : x.response?.status ?? null]))}`);
+        // When a step is refused, say why: the error text only (for example an audience mismatch), never a token or the rest of the body.
+        for (const x of steps) {
+          const b = x.response?.body; const why = typeof b === 'object' && b ? (b.error_description ?? b.error?.message ?? b.error) : null;
+          if (x.response && x.response.status >= 400 && typeof why === 'string') console.log(`[connector] gateway step ${x.n} refused: ${why.replace(/\s+/g, ' ').slice(0, 300)}`);
+        }
         const resp = steps.find((s) => s.n === 9)?.response;
         const content = resp?.status === 200 ? resp.body?.result?.content : null;
         if (Array.isArray(content) && content.length) {
