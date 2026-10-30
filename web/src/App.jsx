@@ -303,8 +303,12 @@ export default function App() {
         {!session.signedIn ? (
           <div className="signin">
             <span className="avatar big" aria-hidden="true">M</span>
-            <h2>Sign in with PingOne</h2>
-            <p className="muted">{session.mode === 'live' ? 'Muse only redirects. PingOne runs the login, Protect and consent.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
+            <h2>Sign in</h2>
+            <p className="muted">{session.mode === 'live' ? 'Muse sends you to your sign-in provider. Signing in with PingOne today.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
+            <ul className="muted small" aria-label="Other sign-in providers">
+              <li>PingFederate: not connected</li>
+              <li>PingOne Advanced Identity Cloud (AIC): not connected</li>
+            </ul>
             <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
             <UserLoginPanel session={session} api={api} guarded={guarded} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
             <AssistantConnect session={session} api={api} guarded={guarded} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
