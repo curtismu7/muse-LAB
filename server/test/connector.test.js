@@ -360,3 +360,21 @@ test('the connector limit does not count Muse\'s own platform runs, and a wrong 
     assert.equal(last, 429);
   } finally { await a.close(); }
 });
+
+test('the request trace logs shapes and hosts only, never codes, verifiers, assertions or tokens', async () => {
+  const lines = []; const orig = console.log; console.log = (...a) => { lines.push(a.join(' ')); };
+  const a = await boot();
+  try {
+    await a.post('/connector/register', { redirect_uris: [REDIRECT], client_name: 'Agent', token_endpoint_auth_method: 'none' });
+    await a.post('/connector/token', { grant_type: 'authorization_code', code: 'SECRET-CODE', code_verifier: 'SECRET-VERIFIER', client_id: 'https://client.example/doc.json', client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer', client_assertion: 'SECRET-ASSERTION' }, {}, true);
+    await a.get('/connector/authorize?client_id=https://client.example/doc.json&redirect_uri=https://chat.agent.example/oauth/callback&code_challenge=SECRET-CHALLENGE&code_challenge_method=S256&response_type=code&state=SECRET-STATE');
+    await a.post('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { authorization: 'Bearer SECRET-TOKEN' });
+  } finally { console.log = orig; await a.close(); }
+  const trace = lines.filter((l) => l.startsWith('[connector] '));
+  assert.equal(trace.length, 4);
+  assert.match(trace[0], /POST \/connector\/register -> 201/); assert.match(trace[0], /chat\.agent\.example/);
+  assert.match(trace[1], /POST \/connector\/token -> 400/); assert.match(trace[1], /"client_assertion":"urn:ietf/);
+  assert.match(trace[2], /GET \/connector\/authorize -> 400/); assert.match(trace[2], /"client_id_is_url":true/);
+  assert.match(trace[3], /POST \/mcp -> 401/); assert.match(trace[3], /"bearer":true/);
+  assert.doesNotMatch(trace.join('\n'), /SECRET/);
+});

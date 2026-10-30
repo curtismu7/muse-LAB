@@ -103,6 +103,26 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   };
   const oauthErr = (res, status, error, description) => res.status(status).set('Cache-Control', 'no-store').json({ error, error_description: description });
 
+  // One line per request to the OAuth and MCP endpoints, so the owner can see what a real client sends. Shapes and hosts only: never codes, tokens, verifiers, assertions or secrets.
+  const hostOf = (u) => { try { return new URL(String(u)).host; } catch { return u ? '?' : null; } };
+  const urlId = (v) => { try { const u = new URL(String(v)); return /^https?:$/.test(u.protocol) ? `${u.origin}${u.pathname}` : null; } catch { return null; } };
+  const traceFields = (req) => {
+    const b = req.body ?? {}; const q = req.query ?? {};
+    if (req.path === '/connector/register') return { auth_method: b.token_endpoint_auth_method ?? null, grants: b.grant_types ?? null, redirect_hosts: Array.isArray(b.redirect_uris) ? b.redirect_uris.slice(0, 5).map(hostOf) : null, client_name: b.client_name ? String(b.client_name).slice(0, 60) : null };
+    if (req.path === '/connector/authorize') return { client_id_is_url: urlId(q.client_id) !== null, client_id_url: urlId(q.client_id), redirect_host: hostOf(q.redirect_uri), pkce: q.code_challenge_method ?? null, response_type: q.response_type ?? null };
+    if (req.path === '/connector/token') return { grant_type: b.grant_type ?? null, client_id_is_url: urlId(b.client_id) !== null, client_assertion: b.client_assertion_type ?? null, basic_auth: /^Basic /i.test(req.headers.authorization ?? ''), verifier: Boolean(b.code_verifier) };
+    if (req.path === '/mcp') return { bearer: /^Bearer /i.test(req.headers.authorization ?? ''), rpc: [].concat(req.body ?? []).slice(0, 5).map((m) => m?.method ?? null) };
+    return null;
+  };
+  app.use(['/connector/register', '/connector/authorize', '/connector/token', '/mcp'], (req, res, next) => {
+    const path = req.baseUrl;
+    res.on('finish', () => {
+      const f = traceFields({ path, body: req.body, query: req.query, headers: req.headers });
+      console.log(`[connector] ${req.method} ${path} -> ${res.statusCode} ${JSON.stringify({ ...f, ua: String(req.headers['user-agent'] ?? '').slice(0, 80) })}`);
+    });
+    next();
+  });
+
   // Discovery (RFC 9728, RFC 8414). Public documents, so a plain CORS header is fine.
   const open = (req, res, next) => { res.set('Access-Control-Allow-Origin', '*').set('Cache-Control', 'public, max-age=60'); next(); };
   const prm = { resource: `${PUBLIC}/mcp`, authorization_servers: [PUBLIC], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: airline ? `${airline} Airline Connector` : 'Airline Connector' };
