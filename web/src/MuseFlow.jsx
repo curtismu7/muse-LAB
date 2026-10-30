@@ -8,7 +8,7 @@ import { useTextSize } from './TextSize.jsx';
 // Standard: movable boxes, Simulate with Prev/Next/Pause, Reset, a speed control, every arrow numbered AND named, a card per step.
 const STEP_MS = 1600;
 const SPEEDS = [0.5, 1, 2];
-const TABS = [{ id: 'muse-overview', label: 'Overview' }, { id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Muse acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }, { id: 'muse-runtime-d', label: 'Runtime D: Claude' }, { id: 'muse-runtime-e', label: 'Runtime E: ChatGPT' }, { id: 'muse-runtime-f', label: 'Runtime F: Codex' }];
+const TABS = [{ id: 'muse-overview', label: 'Overview' }, { id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Muse acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }, { id: 'muse-runtime-d', label: 'Runtime D: Claude' }, { id: 'muse-runtime-e', label: 'Runtime E: ChatGPT' }, { id: 'muse-runtime-f', label: 'Runtime F: Codex' }, { id: 'muse-registration', label: 'Who registers with whom' }, { id: 'muse-agent-connect', label: 'A real connect, as logged' }];
 const BOX_W = 300;
 
 const SIDES = [['t', Position.Top], ['b', Position.Bottom], ['l', Position.Left], ['r', Position.Right]];

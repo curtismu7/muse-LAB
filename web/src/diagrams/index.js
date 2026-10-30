@@ -10,6 +10,8 @@ import museRuntimeC from './muse-runtime-c.json';
 import museRuntimeD from './muse-runtime-d.json';
 import museRuntimeE from './muse-runtime-e.json';
 import museRuntimeF from './muse-runtime-f.json';
+import museRegistration from './muse-registration.json';
+import museAgentConnect from './muse-agent-connect.json';
 
 const REGISTRY = {
   'personal-agent-flow': personalAgentFlow,
@@ -23,6 +25,8 @@ const REGISTRY = {
   'muse-runtime-d': museRuntimeD,
   'muse-runtime-e': museRuntimeE,
   'muse-runtime-f': museRuntimeF,
+  'muse-registration': museRegistration,
+  'muse-agent-connect': museAgentConnect,
 };
 
 // The address a diagram names for this server is a {{origin}} token, filled in with the address the page is served from, so a copy run anywhere shows its own.
