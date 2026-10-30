@@ -497,6 +497,11 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     res.json(entry);
   });
 
+  // The connect card's own reset: clears only the last assistant result, so the card can start over.
+  app.post('/api/assistant/reset', (req, res) => {
+    req.ws.assistant = null;
+    res.json({ reset: true });
+  });
   app.post('/api/reset', (req, res) => {
     const ws = req.ws;
     ws.user = null;
