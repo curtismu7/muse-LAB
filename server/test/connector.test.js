@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { createApp } from '../src/index.js';
@@ -420,4 +423,19 @@ test('when the gateway refuses a step, the log says why (the error text only, no
   assert.match(t, /gateway steps \[\[7,401\]\]/);
   assert.match(t, /gateway step 7 refused: Audience mismatch: got \[aud-a\], expected one of \[aud-b\]/);
   assert.doesNotMatch(t, /Bearer|eyJ|h\.[A-Za-z0-9_-]+\.s/);
+});
+
+test('with MUSE_CLIENTS_FILE, a registered client still works after the connector restarts', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'muse-clients-'));
+  const file = join(dir, 'clients.json');
+  const first = await boot({ MUSE_CLIENTS_FILE: file });
+  const reg = await (await first.post('/connector/register', { redirect_uris: [REDIRECT] })).json();
+  await first.close();
+  const { challenge } = pkce();
+  const q = new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: REDIRECT, state: 'st', code_challenge: challenge, code_challenge_method: 'S256' });
+  const second = await boot({ MUSE_CLIENTS_FILE: file });
+  const again = await second.get(`/connector/authorize?${q}`);
+  await second.close();
+  assert.equal(again.status, 302);
+  assert.match(again.headers.get('location'), /authorize/, 'the restarted connector still knows the client');
 });
