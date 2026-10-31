@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","macOS"]') }}
     strategy:
       matrix:
-        node: ${{ github.event_name == 'pull_request' && fromJSON('[22]') || fromJSON('[20, 22]') }}
+        node: [26]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

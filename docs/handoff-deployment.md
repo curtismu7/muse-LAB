@@ -23,7 +23,7 @@ Owner decision 2026-10-29: `/clients.html` with its scripted run is the mock-onl
 
 ## Stack and commands
 
-Node 22, npm workspaces (`server`, `web`). React 19 + Vite for the web, Express for the server, no database (workspaces are per visitor, in memory, capped).
+Node 26, npm workspaces (`server`, `web`). React 19 + Vite for the web, Express for the server, no database (workspaces are per visitor, in memory, capped).
 
 ```
 npm ci
