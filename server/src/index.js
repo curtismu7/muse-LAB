@@ -17,6 +17,7 @@ import { chatgptKey, mountPfResource } from './pf-resource.js';
 import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
+import { shelfInfo } from './shelfLink.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const LOOPBACK_BINDS = new Set(['127.0.0.1', '::1', 'localhost']);
@@ -76,6 +77,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   if (hosted) app.set('trust proxy', 1);
 
   // Health is public and read-only. Probes call it with a pod-IP Host, so it sits before the Host check.
+  app.get('/api/shelf', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json(shelfInfo()); }); // the header "Shelf" button
   app.get('/api/health', (req, res) => {
     res.set('Cache-Control', 'no-store').json({
       schema: 'demo-health/1',

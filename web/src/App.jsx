@@ -7,6 +7,7 @@ import UserLoginPanel from './UserLoginPanel.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import TextSize from './TextSize.jsx';
 import { parseIntent } from './intent.js';
+import ShelfLink from "./components/ShelfLink.jsx";
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -260,6 +261,7 @@ export default function App() {
         <div className="page-band__copy">
           <p className="page-band__eyebrow">Personal Agents</p>
           <h1>{session.customer?.brandName ?? 'Agent Connect'}</h1>
+        <ShelfLink />
           <p className="page-band__summary">{session.customer?.agentName ?? 'Muse'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
           <p className="page-band__links"><a href="/how-muse-works.html">How it works</a><a href="/how-muse-works.html#connect">How customers connect</a><a href="/clients.html">Claude, ChatGPT, Codex</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
         </div>
