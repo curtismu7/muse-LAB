@@ -116,11 +116,21 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   // process on the loopback bind, not out through the proxy, so they need no cookie.
   const simPublic = connector ? connector.url.replace(/\/mcp$/, '') : pf ? new URL(pf.url).origin : null;
   const simOrigin = simPublic ? new URL(simPublic).origin : null;
-  // A non-loopback sim origin (the lab-proxy's public address) is rewritten to the loopback bind for the
-  // engine's self-calls: it needs no cookie and no TLS. Loopback origins are already this process.
-  const selfHost = (h) => ['127.0.0.1', 'localhost', '[::1]'].includes(h);
-  const selfOrigin = simOrigin && !selfHost(new URL(simOrigin).hostname) ? `http://127.0.0.1:${env.PORT ?? 5100}` : simOrigin;
-  const selfFetch = (url, init) => rawFetch(selfOrigin && String(url).startsWith(simOrigin) ? String(url).replace(simOrigin, selfOrigin) : url, init);
+  // Self-calls: a non-loopback sim origin (the lab-proxy's public address) is rewritten to this process's
+  // loopback bind — no proxy, no cookie, no TLS — and the base path is stripped because express serves
+  // everything at its root (the proxy strips it for browsers). A loopback origin is called as-is.
+  const loopbackHost = (h) => ['127.0.0.1', 'localhost', '[::1]'].includes(h);
+  const basePath = (() => { try { return new URL(simPublic).pathname.replace(/\/+$/, ''); } catch { return ''; } })();
+  const selfOrigin = simOrigin && !loopbackHost(new URL(simOrigin).hostname) ? `http://127.0.0.1:${env.PORT ?? 5100}` : simOrigin;
+  const selfFetch = (url, init) => {
+    let u = String(url);
+    if (simOrigin && selfOrigin && u.startsWith(simOrigin)) {
+      u = u.slice(simOrigin.length); // path (+ query)
+      if (basePath && u.startsWith(basePath)) u = u.slice(basePath.length) || '/';
+      u = `${selfOrigin}${u}`;
+    }
+    return fetch(u, init);
+  };
   const platforms = simPublic ? createPlatformEngine({ publicUrl: simPublic, fetchImpl, selfFetch, signer: simKey }) : null;
   // The stand-in platform callback. The sign-in comes back here instead of chatgpt.com or the customer's loopback.
   app.get('/sim/:key/callback', async (req, res) => {

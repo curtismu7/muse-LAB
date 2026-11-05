@@ -12,20 +12,21 @@ import React from "react";
  *         assert a traceparent on every request (rule 14) pass their pageTraceparent here.
  *   headers (optional) extra request headers merged into the fetch (e.g. { "X-Workspace-Id": ... }
  *         for apps whose tests assert their standard headers on every request the page makes).
+ *   path   (optional) the shelf endpoint, default "/api/shelf"; apps whose bundles must use relative API paths (proxy-mounted apps) pass "api/shelf".
  *   className (optional) extra classes; the base class "shelf-link" is styled by the shared stylesheet
  */
-export default function ShelfLink({ url, traceparent, headers, className = "" }) {
+export default function ShelfLink({ url, traceparent, headers, path = "/api/shelf", className = "" }) {
   const [href, setHref] = React.useState(url ?? null);
   React.useEffect(() => {
     if (url) { setHref(url); return undefined; }
     let alive = true;
     const init = { credentials: "omit", headers: { Accept: "application/json", ...(headers ?? {}), ...(traceparent ? { traceparent: traceparent() } : {}) } };
-    fetch("/api/shelf", init)
+    fetch(path, init)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive && d?.shelfUrl) setHref(d.shelfUrl); })
       .catch(() => { /* stay hidden: no shelf, no button */ });
     return () => { alive = false; };
-  }, [url]);
+  }, [url, path]);
   if (!href) return null;
   return (
     <a
