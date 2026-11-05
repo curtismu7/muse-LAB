@@ -2,7 +2,7 @@
  "schema": "diagram-studio/1",
  "id": "muse-config",
  "title": "Config: set up once",
- "lede": "What has to exist before the demo runs: the PingOne apps and flow, the gateway, the Muse pod, and the connector in Meta’s Muse. Arrows are the setup, in order.",
+ "lede": "What has to exist before the demo runs: the PingOne apps and flow, the gateway, the Agent Connect pod, and the connector in Meta’s Agent Connect. Arrows are the setup, in order.",
  "groups": {
   "green": {
    "label": "PingOne",
@@ -13,7 +13,7 @@
    "color": "amber"
   },
   "dark": {
-   "label": "Muse",
+   "label": "Agent Connect",
    "color": "dark"
   },
   "blue": {
@@ -44,7 +44,7 @@
   },
   {
    "id": "lane2",
-   "label": "Muse (hosted on the US SE cluster)",
+   "label": "Agent Connect (hosted on the US SE cluster)",
    "x": 10,
    "y": 568,
    "w": 1168,
@@ -63,7 +63,7 @@
   {
    "id": "p_app",
    "group": "green",
-   "label": "Muse agent login (app)",
+   "label": "Agent Connect agent login (app)",
    "sub": [
     "confidential: auth code + PKCE, token exchange, client credentials"
    ],
@@ -73,9 +73,9 @@
   {
    "id": "p_user",
    "group": "green",
-   "label": "Muse user login (app)",
+   "label": "Agent Connect user login (app)",
    "sub": [
-    "public: auth code + PKCE. Not the Muse app, so never flagged as an agent"
+    "public: auth code + PKCE. Not the Agent Connect app, so never flagged as an agent"
    ],
    "x": 612,
    "y": 74
@@ -83,7 +83,7 @@
   {
    "id": "p_flow",
    "group": "green",
-   "label": "Muse Login (DaVinci flow policy)",
+   "label": "Agent Connect Login (DaVinci flow policy)",
    "sub": [
     "assigned to both apps. Branches on the app id"
    ],
@@ -95,7 +95,7 @@
    "group": "green",
    "label": "Protect predictor museAgentClient",
    "sub": [
-    "Muse app id = HIGH, in the default risk policy set"
+    "Agent Connect app id = HIGH, in the default risk policy set"
    ],
    "x": 612,
    "y": 228
@@ -103,7 +103,7 @@
   {
    "id": "p_res",
    "group": "green",
-   "label": "Muse Privilege MCP (resource)",
+   "label": "Agent Connect Privilege MCP (resource)",
    "sub": [
     "puts protect_agent = HIGH into the token"
    ],
@@ -115,7 +115,7 @@
    "group": "green",
    "label": "Agreements",
    "sub": [
-    "Muse Consent, and Airline Connector Consent"
+    "Agent Connect Consent, and Airline Connector Consent"
    ],
    "x": 40,
    "y": 228
@@ -155,7 +155,7 @@
    "group": "amber",
    "label": "PingOne Authorize",
    "sub": [
-    "allows only: right audience, Muse as actor, this tool"
+    "allows only: right audience, Agent Connect as actor, this tool"
    ],
    "x": 612,
    "y": 420
@@ -173,7 +173,7 @@
   {
    "id": "m_pod",
    "group": "dark",
-   "label": "Muse pod",
+   "label": "Agent Connect pod",
    "sub": [
     "UI, /api, and the Airline Connector at /mcp"
    ],
@@ -224,7 +224,7 @@
    "label": "4. Callback",
    "sub": [
     "agent.meta.ai/api/hatch/oauth/callback",
-    "(host allowed on Muse)"
+    "(host allowed on Agent Connect)"
    ],
    "x": 898,
    "y": 804
@@ -247,7 +247,7 @@
    "source": "p_flow",
    "target": "p_app",
    "label": "3",
-   "name": "Flow on Muse app"
+   "name": "Flow on Agent Connect app"
   },
   {
    "source": "p_flow",
@@ -325,7 +325,7 @@
  "steps": [
   {
    "title": "Protect rule",
-   "what": "A Protect predictor recognises the Muse app id and rates it HIGH.",
+   "what": "A Protect predictor recognises the Agent Connect app id and rates it HIGH.",
    "why": "Sign-in learns an agent is asking without trusting the agent to say so.",
    "edges": [
     0
@@ -333,7 +333,7 @@
   },
   {
    "title": "Consent screens",
-   "what": "Two agreements exist: Muse Consent and Airline Connector Consent.",
+   "what": "Two agreements exist: Agent Connect Consent and Airline Connector Consent.",
    "why": "Sam sees consent that names who is acting.",
    "edges": [
     0,
@@ -341,9 +341,9 @@
    ]
   },
   {
-   "title": "Flow on Muse app",
-   "what": "The Muse Login flow policy is assigned to the Muse agent login app.",
-   "why": "Sign-ins from Muse show the agent screen and ask for consent.",
+   "title": "Flow on Agent Connect app",
+   "what": "The Agent Connect Login flow policy is assigned to the Agent Connect agent login app.",
+   "why": "Sign-ins from Agent Connect show the agent screen and ask for consent.",
    "edges": [
     0,
     1,
@@ -352,7 +352,7 @@
   },
   {
    "title": "Flow on user app",
-   "what": "The same flow policy is assigned to Muse user login.",
+   "what": "The same flow policy is assigned to Agent Connect user login.",
    "why": "The flow compares the app id, so this app skips the agent screen and consent.",
    "edges": [
     0,
@@ -363,8 +363,8 @@
   },
   {
    "title": "protect_agent claim",
-   "what": "The Muse Privilege MCP resource copies protect_agent from the user into the token.",
-   "why": "The Muse page can show Protect’s verdict, red or blue.",
+   "what": "The Agent Connect Privilege MCP resource copies protect_agent from the user into the token.",
+   "why": "The Agent Connect page can show Protect’s verdict, red or blue.",
    "edges": [
     0,
     1,
@@ -433,8 +433,8 @@
   },
   {
    "title": "Pod signs in",
-   "what": "Muse redirects Sam to PingOne using the Muse agent login app.",
-   "why": "Muse never handles passwords.",
+   "what": "Agent Connect redirects Sam to PingOne using the Agent Connect agent login app.",
+   "why": "Agent Connect never handles passwords.",
    "edges": [
     0,
     1,
@@ -468,8 +468,8 @@
   },
   {
    "title": "Add connector",
-   "what": "In Meta’s Muse, add a custom connector.",
-   "why": "Meta’s Muse then treats Muse as one more tool server.",
+   "what": "In Meta’s Agent Connect, add a custom connector.",
+   "why": "Meta’s Agent Connect then treats Agent Connect as one more tool server.",
    "edges": [
     0,
     1,
@@ -488,7 +488,7 @@
   {
    "title": "Client ID",
    "what": "Enter client id airline-connector and leave the client secret blank.",
-   "why": "Meta’s Muse is a public client; PKCE protects the code.",
+   "why": "Meta’s Agent Connect is a public client; PKCE protects the code.",
    "edges": [
     0,
     1,
@@ -507,7 +507,7 @@
   },
   {
    "title": "Callback host",
-   "what": "Meta’s callback is agent.meta.ai/api/hatch/oauth/callback. Muse allows only that host.",
+   "what": "Meta’s callback is agent.meta.ai/api/hatch/oauth/callback. Agent Connect allows only that host.",
    "why": "Codes go only to a host the owner approved.",
    "edges": [
     0,
@@ -528,8 +528,8 @@
   },
   {
    "title": "Reaches /mcp",
-   "what": "The server URL points at the Muse pod’s /mcp endpoint.",
-   "why": "That endpoint answers 401 and tells Meta’s Muse where to sign in.",
+   "what": "The server URL points at the Agent Connect pod’s /mcp endpoint.",
+   "why": "That endpoint answers 401 and tells Meta’s Agent Connect where to sign in.",
    "edges": [
     0,
     1,

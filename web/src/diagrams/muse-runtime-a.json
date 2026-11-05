@@ -1,8 +1,8 @@
 {
  "schema": "diagram-studio/1",
  "id": "muse-runtime-a",
- "title": "Runtime A: Muse acts for Sam",
- "lede": "Real mode. Sam asks, PingOne signs him in and flags the agent, Sam consents, Muse gets a delegated token, and the gateway and Authorize let the tool run.",
+ "title": "Runtime A: Agent Connect acts for Sam",
+ "lede": "Real mode. Sam asks, PingOne signs him in and flags the agent, Sam consents, Agent Connect gets a delegated token, and the gateway and Authorize let the tool run.",
  "groups": {
   "green": {
    "label": "PingOne",
@@ -13,7 +13,7 @@
    "color": "amber"
   },
   "dark": {
-   "label": "Muse",
+   "label": "Agent Connect",
    "color": "dark"
   },
   "blue": {
@@ -28,7 +28,7 @@
  "lanes": [
   {
    "id": "lane0",
-   "label": "A. Muse in this demo, real mode: the agent acts for Sam",
+   "label": "A. Agent Connect in this demo, real mode: the agent acts for Sam",
    "x": 10,
    "y": 30,
    "w": 1168,
@@ -49,7 +49,7 @@
   {
    "id": "a2",
    "group": "amber",
-   "label": "2. Muse calls the gateway",
+   "label": "2. Agent Connect calls the gateway",
    "sub": [
     "no token on purpose: 401 + where to sign in"
    ],
@@ -71,7 +71,7 @@
    "group": "red",
    "label": "4. Agent detected",
    "sub": [
-    "Muse turns RED if Protect flagged it, BLUE if only the client id did"
+    "Agent Connect turns RED if Protect flagged it, BLUE if only the client id did"
    ],
    "x": 898,
    "y": 74
@@ -81,7 +81,7 @@
    "group": "green",
    "label": "5. Sam consents",
    "sub": [
-    "Muse Consent screen"
+    "Agent Connect Consent screen"
    ],
    "x": 40,
    "y": 228
@@ -89,7 +89,7 @@
   {
    "id": "a6",
    "group": "dark",
-   "label": "6. Code back to Muse",
+   "label": "6. Code back to Agent Connect",
    "sub": [
     "swapped for Sam's token, kept on the server"
    ],
@@ -99,9 +99,9 @@
   {
    "id": "a7",
    "group": "green",
-   "label": "7. Muse acts for Sam",
+   "label": "7. Agent Connect acts for Sam",
    "sub": [
-    "agent token + 2 token exchanges: sub = Sam, act = Muse"
+    "agent token + 2 token exchanges: sub = Sam, act = Agent Connect"
    ],
    "x": 612,
    "y": 228
@@ -109,7 +109,7 @@
   {
    "id": "a8",
    "group": "amber",
-   "label": "8. Muse asks again",
+   "label": "8. Agent Connect asks again",
    "sub": [
     "with the delegated token"
    ],
@@ -196,15 +196,15 @@
  "steps": [
   {
    "title": "Ask",
-   "what": "Sam asks Muse: \"Show my airline points\".",
-   "why": "Muse acts only when asked.",
+   "what": "Sam asks Agent Connect: \"Show my airline points\".",
+   "why": "Agent Connect acts only when asked.",
    "edges": [
     0
    ]
   },
   {
    "title": "401, sign in",
-   "what": "Muse calls the gateway with no token, on purpose. The 401 says where to sign in.",
+   "what": "Agent Connect calls the gateway with no token, on purpose. The 401 says where to sign in.",
    "why": "Nothing authenticated has been sent yet.",
    "edges": [
     0,
@@ -234,7 +234,7 @@
   },
   {
    "title": "Consent",
-   "what": "Sam allows Muse to act for him. PingOne returns a code to Muse.",
+   "what": "Sam allows Agent Connect to act for him. PingOne returns a code to Agent Connect.",
    "why": "Consent is recorded before any token is issued.",
    "edges": [
     0,
@@ -246,7 +246,7 @@
   },
   {
    "title": "Code to token",
-   "what": "Muse swaps the code for Sam’s token. It stays on the Muse server.",
+   "what": "Agent Connect swaps the code for Sam’s token. It stays on the Agent Connect server.",
    "why": "The browser never sees a token.",
    "edges": [
     0,
@@ -259,7 +259,7 @@
   },
   {
    "title": "Delegation",
-   "what": "Muse gets its own agent token, then makes two token exchanges. The result has sub = Sam and act = Muse.",
+   "what": "Agent Connect gets its own agent token, then makes two token exchanges. The result has sub = Sam and act = Agent Connect.",
    "why": "The gateway can tell who acts for whom.",
    "edges": [
     0,
@@ -273,7 +273,7 @@
   },
   {
    "title": "Authorize check",
-   "what": "Muse asks again with the delegated token. The gateway checks it, then asks PingOne Authorize: right audience, Muse a registered actor, tool allowed.",
+   "what": "Agent Connect asks again with the delegated token. The gateway checks it, then asks PingOne Authorize: right audience, Agent Connect a registered actor, tool allowed.",
    "why": "Policy decides every tool call.",
    "edges": [
     0,

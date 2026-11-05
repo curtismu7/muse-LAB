@@ -10,9 +10,9 @@ import { loadCustomer } from '../src/customer.js';
 const V = ['airline', 'bank', 'hotel'];
 const tmpFile = (obj) => { const f = join(mkdtempSync(join(tmpdir(), 'muse-cc-')), 'c.json'); writeFileSync(f, typeof obj === 'string' ? obj : JSON.stringify(obj)); return f; };
 
-test('the shipped customer config names the site Agent Connect and the agent Muse', () => {
+test('the shipped customer config names the site Agent Connect and the agent Agent Connect', () => {
   const c = loadCustomer({}, V);
-  assert.equal(c.brandName, 'Agent Connect'); assert.equal(c.agentName, 'Muse'); assert.equal(c.vertical, 'airline');
+  assert.equal(c.brandName, 'Agent Connect'); assert.equal(c.agentName, 'Agent Connect'); assert.equal(c.vertical, 'airline');
 });
 
 test('a customer file overrides the branding; bad values and bad files fall back to the defaults', () => {
@@ -20,7 +20,7 @@ test('a customer file overrides the branding; bad values and bad files fall back
   assert.deepEqual(ok, { brandName: 'Acme Connect', agentName: 'Ace', tagline: 'Hi', vertical: 'bank' });
   const bad = loadCustomer({ MUSE_CUSTOMER_CONFIG: tmpFile({ brandName: '<script>alert(1)</script>', agentName: 42, vertical: 'spaceship', tagline: 'x'.repeat(500) }) }, V);
   assert.equal(bad.brandName, 'Agent Connect', 'markup is refused');
-  assert.equal(bad.agentName, 'Muse', 'a non-string is refused');
+  assert.equal(bad.agentName, 'Agent Connect', 'a non-string is refused');
   assert.equal(bad.vertical, 'airline', 'an unknown vertical falls back to the first pack');
   assert.equal(bad.tagline.length, 120, 'long text is cut');
   assert.equal(loadCustomer({ MUSE_CUSTOMER_CONFIG: tmpFile('{not json') }, V).brandName, 'Agent Connect', 'a broken file falls back');

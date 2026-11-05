@@ -2,7 +2,7 @@
  "schema": "diagram-studio/1",
  "id": "muse-runtime-b",
  "title": "Runtime B: through the Airline Connector",
- "lede": "Meta’s Muse asks Muse through the Airline Connector. Same sign-in and delegation; Meta only ever holds a Muse token.",
+ "lede": "Meta’s Agent Connect asks Agent Connect through the Airline Connector. Same sign-in and delegation; Meta only ever holds a Agent Connect token.",
  "groups": {
   "green": {
    "label": "PingOne",
@@ -13,7 +13,7 @@
    "color": "amber"
   },
   "dark": {
-   "label": "Muse",
+   "label": "Agent Connect",
    "color": "dark"
   },
   "blue": {
@@ -28,7 +28,7 @@
  "lanes": [
   {
    "id": "lane0",
-   "label": "B. Through the Airline Connector: Meta's Muse asks Muse",
+   "label": "B. Through the Airline Connector: Meta's Muse asks Agent Connect",
    "x": 10,
    "y": 30,
    "w": 1168,
@@ -61,7 +61,7 @@
    "group": "dark",
    "label": "3. /mcp answers 401",
    "sub": [
-    "with metadata: sign in at Muse's own authorize endpoint"
+    "with metadata: sign in at Agent Connect's own authorize endpoint"
    ],
    "x": 612,
    "y": 74
@@ -89,7 +89,7 @@
   {
    "id": "b6",
    "group": "green",
-   "label": "6. Muse does the exchanges",
+   "label": "6. Agent Connect does the exchanges",
    "sub": [
     "same agent token + 2 exchanges as part A"
    ],
@@ -99,9 +99,9 @@
   {
    "id": "b7",
    "group": "dark",
-   "label": "7. Muse gives Meta its own token",
+   "label": "7. Agent Connect gives Meta its own token",
    "sub": [
-    "the PingOne token never leaves Muse"
+    "the PingOne token never leaves Agent Connect"
    ],
    "x": 612,
    "y": 228
@@ -111,7 +111,7 @@
    "group": "amber",
    "label": "8. Meta calls /mcp with it",
    "sub": [
-    "Muse calls the gateway for it"
+    "Agent Connect calls the gateway for it"
    ],
    "x": 898,
    "y": 228
@@ -168,7 +168,7 @@
    "source": "b7",
    "target": "b8",
    "label": "B7",
-   "name": "Muse token"
+   "name": "Agent Connect token"
   },
   {
    "source": "b8",
@@ -180,15 +180,15 @@
  "steps": [
   {
    "title": "Ask",
-   "what": "The user asks in Meta’s Muse: \"How many SkyHigh points do I have?\"",
-   "why": "The user never leaves Meta’s Muse.",
+   "what": "The user asks in Meta’s Agent Connect: \"How many SkyHigh points do I have?\"",
+   "why": "The user never leaves Meta’s Agent Connect.",
    "edges": [
     0
    ]
   },
   {
    "title": "Picks connector",
-   "what": "Meta’s Muse reads each connector’s tool names and descriptions and picks the one for the airline.",
+   "what": "Meta’s Agent Connect reads each connector’s tool names and descriptions and picks the one for the airline.",
    "why": "The airline name in the descriptions tells two airline connectors apart.",
    "edges": [
     0,
@@ -197,7 +197,7 @@
   },
   {
    "title": "401, sign in",
-   "what": "/mcp answers 401 with metadata pointing at Muse’s own authorize endpoint. Meta’s Muse sends the user to PingOne.",
+   "what": "/mcp answers 401 with metadata pointing at Agent Connect’s own authorize endpoint. Meta’s Agent Connect sends the user to PingOne.",
    "why": "Standard MCP OAuth discovery.",
    "edges": [
     0,
@@ -218,8 +218,8 @@
   },
   {
    "title": "Consent",
-   "what": "Sam allows the Airline Connector. PingOne returns a code to Muse.",
-   "why": "Consent names the connector, not just Muse.",
+   "what": "Sam allows the Airline Connector. PingOne returns a code to Agent Connect.",
+   "why": "Consent names the connector, not just Agent Connect.",
    "edges": [
     0,
     1,
@@ -230,7 +230,7 @@
   },
   {
    "title": "Exchanges",
-   "what": "Muse does the agent token and the two exchanges, as in path A.",
+   "what": "Agent Connect does the agent token and the two exchanges, as in path A.",
    "why": "Authorize treats a connector call like any agent call.",
    "edges": [
     0,
@@ -242,8 +242,8 @@
    ]
   },
   {
-   "title": "Muse token",
-   "what": "Muse gives Meta’s Muse its own token. The PingOne token never leaves Muse.",
+   "title": "Agent Connect token",
+   "what": "Agent Connect gives Meta’s Agent Connect its own token. The PingOne token never leaves Agent Connect.",
    "why": "Meta never holds a PingOne token.",
    "edges": [
     0,
@@ -257,7 +257,7 @@
   },
   {
    "title": "Answer",
-   "what": "Meta’s Muse calls /mcp. Muse calls the gateway with the delegated token and returns the points and tier.",
+   "what": "Meta’s Agent Connect calls /mcp. Agent Connect calls the gateway with the delegated token and returns the points and tier.",
    "why": "The answer comes back through the same checks as path A.",
    "edges": [
     0,

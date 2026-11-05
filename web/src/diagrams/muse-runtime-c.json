@@ -13,7 +13,7 @@
    "color": "amber"
   },
   "dark": {
-   "label": "Muse",
+   "label": "Agent Connect",
    "color": "dark"
   },
   "blue": {
@@ -41,7 +41,7 @@
    "group": "dark",
    "label": "1. Sign in as Sam (no agent)",
    "sub": [
-    "button on Muse"
+    "button on Agent Connect"
    ],
    "x": 40,
    "y": 74
@@ -51,7 +51,7 @@
    "group": "green",
    "label": "2. PingOne sign-in",
    "sub": [
-    "the Muse user login app: no agent screen, no consent"
+    "the Agent Connect user login app: no agent screen, no consent"
    ],
    "x": 326,
    "y": 74
@@ -108,7 +108,7 @@
   },
   {
    "title": "Own token",
-   "what": "The Muse user login app is not the Muse app, so there is no agent screen and no consent. PingOne issues Sam’s own token.",
+   "what": "The Agent Connect user login app is not the Agent Connect app, so there is no agent screen and no consent. PingOne issues Sam’s own token.",
    "why": "The flow decides by app id.",
    "edges": [
     0,
@@ -117,7 +117,7 @@
   },
   {
    "title": "Denied",
-   "what": "Muse sends Sam’s own token straight to the gateway. No act claim and the wrong audience: 401.",
+   "what": "Agent Connect sends Sam’s own token straight to the gateway. No act claim and the wrong audience: 401.",
    "why": "Only a token that names an agent acting for Sam gets through.",
    "edges": [
     0,

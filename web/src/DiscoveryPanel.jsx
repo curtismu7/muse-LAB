@@ -23,7 +23,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
   const callGw = () => guarded(async () => { await api('POST', '/api/live/call'); await onChange(); });
   const reset = () => guarded(async () => { await api('POST', '/api/reset'); await onChange(); setOpen(null); });
   const [prompt, setPrompt] = useState('');
-  // Off: Muse shows the 401 and a Continue button. On: no button; Muse shows the 401 for a moment, goes to PingOne, and answers on return.
+  // Off: Agent Connect shows the 401 and a Continue button. On: no button; Agent Connect shows the 401 for a moment, goes to PingOne, and answers on return.
   const [auto, setAuto] = useState(readAuto);
   // PingOne MFA: on leaves the flow as it is (MFA on medium risk); off sends a flag the DaVinci flow reads to skip it.
   const [mfa, setMfa] = useState(readMfa);
@@ -48,12 +48,12 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
         {!live && <button type="button" onClick={discover} disabled={busy}>Call Agent Privilege with no token</button>}
       </div>
       <p className="muted small">
-        {live ? `Real: Muse calls ${session.live.origin} for you. PingOne signs you in, then Muse acts on your behalf.` : 'Fake: nothing leaves this page. The answers are teaching values.'}
+        {live ? `Real: Agent Connect calls ${session.live.origin} for you. PingOne signs you in, then Agent Connect acts on your behalf.` : 'Fake: nothing leaves this page. The answers are teaching values.'}
       </p>
       {live && (
         <div className="live-chat" data-testid="live-ask">
           <div className="feed live-feed" role="log" aria-live="polite">
-            {!la.ask && <p className="muted center">Ask Muse for something, for example: {POINTS_PROMPT.toLowerCase()}.</p>}
+            {!la.ask && <p className="muted center">Ask Agent Connect for something, for example: {POINTS_PROMPT.toLowerCase()}.</p>}
             {la.ask && <div className="bubble user">{la.ask.prompt}</div>}
             {la.ask && session.discovery && (
               <div className="msg">
@@ -71,8 +71,8 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
             )}
           </div>
           <form className="composer" onSubmit={(e) => { e.preventDefault(); if (prompt.trim()) { ask(prompt.trim()); setPrompt(''); } }}>
-            <label className="sr-only" htmlFor="live-ask-input">Ask Muse</label>
-            <input id="live-ask-input" type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder='Ask Muse, e.g. "show my airline points"' autoComplete="off" disabled={busy} />
+            <label className="sr-only" htmlFor="live-ask-input">Ask Agent Connect</label>
+            <input id="live-ask-input" type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder='Ask Agent Connect, e.g. "show my airline points"' autoComplete="off" disabled={busy} />
             <button type="submit" className="primary" disabled={busy || !prompt.trim()}>Send</button>
           </form>
           <div className="prompts" role="group" aria-label="Prompts">
@@ -82,14 +82,14 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
               <input type="checkbox" role="switch" checked={mfa} onChange={(e) => toggleMfa(e.target.checked)} />
               <span>PingOne MFA</span>
             </label>
-            <label className="toggle" title="On: no button. Muse goes to PingOne after the 401, and answers when you return. Off: show the Continue button.">
+            <label className="toggle" title="On: no button. Agent Connect goes to PingOne after the 401, and answers when you return. Off: show the Continue button.">
               <input type="checkbox" role="switch" checked={auto} onChange={(e) => toggleAuto(e.target.checked)} />
               <span>Run all the way through</span>
             </label>
           </div>
         </div>
       )}
-      {d && live && <p className="small muted"><strong>What Muse did</strong>, step by step (click a step for the raw request and response):</p>}
+      {d && live && <p className="small muted"><strong>What Agent Connect did</strong>, step by step (click a step for the raw request and response):</p>}
       {d && (
         <ol className="disco-steps">
           {d.steps.map((s) => (
@@ -113,11 +113,11 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded }
       {d?.stopped && <p role="alert" className="small bad">Stopped: {d.stopped}</p>}
       {d?.learned && (
         <p className="small" data-testid="learned">
-          Muse learned: sign in at <code>{d.learned.authorizeEndpoint}</code>, token from <code>{d.learned.tokenEndpoint}</code>{d.learned.pkce ? ', PKCE required' : ''}.
+          Agent Connect learned: sign in at <code>{d.learned.authorizeEndpoint}</code>, token from <code>{d.learned.tokenEndpoint}</code>{d.learned.pkce ? ', PKCE required' : ''}.
         </p>
       )}
       {live && la.error && <p role="alert" className="small bad">{la.error}</p>}
-      {live && la.claims && <p className="small" data-testid="claims">Token claims (the token itself stays on the Muse server): <code>{JSON.stringify(la.claims)}</code></p>}
+      {live && la.claims && <p className="small" data-testid="claims">Token claims (the token itself stays on the Agent Connect server): <code>{JSON.stringify(la.claims)}</code></p>}
     </section>
   );
 }

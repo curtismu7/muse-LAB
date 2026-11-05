@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 
 const DEFAULT_FILE = new URL('./customer.config.json', import.meta.url);
 const FIELDS = { brandName: 40, agentName: 40, tagline: 120, vertical: 20 };
-const FALLBACK = { brandName: 'Agent Connect', agentName: 'Muse', tagline: '', vertical: 'airline' };
+const FALLBACK = { brandName: 'Agent Connect', agentName: 'Agent Connect', tagline: '', vertical: 'airline' };
 
 const clean = (v, max) => (typeof v === 'string' && v.trim() && !/[<>]/.test(v) ? v.trim().slice(0, max) : null);
 

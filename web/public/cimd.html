@@ -87,11 +87,11 @@ pre { margin: 0; background: var(--bg); border: 1px solid var(--line); border-ra
 </style>
 </head>
 <body>
-<p class="back"><a href="/how-muse-works.html#cimd">Back to How Muse works</a><span class="back-actions"><span class="ts" role="group" aria-label="Text size"><button type="button" class="pdf-btn" id="ts-dn" aria-label="Smaller text">A&minus;</button><span id="ts-now" aria-live="polite">100%</span><button type="button" class="pdf-btn" id="ts-up" aria-label="Larger text">A+</button></span> <button type="button" class="pdf-btn" id="theme-btn">Theme</button></span></p>
+<p class="back"><a href="/how-agent-connect-works.html#cimd">Back to How Agent Connect works</a><span class="back-actions"><span class="ts" role="group" aria-label="Text size"><button type="button" class="pdf-btn" id="ts-dn" aria-label="Smaller text">A&minus;</button><span id="ts-now" aria-live="polite">100%</span><button type="button" class="pdf-btn" id="ts-up" aria-label="Larger text">A+</button></span> <button type="button" class="pdf-btn" id="theme-btn">Theme</button></span></p>
 <main>
   <header>
     <h1>CIMD, step by step: mock and real</h1>
-    <p class="lede">With a Client ID Metadata Document the app's <code>client_id</code> is a web address. The authorization server fetches that address, checks what it finds, and only then lets the sign-in go ahead. Below, every request and response, once as a labelled mock of what Muse's connector would do, and once as captured from real servers.</p>
+    <p class="lede">With a Client ID Metadata Document the app's <code>client_id</code> is a web address. The authorization server fetches that address, checks what it finds, and only then lets the sign-in go ahead. Below, every request and response, once as a labelled mock of what Agent Connect's connector would do, and once as captured from real servers.</p>
   </header>
 
   <div class="tabs" role="tablist" aria-label="Example">
@@ -250,7 +250,7 @@ location: https://api.notion.com/v1/oauth/authorize?client_id=1f8d872b-594c-80a4
       <div class="step">
         <h3 id="r7">7. Real PingFederate does it too (the CIMD server we use)</h3>
         <p class="muted">Captured on the SE PingFederate on 29 October 2026 (agents-f5, read-only requests plus one owner-approved policy). Host names are replaced with <code>.example</code> names here; the responses are as captured.</p>
-        <p>PingFederate 13.1 added CIMD. The SE server (<code>pf.example</code>) and a local 13.1.3 both advertise <code>client_id_metadata_document_supported: true</code> and list <code>none</code> and <code>private_key_jwt</code>. Our Muse connector sits in front of PingOne, which has no CIMD, so Muse registers apps by DCR; <strong>PingFederate is where CIMD runs</strong>.</p>
+        <p>PingFederate 13.1 added CIMD. The SE server (<code>pf.example</code>) and a local 13.1.3 both advertise <code>client_id_metadata_document_supported: true</code> and list <code>none</code> and <code>private_key_jwt</code>. Our Agent Connect connector sits in front of PingOne, which has no CIMD, so Agent Connect registers apps by DCR; <strong>PingFederate is where CIMD runs</strong>.</p>
         <p><strong>Before a policy allowed the client: refused.</strong> The SE server had CIMD on and three policies, each allowing one exact metadata URL, with PKCE required. client.dev was in none of them, so PingFederate rejects the request:</p>
 <pre>GET /as/authorization.oauth2?client_id=https://client.dev/oauth/metadata.json&amp;response_type=code&amp;redirect_uri=https://client.dev/oauth/callback&amp;code_challenge=E9Melho...&amp;code_challenge_method=S256&amp;state=x
 Host: pf-local.example:9031
@@ -271,7 +271,7 @@ location: https://client.dev/oauth/callback?error=server_error&amp;error_descrip
   <div class="panel" id="p-mock" role="tabpanel" aria-labelledby="t-mock">
     <section aria-labelledby="m-intro">
       <h2 id="m-intro"><span class="tag sim">Mock</span> What a server does with a CIMD client_id</h2>
-      <p>This is scripted, not captured. It follows what Linear, Notion and PingFederate did on the Real tab, as a plain walk-through of the checks. Muse's own connector does not use CIMD: it sits in front of PingOne, which has none, so it registers apps by DCR. The app is Codex, using its real document from the other tab, so the shapes match. Codes, tokens and the PKCE values are samples. Codex needs only PKCE. ChatGPT's real document asks for <code>private_key_jwt</code>, so supporting ChatGPT would also mean fetching its key set and checking a signed assertion at the token step, which this walk-through does not show.</p>
+      <p>This is scripted, not captured. It follows what Linear, Notion and PingFederate did on the Real tab, as a plain walk-through of the checks. Agent Connect's own connector does not use CIMD: it sits in front of PingOne, which has none, so it registers apps by DCR. The app is Codex, using its real document from the other tab, so the shapes match. Codes, tokens and the PKCE values are samples. Codex needs only PKCE. ChatGPT's real document asks for <code>private_key_jwt</code>, so supporting ChatGPT would also mean fetching its key set and checking a signed assertion at the token step, which this walk-through does not show.</p>
     </section>
 
     <section aria-labelledby="m1">
@@ -366,7 +366,7 @@ grant_type=authorization_code&amp;code=SAMPLE_CODE
     <ul>
       <li><span class="tag real">Real</span> ChatGPT, Codex and Claude Code host their own documents. Linear and Notion accept ChatGPT's and Codex's, and refuse a callback that is not in the document.</li>
       <li><span class="tag real">Real</span> PingFederate 13.1.x advertises CIMD. It refused client.dev until a policy allowed it, then fetched and validated the document. The sign-in then failed on a missing token mapping, which is not CIMD.</li>
-      <li><span class="tag sim">Mock</span> The generic walk-through on the Mock tab. Muse's own connector does not do CIMD by design (PingOne has none); PingFederate does.</li>
+      <li><span class="tag sim">Mock</span> The generic walk-through on the Mock tab. Agent Connect's own connector does not do CIMD by design (PingOne has none); PingFederate does.</li>
       <li><span class="tag todo">Open</span> The token step with a real signed-in user, for ChatGPT (<code>private_key_jwt</code>) and Codex. Whether ChatGPT falls back to <code>none</code> when a server lacks <code>private_key_jwt</code> is not verified.</li>
     </ul>
     <p class="note">PingFederate's CIMD support follows an evolving draft specification, and its documentation warns later changes may not be backward compatible. See <a href="https://docs.pingidentity.com/pingfederate/13.1/administrators_reference_guide/pf_cimd.html">PingFederate CIMD</a>.</p>

@@ -10,7 +10,7 @@ A personal-agent demo with two modes. Pick the mode before you package.
 |---|---|---|
 | Talks to | nothing outside the pod: a simulated PingOne flow, stub gateway | a real PingOne tenant (DaVinci, Protect, MFA), the Privilege/Agent Gateway, the OBO token exchanges |
 | Needs | nothing | a Kubernetes Secret named `muse-real` (owner-made, never committed) |
-| Pages | `/`, `/diagram`, `/how-muse-works.html`, `/cimd.html`, `/clients.html` | the same, plus a working **Sign in live** on `/clients.html` and "Connect from your assistant" on `/` |
+| Pages | `/`, `/diagram`, `/how-agent-connect-works.html`, `/cimd.html`, `/clients.html` | the same, plus a working **Sign in live** on `/clients.html` and "Connect from your assistant" on `/` |
 | Right for a zip? | **Yes.** No tenant, no secrets | **No.** It would carry tenant identifiers |
 
 **Update 2026-10-29 (late):** the site is renamed **Agent Connect** (the personal agent inside it is still Muse; the repo keeps its name). Hosts: real `https://agent-connect.ai-demo.ping-devops.com/` (Real mode) and mock-only `https://agent-connect-mock.ai-demo.ping-devops.com/`; the old `muse` and `muse-mock` hosts answer 301 to them. Both run `sha-17e5dea` (conformance #43 and the dark-mode diagram fix #44). Everything below that names the old hosts or older images is kept as written but is out of date on those two points.

@@ -12,13 +12,13 @@ What exists now: `/cimd.html` (PRs #20, #27, #31, #32, #42) with the real ChatGP
 
 | Item | State |
 |---|---|
-| Explainer section `#cimd` in `web/public/how-muse-works.html` | In PR #20, not merged, not deployed |
+| Explainer section `#cimd` in `web/public/how-agent-connect-works.html` | In PR #20, not merged, not deployed |
 | Dedicated page `web/public/cimd.html` (Real tab, Mock tab) | In PR #20, not merged, not deployed |
 | Muse connector supporting CIMD | **Not built.** `server/src/connector.js` lists `none` in `token_endpoint_auth_methods_supported` but has no `client_id_metadata_document_supported`, and `/connector/register` issues a new client per connection (DCR) |
 | PingFederate CIMD policy for client.dev | **Not created.** The accepted path is not captured |
 | Live CIMD demo (client.dev port with PF as the server) | Planned in the PingFederate standalone by another session. Not started here |
 
-Branch `docs/cimd-explainer`, PR https://github.com/cmuir_pingcorp/muse/pull/20. Live URLs after deploy: `https://agent-connect.ai-demo.ping-devops.com/cimd.html` and `https://agent-connect.ai-demo.ping-devops.com/how-muse-works.html#cimd`.
+Branch `docs/cimd-explainer`, PR https://github.com/cmuir_pingcorp/muse/pull/20. Live URLs after deploy: `https://agent-connect.ai-demo.ping-devops.com/cimd.html` and `https://agent-connect.ai-demo.ping-devops.com/how-agent-connect-works.html#cimd`.
 
 ## What was verified
 
