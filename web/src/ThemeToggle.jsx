@@ -1,33 +1,27 @@
 import React, { useState } from 'react';
 
-// System, Light or Dark. The choice is kept in this browser and shared by the app, the diagram page and the how-it-works page.
+// Auto, Light or Dark. The choice is kept in this browser and shared by the app, the diagram page and the how-it-works page.
+// The picker only sets data-theme; the shared stylesheet does the rest ("auto" follows the system setting).
 const KEY = 'muse.theme';
-const ORDER = ['system', 'light', 'dark'];
-const LABEL = { system: 'System', light: 'Light', dark: 'Dark' };
-export const readTheme = () => { try { const t = window.localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : 'system'; } catch { return 'system'; } };
+const THEMES = [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']];
+export const readTheme = () => { try { const t = window.localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : 'auto'; } catch { return 'auto'; } };
 export const applyTheme = (t) => {
   const r = document.documentElement;
-  if (t === 'system') {
-    // System mode follows the OS. The stylesheet has no @media (prefers-color-scheme) (CSS standard),
-    // so system mode applies dark by setting data-theme when the OS is dark, and clears it otherwise.
-    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (dark) r.setAttribute('data-theme', 'dark'); else r.removeAttribute('data-theme');
-  } else r.setAttribute('data-theme', t);
+  if (t === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', t);
 };
 
 export default function ThemeToggle({ className = '' }) {
   const [theme, setTheme] = useState(readTheme);
-  React.useEffect(() => {
-    if (theme !== 'system') return undefined;
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = () => applyTheme('system');
-    mq.addEventListener?.('change', onChange);
-    return () => mq.removeEventListener?.('change', onChange);
-  }, [theme]);
-  const next = () => {
-    const n = ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length];
-    setTheme(n); applyTheme(n);
-    try { if (n === 'system') window.localStorage.removeItem(KEY); else window.localStorage.setItem(KEY, n); } catch { /* storage unavailable */ }
+  const pick = (t) => {
+    setTheme(t); applyTheme(t);
+    try { if (t === 'auto') window.localStorage.removeItem(KEY); else window.localStorage.setItem(KEY, t); } catch { /* storage unavailable */ }
   };
-  return <button type="button" className={`theme-toggle ${className}`.trim()} onClick={next} aria-label={`Theme: ${LABEL[theme]}. Click to change.`} data-testid="theme-toggle">Theme: {LABEL[theme]}</button>;
+  return (
+    <label className={`theme-toggle ${className}`.trim()}>
+      Theme
+      <select value={theme} onChange={(e) => pick(e.target.value)} data-testid="theme-toggle">
+        {THEMES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+      </select>
+    </label>
+  );
 }

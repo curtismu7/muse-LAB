@@ -439,7 +439,8 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .app--live .rail, .app--live .side { display: none; }
 .banner.live { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); }
 
-.theme-toggle { font: inherit; font-size: calc(16px * var(--fs, 1)); font-weight: 600; border-radius: 999px; padding: 4px 14px; cursor: pointer; background: var(--surface); color: var(--text); border: 1px solid var(--control-border); }
+.theme-toggle { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: calc(16px * var(--fs, 1)); font-weight: 600; border-radius: 999px; padding: 4px 14px; cursor: pointer; background: var(--surface); color: var(--text); border: 1px solid var(--control-border); }
+.theme-toggle select { min-height: 32px; padding: 4px 8px; }
 .theme-toggle.on-band { background: transparent; color: var(--on-fill); border-color: var(--on-fill-line); }
 .theme-toggle.on-band:hover { background: var(--on-fill-faint); }
 .diagram-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
