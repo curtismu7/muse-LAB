@@ -17,7 +17,7 @@ test('a model is only used when its address is loopback (or listed), never on a 
   assert.equal(agentConfig({ MUSE_LLM_URL: 'file:///etc/passwd' }), null);
 });
 
-test('plan: the model picks a tool from Muse\'s list; text around the JSON is tolerated', async () => {
+test('plan: the model picks a tool from Agent Connect\'s list; text around the JSON is tolerated', async () => {
   const p = await plan(CFG, 'what are my miles', says('Sure! {"tool":"get_loyalty_status"} done'));
   assert.deepEqual([p.tool, p.via, p.model], ['get_loyalty_status', 'llm', 'm1']);
 });
@@ -40,7 +40,7 @@ test('plan: "none" declines with the model\'s short reply; a model that is down 
   assert.equal(junk.via, 'keywords');
 });
 
-test('plan: only the prompt and Muse\'s own tool list go to the model, and the prompt is capped', async () => {
+test('plan: only the prompt and Agent Connect\'s own tool list go to the model, and the prompt is capped', async () => {
   let sent;
   await plan(CFG, 'x'.repeat(1000), async (url, init) => { sent = JSON.parse(init.body); return json(200, { choices: [{ message: { content: '{"tool":"none"}' } }] }); });
   assert.equal(sent.messages[1].content.length, 300);

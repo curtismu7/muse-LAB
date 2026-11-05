@@ -15,7 +15,7 @@ test('a hosted build stays mock-only unless real mode is turned on on purpose, w
   assert.equal(liveConfig({ ...BASE, MUSE_ALLOW_LIVE_HOSTED: '1', MUSE_PUBLIC_URL: 'http://muse.example' }), null, 'http public address');
   assert.equal(liveConfig({ ...BASE, MUSE_ALLOW_LIVE_HOSTED: '1', MUSE_PUBLIC_URL: 'nonsense' }), null);
   const ok = liveConfig({ ...BASE, MUSE_ALLOW_LIVE_HOSTED: '1', MUSE_PUBLIC_URL: 'https://muse.example/ignored/path' });
-  assert.equal(ok.publicUrl, 'https://muse.example', 'only the origin is kept');
+  assert.equal(ok.publicUrl, 'https://muse.example/ignored/path', 'the base path is kept (lab-proxy serves the app under a path)');
   assert.equal(liveConfig({ ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: GW, MUSE_ALLOW_LIVE_HOSTED: '1', MUSE_PUBLIC_URL: 'https://muse.example' }).publicUrl, null, 'a local run ignores the public address');
 });
 
@@ -66,6 +66,6 @@ test('a plain-http public address is refused for hosted real mode unless the own
   assert.equal(liveConfig({ ...on, MUSE_PUBLIC_URL: 'http://127.0.0.1:5102' }), null, 'no opt-in');
   assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'http://muse.example' }), null, 'opt-in does not allow a non-loopback http address');
   assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'http://127.0.0.1.evil.example' }), null, 'lookalike host');
-  assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'http://127.0.0.1:5102/x' }).publicUrl, 'http://127.0.0.1:5102');
+  assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'http://127.0.0.1:5102/x' }).publicUrl, 'http://127.0.0.1:5102/x', 'the base path is kept');
   assert.equal(liveConfig({ ...on, MUSE_ALLOW_LIVE_LOOPBACK: '1', MUSE_PUBLIC_URL: 'https://muse.example' }).publicUrl, 'https://muse.example', 'https still works');
 });

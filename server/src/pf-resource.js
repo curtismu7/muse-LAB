@@ -1,7 +1,7 @@
 // The CIMD path: an MCP resource whose authorization server is a real PingFederate (13.1 or later, CIMD on).
-// ChatGPT, Claude and Codex present a client ID metadata document there instead of registering. Muse serves labelled copies of those
-// documents (the real ones name chatgpt.com and claude.ai callbacks Muse cannot receive at) and a JWKS for ChatGPT's private_key_jwt.
-// /mcp-pf checks PingFederate's JWT (signature against PF's JWKS, iss, aud = this resource, exp, the scope), then answers from Muse's own
+// ChatGPT, Claude and Codex present a client ID metadata document there instead of registering. Agent Connect serves labelled copies of those
+// documents (the real ones name chatgpt.com and claude.ai callbacks Agent Connect cannot receive at) and a JWKS for ChatGPT's private_key_jwt.
+// /mcp-pf checks PingFederate's JWT (signature against PF's JWKS, iss, aud = this resource, exp, the scope), then answers from Agent Connect's own
 // demo record: on this path the airline gateway is not called (that leg runs on the PingOne path), and the answer says so.
 // Only on when real mode is configured and MUSE_PF_ISSUER is set.
 import express from 'express';
@@ -20,15 +20,15 @@ export function pfConfig(env, live) {
   return { issuer: issuer.origin, publicUrl: pub.origin, scope: (env.MUSE_PF_SCOPE || 'muse:mcp').trim() };
 }
 
-// The documents as Muse serves them: the real platform's fields, with Muse's own client_id URL and callback.
+// The documents as Agent Connect serves them: the real platform's fields, with Agent Connect's own client_id URL and callback.
 export function clientDocuments(publicUrl) {
   const id = (k) => `${publicUrl}/sim/${k}/client.json`;
   const cb = (k) => [`${publicUrl}/sim/${k}/callback`];
-  const note = 'Labelled copy for the Muse demo. The real document is at the address in x_real_document; its callbacks are on the platform\'s own host.';
+  const note = 'Labelled copy for the Agent Connect demo. The real document is at the address in x_real_document; its callbacks are on the platform\'s own host.';
   return {
-    chatgpt: { client_id: id('chatgpt'), client_name: 'ChatGPT (Muse demo copy)', client_uri: 'https://chatgpt.com/', redirect_uris: cb('chatgpt'), token_endpoint_auth_method: 'private_key_jwt', token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'], token_endpoint_auth_signing_alg: 'RS256', jwks_uri: `${publicUrl}/sim/chatgpt/jwks.json`, grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], x_real_document: 'https://chatgpt.com/oauth/client.json', x_note: note },
-    codex: { client_id: id('codex'), client_name: 'Codex (Muse demo copy)', client_uri: 'https://chatgpt.com/codex', application_type: 'native', redirect_uris: cb('codex'), token_endpoint_auth_method: 'none', token_endpoint_auth_methods_supported: ['none'], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], x_real_document: 'https://chatgpt.com/oauth/codex/client.json', x_note: `${note} Real Codex calls back on the customer's loopback (http://127.0.0.1/callback, any port).` },
-    claude: { client_id: id('claude'), client_name: 'Claude (Muse demo copy)', client_uri: 'https://claude.ai', redirect_uris: cb('claude'), token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], x_real_document: 'https://claude.ai/oauth/claude-code-client-metadata', x_note: `${note} Claude's web document address is not published; this copy follows Claude Code's.` },
+    chatgpt: { client_id: id('chatgpt'), client_name: 'ChatGPT (Agent Connect demo copy)', client_uri: 'https://chatgpt.com/', redirect_uris: cb('chatgpt'), token_endpoint_auth_method: 'private_key_jwt', token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'], token_endpoint_auth_signing_alg: 'RS256', jwks_uri: `${publicUrl}/sim/chatgpt/jwks.json`, grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], x_real_document: 'https://chatgpt.com/oauth/client.json', x_note: note },
+    codex: { client_id: id('codex'), client_name: 'Codex (Agent Connect demo copy)', client_uri: 'https://chatgpt.com/codex', application_type: 'native', redirect_uris: cb('codex'), token_endpoint_auth_method: 'none', token_endpoint_auth_methods_supported: ['none'], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], x_real_document: 'https://chatgpt.com/oauth/codex/client.json', x_note: `${note} Real Codex calls back on the customer's loopback (http://127.0.0.1/callback, any port).` },
+    claude: { client_id: id('claude'), client_name: 'Claude (Agent Connect demo copy)', client_uri: 'https://claude.ai', redirect_uris: cb('claude'), token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], x_real_document: 'https://claude.ai/oauth/claude-code-client-metadata', x_note: `${note} Claude's web document address is not published; this copy follows Claude Code's.` },
   };
 }
 
@@ -100,7 +100,7 @@ export function mountPfResource(app, { env, live, fetchImpl = fetch, key }) {
       if (method === 'tools/call') {
         if (!TOOLS.some((t) => t.name === params?.name)) return { jsonrpc: '2.0', id, error: { code: -32602, message: 'Unknown tool' } };
         const who = String(r.claims.sub ?? 'member').slice(0, 60);
-        const rec = { points: 52000, tier: 'Premier Gold', passenger: who, source: 'Muse demo record: on the PingFederate path the airline gateway is not called (that leg runs on the PingOne path).' };
+        const rec = { points: 52000, tier: 'Premier Gold', passenger: who, source: 'Agent Connect demo record: on the PingFederate path the airline gateway is not called (that leg runs on the PingOne path).' };
         return rpc(id, { content: [{ type: 'text', text: JSON.stringify(rec) }], isError: false });
       }
       if (method === 'ping') return rpc(id, {});

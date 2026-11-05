@@ -227,11 +227,11 @@ test('Privilege lane: sign-in asks for openid only, no resource; exchange 2 asks
   assert.equal(u.searchParams.get('scope'), 'openid');
   assert.equal(u.searchParams.has('resource'), false);
   await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
-  assert.equal(bodies.at(-1).scope, 'mcp:invoke', 'exchange 2 targets the Muse Privilege resource');
+  assert.equal(bodies.at(-1).scope, 'mcp:invoke', 'exchange 2 targets the Agent Connect Privilege resource');
   await new Promise((r) => server.close(r));
 });
 
-test('the user asks first: 401 from the gateway, then PingOne, then Muse retries and answers on return', async () => {
+test('the user asks first: 401 from the gateway, then PingOne, then Agent Connect retries and answers on return', async () => {
   const P1 = 'https://auth.pingone.com/env1/as';
   const n = net({
     [GW]: (init) => {
@@ -259,7 +259,7 @@ test('the user asks first: 401 from the gateway, then PingOne, then Muse retries
   const u = new URL((await call('POST', '/api/live/signin')).j.url);
   await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
   const after = (await call('GET', '/api/session')).j;
-  assert.deepEqual([after.liveAuth.answer.points, after.liveAuth.answer.tier, after.liveAuth.answer.reply], [4500, 'Gold', 'You have 4,500 points (Gold).'], 'Muse finished the request after the redirect');
+  assert.deepEqual([after.liveAuth.answer.points, after.liveAuth.answer.tier, after.liveAuth.answer.reply], [4500, 'Gold', 'You have 4,500 points (Gold).'], 'Agent Connect finished the request after the redirect');
   assert.ok(after.liveAuth.steps.some((x) => x.n === 9));
   await new Promise((r) => server.close(r));
 });
@@ -297,7 +297,7 @@ test('just a user: separate PingOne app, no exchange, own token to the gateway i
   const su = await call('POST', '/api/live/signin', { as: 'user', mfa: 'off' });
   assert.ok(su.j?.url, JSON.stringify(su));
   const u = new URL(su.j.url);
-  assert.equal(u.searchParams.get('client_id'), UID, 'a different app from Muse, so the flow skips the agent screen and consent');
+  assert.equal(u.searchParams.get('client_id'), UID, 'a different app from Agent Connect, so the flow skips the agent screen and consent');
   assert.equal(u.searchParams.get('login_hint'), 'demouser.nomfa');
   assert.equal(u.searchParams.has('resource'), false);
   await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);

@@ -4,7 +4,7 @@ export function signInTrace(persona) {
   return [
     { node: 'pi.flow: start', result: 'ok' },
     { node: 'DaVinci: identify user (simulated)', result: 'ok' },
-    { node: 'DaVinci: Muse-detect risk (simulated)', result: 'pass' },
+    { node: 'DaVinci: Agent Connect check risk (simulated)', result: 'pass' },
     { node: `session issued for ${persona}`, result: 'ok' },
   ];
 }

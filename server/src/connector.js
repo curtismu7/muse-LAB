@@ -1,7 +1,7 @@
-// The Airline Connector: Muse's server as a custom connector for other agents (for example Meta's Muse at muse.ai, ChatGPT, Claude). Standard MCP over HTTP with OAuth:
+// The Airline Connector: Agent Connect's server as a custom connector for other agents (for example Meta's Muse at muse.ai, ChatGPT, Claude). Standard MCP over HTTP with OAuth:
 //   agent -> /mcp (401 + metadata) -> /connector/authorize -> PingOne (the same DaVinci flow: login, Protect, agent-detected, consent)
-//   -> /connector/callback (Muse does the on-behalf-of exchanges) -> /connector/token -> agent calls /mcp with the token.
-// Muse is both the OAuth authorization server the agent talks to and the MCP server. The tools it serves are a fixed list,
+//   -> /connector/callback (Agent Connect does the on-behalf-of exchanges) -> /connector/token -> agent calls /mcp with the token.
+// Agent Connect is both the OAuth authorization server the agent talks to and the MCP server. The tools it serves are a fixed list,
 // answered by calling the gateway with the delegated token. Nothing here is on unless MUSE_CONNECTOR=1 and real mode is configured.
 import express from 'express';
 import { createHash, randomBytes } from 'node:crypto';
@@ -36,17 +36,19 @@ export function connectorConfig(env, live) {
   const staticClient = env.MUSE_CONNECTOR_CLIENT_ID && staticUris.length ? { id: env.MUSE_CONNECTOR_CLIENT_ID, redirectUris: staticUris, name: 'Pre-registered agent' } : null;
   // Agents with their own PingOne app (MUSE_CONNECTOR_AGENTS, JSON), picked by the agent's callback host, so Protect and the PingOne screens can name them.
   // Their hosts are allowed to register too. An agent with no hosts (Codex, which calls back on loopback) is only picked from the directory Connect path, never by host.
-  // A bad entry is dropped, and that agent falls back to Muse's app.
+  // A bad entry is dropped, and that agent falls back to Agent Connect's app.
   let agents = [];
   try { agents = JSON.parse(env.MUSE_CONNECTOR_AGENTS || '[]'); } catch { agents = []; }
   agents = (Array.isArray(agents) ? agents : []).filter((a) => a && typeof a.clientId === 'string' && a.clientId && typeof a.clientSecret === 'string' && a.clientSecret && (a.hosts === undefined || Array.isArray(a.hosts)))
     .map((a) => ({ name: String(a.name ?? 'Agent').slice(0, 40), clientId: a.clientId, clientSecret: a.clientSecret, hosts: (a.hosts ?? []).map((h) => String(h).trim().toLowerCase()).filter(Boolean) }));
   for (const a of agents) for (const h of a.hosts) if (!hosts.includes(h)) hosts.push(h);
-  return { publicUrl: pu.origin, hosts, staticClient, agents };
+  // Base path support (lab-proxy serves the app under /agent-connect): origin plus the configured path.
+  const basePath = pu.pathname.replace(/\/+$/, '');
+  return { publicUrl: `${pu.origin}${basePath}`, hosts, staticClient, agents };
 }
 
 // The assistants a customer can connect from (the demo's "find the airline in your assistant, click Connect" path).
-// Meta AI has no app directory, so it uses Muse's own app through the Airline Connector; ChatGPT and Claude use their own apps.
+// Meta AI has no app directory, so it uses Agent Connect's own app through the Airline Connector; ChatGPT and Claude use their own apps.
 // Returns the PingOne app (idp) for each; only names and keys ever leave the server.
 export function assistantsFor(env, live) {
   const cfg = connectorConfig(env, live);
@@ -55,17 +57,17 @@ export function assistantsFor(env, live) {
   return [...own, { key: 'meta-ai', name: 'Meta AI', idp: live.idp }];
 }
 
-// The PingOne app a sign-in uses: the agent's own when its callback host is listed (or when it is Muse's stand-in callback for that platform), otherwise Muse's.
+// The PingOne app a sign-in uses: the agent's own when its callback host is listed (or when it is Agent Connect's stand-in callback for that platform), otherwise Agent Connect's.
 const idpFor = (cfg, live, redirectUri) => {
   let h = '';
-  try { h = new URL(redirectUri).hostname.toLowerCase(); } catch { /* no host, Muse's app */ }
+  try { h = new URL(redirectUri).hostname.toLowerCase(); } catch { /* no host, Agent Connect's app */ }
   const sim = simKeyOf(cfg.publicUrl, redirectUri);
   const a = sim ? cfg.agents.find((x) => x.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === sim) : cfg.agents.find((x) => x.hosts.some((y) => h === y || h.endsWith(`.${y}`)));
   return a ? { ...live.idp, clientId: a.clientId, clientSecret: a.clientSecret } : live.idp;
 };
 
 const okRedirect = (uri, hosts, publicUrl) => {
-  // Muse's stand-in platform callbacks (/sim/<platform>/callback on its own address) may register too.
+  // Agent Connect's stand-in platform callbacks (/sim/<platform>/callback on its own address) may register too.
   if (publicUrl && simKeyOf(publicUrl, uri)) return true;
   let u;
   try { u = new URL(uri); } catch { return false; }
@@ -110,7 +112,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
 
   // Public endpoints take no cookie, so they get their own small limiter (per address, and across everyone).
   const limit = (req, res, next) => {
-    // Muse's own platform runs (platforms.js) are not counted; the /api/sim/start route that starts them has its own per-visitor limit.
+    // Agent Connect's own platform runs (platforms.js) are not counted; the /api/sim/start route that starts them has its own per-visitor limit.
     if (req.get('x-muse-self') === SELF_MARK) return next();
     const now = Date.now(); const key = req.ip || 'x';
     for (const [k, v] of hits) { const f = v.filter((t) => now - t < 60000); if (f.length) hits.set(k, f); else hits.delete(k); }
@@ -151,7 +153,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     token_endpoint_auth_methods_supported: ['none'], scopes_supported: ['mcp'],
   }));
 
-  // Dynamic registration (RFC 7591) for redirect hosts the owner named, and for Muse's own stand-in platform callbacks. Public clients with PKCE; no secrets issued.
+  // Dynamic registration (RFC 7591) for redirect hosts the owner named, and for Agent Connect's own stand-in platform callbacks. Public clients with PKCE; no secrets issued.
   app.post('/connector/register', limit, express.json({ limit: '8kb' }), (req, res) => {
     const uris = Array.isArray(req.body?.redirect_uris) ? req.body.redirect_uris.map(String) : [];
     // Hostnames only, so the owner can see what an agent asked for and decide whether to allow it.
@@ -164,7 +166,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     res.status(201).set('Cache-Control', 'no-store').json({ client_id: id, redirect_uris: uris, token_endpoint_auth_method: 'none', grant_types: ['authorization_code'], response_types: ['code'], client_name: clients.get(id).name });
   });
 
-  // The agent's browser lands here. Muse validates the request, then sends the user to PingOne.
+  // The agent's browser lands here. Agent Connect validates the request, then sends the user to PingOne.
   app.get('/connector/authorize', limit, (req, res) => {
     const q = req.query;
     const client = clients.get(String(q.client_id ?? ''));

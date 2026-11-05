@@ -1,4 +1,4 @@
-// The 401 and discovery steps of the personal agent pattern. Muse calls Agent Privilege with no token, reads what the 401
+// The 401 and discovery steps of the personal agent pattern. Agent Connect calls Agent Privilege with no token, reads what the 401
 // says, then reads the resource metadata (RFC 9728) and the authorization-server metadata (RFC 8414).
 // Mock: static, no network. Live: owner-run, read-only GETs and one unauthenticated POST to the one configured gateway.
 import { readFileSync } from 'node:fs';
@@ -33,9 +33,9 @@ export function mockDiscovery() {
         note: 'The 401 is the question. Its WWW-Authenticate header says where to learn how to sign in.' },
       { n: 2, title: 'Read the resource metadata', request: { method: 'GET', url: `${gw}/.well-known/oauth-protected-resource/mcp` },
         response: { status: 200, body: { resource: `${gw}/mcp`, authorization_servers: ['https://login.example'], bearer_methods_supported: ['header'] } },
-        note: 'This names the authorization server Muse must use, and the audience the token must carry.' },
+        note: 'This names the authorization server Agent Connect must use, and the audience the token must carry.' },
       { n: 3, title: 'Read the authorization-server metadata', request: { method: 'GET', url: 'https://login.example/.well-known/oauth-authorization-server' },
-        response: { status: 200, body: as }, note: 'Endpoints, PKCE, and how Muse identifies itself. Next: Muse registers, the user signs in, and the token comes back with aud = the gateway.' },
+        response: { status: 200, body: as }, note: 'Endpoints, PKCE, and how Agent Connect identifies itself. Next: Agent Connect registers, the user signs in, and the token comes back with aud = the gateway.' },
     ],
     learned: learnedFrom(as),
   };
@@ -56,7 +56,7 @@ export function liveConfig(env) {
       // Local Docker only: the owner may opt in (MUSE_ALLOW_LIVE_LOOPBACK=1) to a plain-http loopback address, which must be published on 127.0.0.1 only.
       const loopbackOk = env.MUSE_ALLOW_LIVE_LOOPBACK === '1' && pu.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(pu.hostname);
       if (pu.protocol !== 'https:' && !loopbackOk) return null;
-      publicUrl = pu.origin;
+      publicUrl = `${pu.origin}${pu.pathname.replace(/\/+$/, '')}`;
     } catch { return null; }
   }
   let u;
@@ -67,14 +67,14 @@ export function liveConfig(env) {
   for (const o of (env.MUSE_LIVE_ALLOW_ORIGINS ?? '').split(',').map((x) => x.trim()).filter(Boolean)) {
     try { const ou = new URL(o); if (ou.protocol === 'https:') allow.add(ou.origin); } catch { /* ignore */ }
   }
-  // Optional: sign in at PingOne instead of the gateway's own authorization server. Muse only redirects; PingOne runs the rest.
+  // Optional: sign in at PingOne instead of the gateway's own authorization server. Agent Connect only redirects; PingOne runs the rest.
   let idp = null;
   if (env.MUSE_P1_ENV_ID && env.MUSE_P1_CLIENT_ID) {
     const base = `https://auth.pingone.${/^[a-z]{2,4}$/.test(env.MUSE_P1_REGION ?? '') ? env.MUSE_P1_REGION : 'com'}`;
     let clientSecret = env.MUSE_P1_CLIENT_SECRET ?? '';
     if (!clientSecret && env.MUSE_P1_CLIENT_SECRET_FILE) { try { clientSecret = readFileSync(env.MUSE_P1_CLIENT_SECRET_FILE, 'utf8').trim(); } catch { /* none */ } }
     const lane = env.MUSE_P1_LANE === 'privilege' ? 'privilege' : 'gateway';
-    // gateway: Muse calls Agent Gateway directly. privilege: Muse calls an Agent Privilege app (token-pass) that fronts Agent Gateway.
+    // gateway: Agent Connect calls Agent Gateway directly. privilege: Agent Connect calls an Agent Privilege app (token-pass) that fronts Agent Gateway.
     idp = { lane, loginHint: env.MUSE_P1_LOGIN_HINT ?? 'demouser', clientSecret, actorScope: env.MUSE_P1_ACTOR_SCOPE || 'agent:invoke', gatewayScope: env.MUSE_P1_GATEWAY_SCOPE || (lane === 'privilege' ? 'mcp:invoke' : 'gateway:mcp:invoke'), clientId: env.MUSE_P1_CLIENT_ID, userClientId: /^[0-9a-f-]{36}$/i.test(env.MUSE_USER_CLIENT_ID ?? '') ? env.MUSE_USER_CLIENT_ID : null, authorizeEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/authorize`, tokenEndpoint: `${base}/${env.MUSE_P1_ENV_ID}/as/token`, issuer: `${base}/${env.MUSE_P1_ENV_ID}` };
     allow.add(base);
   }
@@ -97,7 +97,7 @@ export async function liveDiscovery(cfg, fetchImpl = fetch) {
     let observed;
     // Some gateways advertise an http:// metadata URL on a host that serves https. Same host only: upgrade, and say so.
     if (target.protocol === 'http:' && target.hostname === new URL(cfg.origin).hostname && new URL(cfg.origin).protocol === 'https:') {
-      observed = `The gateway advertised ${url} (http). Muse used https on the same host.`;
+      observed = `The gateway advertised ${url} (http). Agent Connect used https on the same host.`;
       target = new URL(url.replace(/^http:/, 'https:'));
     }
     if (!cfg.allow.has(target.origin)) {
@@ -119,16 +119,16 @@ export async function liveDiscovery(cfg, fetchImpl = fetch) {
   if (!first) return stop('The Agent Privilege origin is not allowed.');
   if (first.res.status !== 401) return stop(`Expected a 401 with no token, got ${first.res.status}.`);
   const m = /resource_metadata="([^"]+)"/.exec(first.res.headers.get('www-authenticate') ?? '');
-  if (!m) return stop('The 401 has no resource_metadata in WWW-Authenticate, so Muse cannot discover how to sign in.');
+  if (!m) return stop('The 401 has no resource_metadata in WWW-Authenticate, so Agent Connect cannot discover how to sign in.');
 
-  const prm = await call(2, 'Read the resource metadata', 'GET', m[1], null, 'This names the authorization server Muse must use, and the audience the token must carry.');
+  const prm = await call(2, 'Read the resource metadata', 'GET', m[1], null, 'This names the authorization server Agent Connect must use, and the audience the token must carry.');
   if (!prm) return stop('The resource metadata origin is not allowed.');
   const issuer = prm.parsed?.authorization_servers?.[0];
   if (prm.res.status !== 200 || typeof issuer !== 'string') return stop('The resource metadata did not name an authorization server.');
 
   const ai = new URL(issuer);
   const asUrl = `${ai.origin}/.well-known/oauth-authorization-server${ai.pathname === '/' ? '' : ai.pathname}`;
-  const asr = await call(3, 'Read the authorization-server metadata', 'GET', asUrl, null, 'Endpoints, PKCE, and how Muse identifies itself.');
+  const asr = await call(3, 'Read the authorization-server metadata', 'GET', asUrl, null, 'Endpoints, PKCE, and how Agent Connect identifies itself.');
   if (!asr) return stop(`The authorization server (${ai.origin}) is on another origin and was not contacted.`);
   if (asr.res.status !== 200 || typeof asr.parsed !== 'object') return stop('The authorization-server metadata could not be read.');
   return { live: true, gateway: cfg.origin, steps, learned: learnedFrom(asr.parsed), stopped: null };

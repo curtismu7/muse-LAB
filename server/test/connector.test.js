@@ -62,7 +62,7 @@ async function boot(extra = {}) {
 const REDIRECT = 'https://chat.agent.example/oauth/callback';
 const pkce = () => { const verifier = 'v'.repeat(50); return { verifier, challenge: createHash('sha256').update(verifier).digest('base64url') }; };
 
-test('discovery documents point at this server; with no redirect hosts, registration only accepts Muse\'s own stand-in callbacks', async () => {
+test('discovery documents point at this server; with no redirect hosts, registration only accepts Agent Connect\'s own stand-in callbacks', async () => {
   const a = await boot();
   const prm = await (await a.get('/.well-known/oauth-protected-resource/mcp')).json();
   assert.equal(prm.resource, `${a.base}/mcp`); assert.deepEqual(prm.authorization_servers, [a.base]); assert.equal(prm.resource_name, 'Airline Connector');
@@ -113,7 +113,7 @@ test('authorize: unknown clients and unmatched redirects are never redirected; a
   assert.equal(u.searchParams.get('prompt'), 'login');
   assert.equal(u.searchParams.get('login_hint'), 'demouser.conn', 'the sign-in is marked as coming through the connector');
   assert.equal(u.searchParams.get('redirect_uri'), `${a.base}/connector/callback`);
-  assert.notEqual(u.searchParams.get('state'), 'st', 'PingOne gets Muse\'s own state, not the agent\'s');
+  assert.notEqual(u.searchParams.get('state'), 'st', 'PingOne gets Agent Connect\'s own state, not the agent\'s');
   await a.close();
 });
 
@@ -127,7 +127,7 @@ async function signedIn(a, clientOverride) {
   return { reg, verifier, back, ourState };
 }
 
-test('the full flow: sign-in at PingOne, Muse acts for the user, the agent gets its own token and calls the tools', async () => {
+test('the full flow: sign-in at PingOne, Agent Connect acts for the user, the agent gets its own token and calls the tools', async () => {
   const a = await boot();
   const { reg, verifier, back } = await signedIn(a);
   assert.equal(back.origin + back.pathname, REDIRECT); assert.equal(back.searchParams.get('state'), 'agent-state');
@@ -224,7 +224,7 @@ test('a dropped gateway connection is retried once, so the tool call still answe
   await a.close();
 });
 
-test('an agent with its own PingOne app (by callback host) signs in and acts with that app, others keep Muse\'s', async () => {
+test('an agent with its own PingOne app (by callback host) signs in and acts with that app, others keep Agent Connect\'s', async () => {
   const AGENTS = JSON.stringify([{ name: 'ChatGPT', hosts: ['chatgpt.example'], clientId: 'gpt-app', clientSecret: 'gpt-sekret' }, { name: 'Broken', hosts: ['x.example'] }]);
   const live = liveConfig({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example' });
   const cfg = connectorConfig({ ...BASE, MUSE_PUBLIC_URL: 'https://muse.example', MUSE_CONNECTOR_AGENTS: AGENTS }, live);
@@ -248,7 +248,7 @@ test('an agent with its own PingOne app (by callback host) signs in and acts wit
 
   const other = await signedIn(a);
   assert.ok(other.back.searchParams.get('code'));
-  assert.ok(a.seen.filter((x) => x.url === `${P1}/token`).slice(4).every((x) => new URLSearchParams(x.init.body).get('client_id') === 'c1'), 'an agent with no app of its own keeps Muse\'s');
+  assert.ok(a.seen.filter((x) => x.url === `${P1}/token`).slice(4).every((x) => new URLSearchParams(x.init.body).get('client_id') === 'c1'), 'an agent with no app of its own keeps Agent Connect\'s');
   await a.close();
 });
 
@@ -309,7 +309,7 @@ test('an agent with no callback host (Codex) has its own app in the directory Co
     await call('GET', '/api/session');
     const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'codex' })).json();
     assert.equal(new URL(si.url).searchParams.get('client_id'), 'cx-app', 'Codex signs in with its own app');
-    // A loopback callback (what Codex uses) is still Muse's app on the MCP path, since Codex has no host to match.
+    // A loopback callback (what Codex uses) is still Agent Connect's app on the MCP path, since Codex has no host to match.
     const LOOP = 'http://127.0.0.1:8765/callback';
     const reg = await (await a.post('/connector/register', { redirect_uris: [LOOP] })).json();
     const { challenge } = pkce();
@@ -353,7 +353,7 @@ test('Connect the way the platform does it: 401, metadata, dynamic registration,
   } finally { await a.close(); }
 });
 
-test('the connector limit does not count Muse\'s own platform runs, and a wrong mark is counted like anyone', async () => {
+test('the connector limit does not count Agent Connect\'s own platform runs, and a wrong mark is counted like anyone', async () => {
   const { SELF_MARK } = await import('../src/platforms.js');
   const a = await boot();
   try {

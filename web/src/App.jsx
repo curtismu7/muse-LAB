@@ -20,7 +20,7 @@ async function api(method, path, body) {
   return json;
 }
 
-// One-tap prompts for the conversation. "burst" and "injected" are the Muse-detect demos.
+// One-tap prompts for the conversation. "burst" and "injected" are the Agent Connect check demos.
 const PROMPTS = [
   { label: 'Read my calendar', tool: 'calendar.read', args: {} },
   { label: 'Draft a note', tool: 'mail.draft', args: { body: 'Quick note about Thursday.' } },
@@ -83,7 +83,7 @@ function MuseReply({ entry, onApprove, busy }) {
       <p className="small muted">{callerLine(entry.actor)}</p>
       <ul className="rules">
         {entry.rules.map((r) => <li key={r}>{r}</li>)}
-        {entry.signals?.length > 0 && <li>Muse-detect: {entry.signals.join(', ')}</li>}
+        {entry.signals?.length > 0 && <li>Agent Connect check: {entry.signals.join(', ')}</li>}
       </ul>
       {entry.result && <pre>{JSON.stringify(entry.result, null, 2)}</pre>}
       {entry.outcome === 'held' && (

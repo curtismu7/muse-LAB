@@ -148,7 +148,7 @@ test('the gateway answers 401 until the caller is authorized', async () => {
   }
 });
 
-test('Muse is detected as an agent: PingOne asks for consent, then the retry runs', async () => {
+test('Agent Connect is detected as an agent: PingOne asks for consent, then the retry runs', async () => {
   const app = await boot();
   try {
     const v = visitor(app.base);
@@ -180,7 +180,7 @@ test('declining consent issues no token', async () => {
   }
 });
 
-test('a person is not Muse: PingOne issues the token with no consent', async () => {
+test('a person is not Agent Connect: PingOne issues the token with no consent', async () => {
   const app = await boot();
   try {
     const v = visitor(app.base);

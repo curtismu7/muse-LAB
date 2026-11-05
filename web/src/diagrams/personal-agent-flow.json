@@ -203,7 +203,7 @@
     },
     {
       "title": "Retry: coarse check",
-      "what": "With a token, the gateway retries. Muse-detect looks for bursts and hidden instructions, then Privilege asks whether this persona may call the tool at all.",
+      "what": "With a token, the gateway retries. Agent Connect check looks for bursts and hidden instructions, then Privilege asks whether this persona may call the tool at all.",
       "edges": [
         0,
         1,

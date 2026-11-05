@@ -2,7 +2,9 @@
   "id": "muse",
   "name": "Muse",
   "tier": "Demo",
-  "summary": "A personal agent (Muse) calls tools through a PingOne Privilege-shaped gateway, with a DaVinci-shaped detection flow in front. Simulated: no tenant, no OBO.",
   "composeFile": "docker-compose.yml",
-  "port": 5100
+  "port": 5100,
+  "description": "A personal agent (Muse) calls tools through a PingOne Privilege-shaped gateway, with a DaVinci-shaped detection flow in front. Simulated: no tenant, no OBO.",
+  "url": "http://127.0.0.1:5100",
+  "healthPath": "/api/health"
 }

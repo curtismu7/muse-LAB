@@ -1,4 +1,4 @@
-// Protect: is the caller an agent (Muse) or a person using the browser?
+// Protect: is the caller an agent (Agent Connect) or a person using the browser?
 // Mock (default): reads the channel the request declares, so the demo shows both paths. Nothing is sent anywhere.
 // Live (owner-run, PROTECT_MODE=live): posts the request to a DaVinci flow built on the CIAM Plus Protect subflow, which
 // creates a PingOne Protect risk evaluation. Refused in the hosted build. See docs/protect-davinci.md.
@@ -11,7 +11,7 @@ export function assessCaller(via) {
   if (via === 'browser') {
     return { actor: 'human', mode: 'mock', signals: ['interactive browser session'], rule: 'Protect: a person is using the browser. No consent needed.' };
   }
-  return { actor: 'agent', mode: 'mock', signals: ['agent client: Muse', 'no direct input from Sam in this request'], rule: 'Protect: the caller is Muse, an agent. Sam is asked to consent.' };
+  return { actor: 'agent', mode: 'mock', signals: ['agent client: Agent Connect', 'no direct input from Sam in this request'], rule: 'Protect: the caller is Agent Connect, an agent. Sam is asked to consent.' };
 }
 
 function liveConfig(env) {
@@ -37,7 +37,7 @@ export function createProtect(env = {}, { fetchImpl = globalThis.fetch } = {}) {
       p1ProtectRiskPolicyId: cfg.policyId,
       ipAddress,
       SessionId: sessionId,
-      userAgent: declared === 'agent' ? 'Muse-Agent/1.0' : 'Mozilla/5.0 (browser)',
+      userAgent: declared === 'agent' ? 'Agent Connect-Agent/1.0' : 'Mozilla/5.0 (browser)',
       customAttributes: JSON.stringify({ channel: via }),
     };
     try {
