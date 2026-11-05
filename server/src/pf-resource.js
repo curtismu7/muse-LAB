@@ -17,7 +17,9 @@ export function pfConfig(env, live) {
   let issuer; let pub;
   try { issuer = new URL(env.MUSE_PF_ISSUER); pub = new URL(env.MUSE_PUBLIC_URL ?? ''); } catch { return null; }
   if (issuer.protocol !== 'https:' || (pub.protocol !== 'https:' && !['127.0.0.1', 'localhost'].includes(pub.hostname))) return null;
-  return { issuer: issuer.origin, publicUrl: pub.origin, scope: (env.MUSE_PF_SCOPE || 'muse:mcp').trim() };
+  // Keep any base path (lab-proxy sub-path) so the resource and callbacks match the public address.
+  const basePath = pub.pathname.replace(/\/+$/, '');
+  return { issuer: issuer.origin, publicUrl: `${pub.origin}${basePath}`, scope: (env.MUSE_PF_SCOPE || 'muse:mcp').trim() };
 }
 
 // The documents as Agent Connect serves them: the real platform's fields, with Agent Connect's own client_id URL and callback.
