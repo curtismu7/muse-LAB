@@ -1,6 +1,8 @@
-# Muse
+# Muse LAB
 
 Tier: Demo
+
+Repo: https://github.com/curtismu7/muse-LAB
 
 A personal agent demo. Muse is a browser front end. It signs in with a simulated PingOne flow, which calls a
 DaVinci-shaped detection flow ("Muse-detect"). Each tool call then passes a Agent Privilege-shaped gateway:
@@ -10,6 +12,35 @@ DaVinci-shaped detection flow ("Muse-detect"). Each tool call then passes a Agen
 3. **Fine check**: the business rule inside an allowed call (payments over 500 need a person; exports capped at 100 rows).
 
 The most restrictive answer wins. Held calls wait for a simulated CIBA approval.
+
+## Run from a clone
+
+Prerequisites: Node 26. Docker (OrbStack) only for the Docker form.
+
+```
+git clone https://github.com/curtismu7/muse-LAB.git
+cd muse-LAB
+npm ci
+npm run build
+npm run doctor
+PORT=5100 MODE=mock npm start
+```
+
+## Ports, and what to do if the port is taken
+
+```
+Ports: muse listens on 5100 (set with PORT, default 5100).
+Port range for this app: 5100.
+
+If the port is taken:
+1. Find what is using it:
+   lsof -iTCP:5100 -sTCP:LISTEN -n -P
+2. If it is an old copy of this app, stop that process: kill <PID>.
+3. If it is something else, stop it, or start this app on another port:
+   PORT=<other port> npm start
+```
+
+Other variable: `HOST_PORT` (Docker host port, default 5100).
 
 ## Run locally
     npm install
