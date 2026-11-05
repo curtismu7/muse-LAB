@@ -15,7 +15,7 @@ export default function AssistantConnect({ session, api, guarded }) {
   const a = list.find((x) => x.key === pick) ?? list[0];
   const airline = c.airline || 'the airline';
   const done = session.assistant?.key === a.key ? session.assistant : null;
-  const connect = () => guarded(async () => { const r = await api('POST', '/api/sim/start', { platform: a.key, server: 'pf' }); window.location.assign(r.url); });
+  const connect = () => guarded(async () => { const r = await api('POST', '/api/sim/start', { platform: a.key }); window.location.assign(r.url); });
   const startOver = () => guarded(async () => { await api('POST', '/api/assistant/reset'); window.location.reload(); });
   return (
     <section className="disco assistant" aria-label="Connect from your assistant" data-testid="assistant-connect">
