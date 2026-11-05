@@ -14,6 +14,11 @@
   --diagram-edge: #6f7c8a;
   --accent: #16325c;
   --accent-text: #ffffff;
+  --on-fill: #ffffff;
+  --scrim: rgba(0, 0, 0, 0.45);
+  --on-fill-soft: rgba(255, 255, 255, 0.75);
+  --on-fill-faint: rgba(255, 255, 255, 0.14);
+  --on-fill-line: rgba(255, 255, 255, 0.55);
   --ok: #1d6b35;
   --warn: #8a5a00;
   --bad: #a1211c;
@@ -26,30 +31,9 @@
   --undetected-text: #1f5fbf;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111317;
-    --detected-text: #ff7a85;
-    --undetected-text: #7fb0ff;
-    --surface: #181b21;
-    --panel: #15181d;
-    --bubble-muse: #1d2128;
-    --bubble-user: #1b3a66;
-    --text: #e9ebef;
-    --muted: #9aa0ab;
-    --line: #2a2f38;
-    --control-border: #c3c8d0;
-  --diagram-edge: #aeb5c0;
-    --diagram-edge: #aeb5c0;
-    --accent: #6ea8e6;
-    --accent-text: #051727;
-    --ok: #6fd08c;
-    --warn: #f0c060;
-    --bad: #ff8a80;
-  }
-}
 
 :root[data-theme="dark"] {
+    --on-fill: #ffffff;
   --bg: #111317;
   --detected-text: #ff7a85;
   --undetected-text: #7fb0ff;
@@ -281,14 +265,14 @@ button.approve { border-radius: 8px; width: 100%; }
 .flow-actions { display: flex; gap: 8px; align-items: center; }
 .flow-actions select { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--control-border); border-radius: 999px; padding: 5px 10px; }
 .flow-canvas { height: 200px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); overflow: hidden; }
-.hop { border-radius: 10px !important; border: 1px solid var(--line) !important; background: var(--surface) !important; color: var(--text) !important; font-size: calc(15px * var(--fs, 1)); width: 150px; padding: 6px !important; }
+.react-flow__node.hop { border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: calc(15px * var(--fs, 1)); width: 150px; padding: 6px; }
 .hop-label { display: grid; gap: 2px; text-align: left; }
 .hop-label strong { font-size: calc(16px * var(--fs, 1)); }
 .hop-label small { color: var(--muted); font-size: calc(14px * var(--fs, 1)); }
-.hop-active { border-color: var(--accent) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
-.hop-done { border-color: var(--ok) !important; }
-.hop-blocked { border-color: var(--bad) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent); }
-.hop-held { border-color: var(--warn) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent); }
+.react-flow__node.hop.hop-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.react-flow__node.hop.hop-done { border-color: var(--ok); }
+.react-flow__node.hop.hop-blocked { border-color: var(--bad); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent); }
+.react-flow__node.hop.hop-held { border-color: var(--warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent); }
 .hop-idle { opacity: 0.92; }
 .hop-edge path { stroke: var(--diagram-edge); }
 /* React Flow reads these, so edges, arrowheads, edge labels and the dotted canvas follow the theme in every diagram. */
@@ -305,11 +289,11 @@ button.approve { border-radius: 8px; width: 100%; }
 .react-flow__handle { opacity: 0; }
 
 /* Group colours from diagram-studio/1 data: studio palette names mapped to theme tokens. */
-.grp-red { border-left: 4px solid var(--bad) !important; }
-.grp-amber { border-left: 4px solid var(--warn) !important; }
-.grp-green { border-left: 4px solid var(--ok) !important; }
-.grp-blue { border-left: 4px solid var(--accent) !important; }
-.grp-dark, .grp-grey { border-left: 4px solid var(--muted) !important; }
+.react-flow__node.hop.grp-red { border-left: 4px solid var(--bad); }
+.react-flow__node.hop.grp-amber { border-left: 4px solid var(--warn); }
+.react-flow__node.hop.grp-green { border-left: 4px solid var(--ok); }
+.react-flow__node.hop.grp-blue { border-left: 4px solid var(--accent); }
+.react-flow__node.hop.grp-dark, .react-flow__node.hop.grp-grey { border-left: 4px solid var(--muted); }
 .hop-label small { display: block; }
 
 /* Typed requests. */
@@ -330,9 +314,9 @@ button.approve { border-radius: 8px; width: 100%; }
 }
 .flow-canvas--tall { height: 460px; }
 .flow-canvas--two-row { height: 340px; }
-.grp-red.hop-active, .grp-red.hop-done { border-color: var(--bad) !important; }
-.grp-amber.hop-active, .grp-amber.hop-done { border-color: var(--warn) !important; }
-.hop-skipped { opacity: 0.45; border-style: dashed !important; }
+.react-flow__node.hop.grp-red.hop-active, .react-flow__node.hop.grp-red.hop-done { border-color: var(--bad); }
+.react-flow__node.hop.grp-amber.hop-active, .react-flow__node.hop.grp-amber.hop-done { border-color: var(--warn); }
+.react-flow__node.hop.hop-skipped { opacity: 0.45; border-style: dashed; }
 
 .callers { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
@@ -349,7 +333,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .disco-steps .skipped { opacity: 0.6; }
 .disco-raw pre { margin: 4px 0; padding: 8px; background: var(--panel); border-radius: 8px; font-size: calc(15px * var(--fs, 1)); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
 .bubble.steps ol { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 2px; }
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; padding: 16px; z-index: 50; }
+.modal-backdrop { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; padding: 16px; z-index: 50; }
 .modal { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 20px; max-width: 420px; width: 100%; display: grid; gap: 12px; }
 .modal h2 { margin: 0; font-size: calc(25px * var(--fs, 1)); }
 .modal p { margin: 0; }
@@ -392,8 +376,8 @@ button.approve { border-radius: 8px; width: 100%; }
 .assistant-card { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .assistant-card-text { display: grid; gap: 2px; flex: 1 1 14em; min-width: 0; }
 
-.avatar.detected { background: var(--detected); color: #fff; }
-.avatar.undetected { background: var(--undetected); color: #fff; }
+.avatar.detected { background: var(--detected); color: var(--on-fill); }
+.avatar.undetected { background: var(--undetected); color: var(--on-fill); }
 h2.detected, .agent-note.detected { color: var(--detected-text); }
 h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .agent-note { margin: 0; font-weight: 600; }
@@ -401,7 +385,7 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 /* How Muse works: two-tab ReactFlow diagram */
 .mflow { gap: 10px; }
 .flow-canvas--xl { height: min(94vh, 1010px); }
-.lane { background: var(--panel) !important; border: 1px solid var(--line) !important; border-radius: 10px !important; pointer-events: none; }
+.react-flow__node.lane { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; pointer-events: none; }
 .lane-title { position: absolute; top: 8px; left: 14px; font-weight: 700; font-size: calc(18px * var(--fs, 1)); color: var(--text); }
 .mflow .hop { padding: 8px 10px; }
 .pill { position: absolute; pointer-events: none; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 3px; font-size: calc(14px * var(--fs, 1)); white-space: nowrap; }
@@ -424,23 +408,23 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 
 /* Zoom buttons, every diagram: the app's round white buttons hid the icons in dark mode. */
 .react-flow__controls { box-shadow: none; border: 1px solid var(--control-border); border-radius: 10px; overflow: hidden; }
-.react-flow__controls-button { background: var(--surface) !important; color: var(--text) !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; width: 30px; height: 30px; padding: 0; }
-.react-flow__controls-button:hover { background: var(--panel) !important; }
+.react-flow .react-flow__controls-button { background: var(--surface); color: var(--text); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; width: 30px; height: 30px; padding: 0; }
+.react-flow .react-flow__controls-button:hover { background: var(--panel); }
 .react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
 .mflow .seg { flex-wrap: wrap; border-radius: 14px; }
 
 /* AI-DEMO2 look: Core Dark gradient band, navy emphasis, pill controls. */
-.page-band { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; padding: 28px 32px; background: var(--band); color: #ffffff; }
-.page-band h1 { font-size: calc(31px * var(--fs, 1)); font-weight: 700; color: #ffffff; }
-.page-band__eyebrow { margin: 0 0 4px; font-size: calc(15px * var(--fs, 1)); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); }
-.page-band__summary { margin-top: 6px; max-width: 70ch; color: rgba(255,255,255,.88); }
+.page-band { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; padding: 28px 32px; background: var(--band); color: var(--on-fill); }
+.page-band h1 { font-size: calc(31px * var(--fs, 1)); font-weight: 700; color: var(--on-fill); }
+.page-band__eyebrow { margin: 0 0 4px; font-size: calc(15px * var(--fs, 1)); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--on-fill-soft); }
+.page-band__summary { margin-top: 6px; max-width: 70ch; color: var(--on-fill-soft); }
 .page-band__links { display: flex; gap: 10px; margin-top: 12px; }
-.page-band__links a { color: #ffffff; text-decoration: none; font-size: calc(16px * var(--fs, 1)); font-weight: 600; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; padding: 4px 14px; }
-.page-band__links a:hover, .page-band__links a:focus-visible { background: rgba(255,255,255,.14); outline: none; }
-.page-band .top-actions { display: flex; gap: 8px; align-items: center; color: #ffffff; }
-.page-band .top-actions button { background: transparent; color: #ffffff; border-color: rgba(255,255,255,.55); border-radius: 999px; }
-.page-band .top-actions button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
-.bubble.user { color: #ffffff; }
+.page-band__links a { color: var(--on-fill); text-decoration: none; font-size: calc(16px * var(--fs, 1)); font-weight: 600; border: 1px solid var(--on-fill-line); border-radius: 999px; padding: 4px 14px; }
+.page-band__links a:hover, .page-band__links a:focus-visible { background: var(--on-fill-faint); outline: none; }
+.page-band .top-actions { display: flex; gap: 8px; align-items: center; color: var(--on-fill); }
+.page-band .top-actions button { background: transparent; color: var(--on-fill); border-color: var(--on-fill-line); border-radius: 999px; }
+.page-band .top-actions button:hover:not(:disabled) { background: var(--on-fill-faint); }
+.bubble.user { color: var(--on-fill); }
 .chip, .seg button, button.primary { border-radius: 999px; }
 .chat-top { display: none; }
 
@@ -453,8 +437,8 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .banner.live { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); }
 
 .theme-toggle { font: inherit; font-size: calc(16px * var(--fs, 1)); font-weight: 600; border-radius: 999px; padding: 4px 14px; cursor: pointer; background: var(--surface); color: var(--text); border: 1px solid var(--control-border); }
-.theme-toggle.on-band { background: transparent; color: #ffffff; border-color: rgba(255,255,255,.55); }
-.theme-toggle.on-band:hover { background: rgba(255,255,255,.14); }
+.theme-toggle.on-band { background: transparent; color: var(--on-fill); border-color: var(--on-fill-line); }
+.theme-toggle.on-band:hover { background: var(--on-fill-faint); }
 .diagram-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .diagram-nav a, .diagram-page a { color: var(--accent); }
 
@@ -469,8 +453,8 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .text-size button:disabled { opacity: .35; cursor: default; }
 .text-size button:hover:not(:disabled) { background: var(--panel); }
 .text-size__now { min-width: 3.2em; text-align: center; font-size: calc(14px * var(--fs, 1)); }
-.text-size.on-band { background: transparent; color: #ffffff; border-color: rgba(255,255,255,.55); }
-.text-size.on-band button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+.text-size.on-band { background: transparent; color: var(--on-fill); border-color: var(--on-fill-line); }
+.text-size.on-band button:hover:not(:disabled) { background: var(--on-fill-faint); }
 .diagram-nav__tools { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
 .page-band__links { flex-wrap: wrap; }
