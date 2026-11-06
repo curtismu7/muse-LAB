@@ -470,3 +470,11 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .prompts, .disco-top, .composer { flex-wrap: wrap; }
 .composer input { min-width: 0; flex: 1 1 10em; }
 .muted, .small { overflow-wrap: anywhere; }
+
+/* Rule 19: the Mock/Real toggle. */
+.mode-toggle { display: inline-flex; gap: 0; align-items: center; margin-top: 12px; }
+.mode-toggle__label { margin-right: 8px; font-weight: 600; font-size: calc(16px * var(--fs, 1)); color: var(--on-fill); }
+.mode-toggle__button { border-radius: 0; }
+.mode-toggle__button:first-of-type { border-radius: 999px 0 0 999px; }
+.mode-toggle__button:last-of-type { border-radius: 0 999px 999px 0; margin-left: -1px; }
+.mode-toggle button:disabled { opacity: 0.6; }

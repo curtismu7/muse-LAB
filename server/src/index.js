@@ -149,7 +149,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     if (!ws) {
       ws = workspaces.create();
       if (!ws) return res.status(503).json({ error: 'busy', detail: 'Too many visitors right now. Try again shortly.' });
-      if (live) ws.gatewayMode = 'live';
+      if (live && liveOn) ws.gatewayMode = 'live';
       const secure = hosted ? '; Secure' : '';
       res.append('Set-Cookie', `${WS_COOKIE}=${ws.id}; Path=/; HttpOnly; SameSite=Lax${secure}`);
     }
@@ -206,6 +206,29 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     req.ws.discovery = null;
     clearLive(req.ws);
     res.json({ mode });
+  });
+
+  // Rule 19: the Mock/Real toggle. Server-side mode, for the whole lab. Switching signs everyone out and
+  // clears live state: tokens from one mode mean nothing to the other.
+  const modeView = () => ({
+    source: live ? (liveOn ? 'real' : 'mock') : 'mock',
+    realAvailable: Boolean(live),
+    realReason: live ? null : 'Real (live) is not available in this build: the live settings are incomplete. Set ALLOW_LIVE=1 and MUSE_LIVE_GATEWAY_URL (see .env.example), or run the mock demo.',
+  });
+  let liveOn = Boolean(live);
+  app.get('/api/info', (req, res) => res.json(modeView()));
+  app.post('/api/mode', (req, res) => {
+    const source = req.body?.source;
+    if (source !== 'mock' && source !== 'real') return res.status(400).json({ error: 'source must be exactly "mock" or "real"' });
+    if (source === 'real' && !live) return res.status(409).json({ error: 'real_not_available', message: modeView().realReason });
+    liveOn = source === 'real';
+    for (const ws of workspaces.all()) {
+      ws.gatewayMode = liveOn ? 'live' : 'mock';
+      ws.discovery = null;
+      clearLive(ws);
+      ws.user = null;
+    }
+    res.json(modeView());
   });
 
   // Step 1 to 3: the unauthenticated call, then the two metadata reads.

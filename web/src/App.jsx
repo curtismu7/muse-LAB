@@ -146,6 +146,29 @@ export default function App() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+  // Rule 19: the Mock/Real toggle. Real is disabled with the server's reason while the live settings are incomplete.
+  const [modeInfo, setModeInfo] = useState(null);
+  useEffect(() => { api('GET', '/api/info').then(setModeInfo).catch(() => setModeInfo(null)); }, []);
+  const realAvailable = modeInfo ? modeInfo.realAvailable !== false : null; // null = not loaded yet
+  const switching = useRef(false);
+  const setMode = async (next) => {
+    if (switching.current || !session) return;
+    const current = session.mode === 'live' ? 'real' : 'mock';
+    if (next === current) return;
+    if (next === 'real' && realAvailable === false) return; // Real is disabled with the reason; the button is too
+    switching.current = true;
+    try {
+      await api('POST', '/api/mode', { source: next });
+      setTrace(null);
+      setFeed([]);
+      await refresh();
+      api('GET', '/api/info').then(setModeInfo).catch(() => {});
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      switching.current = false;
+    }
+  };
   // The site's name comes from customer.config (the session carries it): browser tab title and the band.
   useEffect(() => { if (session?.customer?.brandName) document.title = `${session.customer.brandName}: personal agent demo`; }, [session?.customer?.brandName]);
   useEffect(() => { feedEnd.current?.scrollIntoView({ block: 'end' }); }, [feed]);
@@ -264,6 +287,22 @@ export default function App() {
         <ShelfLink />
           <p className="page-band__summary">{session.customer?.agentName ?? 'Agent Connect'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
           <p className="page-band__links"><a href="/how-agent-connect-works.html">How it works</a><a href="/how-agent-connect-works.html#connect">How customers connect</a><a href="/clients.html">Claude, ChatGPT, Codex</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
+          <div className="mode-toggle" role="group" aria-label="Mock or real PingOne">
+            <span className="mode-toggle__label">PingOne</span>
+            {[
+              ['mock', 'Mock', false],
+              ['real', 'Real', true],
+            ].map(([m, label, isReal]) => {
+              const current = session.mode === 'live' ? 'real' : 'mock';
+              const off = Boolean(isReal && realAvailable === false);
+              const why = isReal && realAvailable === false && modeInfo?.realReason ? modeInfo.realReason : undefined;
+              return (
+                <button key={m} type="button" className="mode-toggle__button" aria-pressed={current === m} disabled={off} title={why} onClick={() => setMode(m)} data-testid={`mode-${isReal ? 'real' : 'mock'}`}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
         {session.signedIn && (
           <div className="top-actions">

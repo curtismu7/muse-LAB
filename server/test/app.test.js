@@ -312,3 +312,57 @@ test('a denied Protect verdict blocks the call', async () => {
   const d = decide(ws, { tool: 'calendar.read', via: 'browser', protect: { actor: 'human', deny: true, signals: [], rule: 'x' } });
   assert.equal(d.outcome, 'blocked');
 });
+
+// Rule 19: the Mock/Real toggle.
+test('the mode toggle answers GET /api/info and switches both ways', async () => {
+  const app = await boot({ ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: 'https://gateway.example', MUSE_LIVE_API_URL: 'https://api.example' });
+  try {
+    const v = visitor(app.base);
+    const info = await v.get('/api/info');
+    assert.equal(info.status, 200);
+    assert.equal(info.json.source, 'real', 'live settings present, so the lab starts in Real');
+    assert.equal(info.json.realAvailable, true);
+    const toMock = await v.post('/api/mode', { source: 'mock' });
+    assert.equal(toMock.status, 200);
+    assert.equal(toMock.json.source, 'mock');
+    assert.equal((await v.get('/api/session')).json.mode, 'mock', 'data reflects the switch');
+    const toReal = await v.post('/api/mode', { source: 'real' });
+    assert.equal(toReal.status, 200);
+    assert.equal(toReal.json.source, 'real');
+    assert.equal((await v.get('/api/session')).json.mode, 'live');
+  } finally {
+    await app.close();
+  }
+});
+
+test('switching to Real without live settings answers 409 with a reason; a bad body is a 400', async () => {
+  const app = await boot();
+  try {
+    const v = visitor(app.base);
+    const r = await v.post('/api/mode', { source: 'real' });
+    assert.equal(r.status, 409);
+    assert.equal(r.json.error, 'real_not_available');
+    assert.match(r.json.message, /live settings are incomplete/);
+    assert.equal((await v.get('/api/info')).json.realAvailable, false);
+    assert.equal((await v.post('/api/mode', { source: 'live' })).status, 400);
+    assert.equal((await v.post('/api/mode', {})).status, 400);
+  } finally {
+    await app.close();
+  }
+});
+
+test('switching modes signs everyone out and clears live state', async () => {
+  const app = await boot({ ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: 'https://gateway.example', MUSE_LIVE_API_URL: 'https://api.example' });
+  try {
+    const v = visitor(app.base);
+    await v.post('/api/mode', { source: 'mock' });
+    await v.post('/api/signin');
+    assert.equal((await v.get('/api/session')).json.signedIn, true);
+    await v.post('/api/mode', { source: 'real' });
+    const after = await v.get('/api/session');
+    assert.equal(after.json.signedIn, false, 'switching signs the visitor out');
+    assert.deepEqual(after.json.decisions, []);
+  } finally {
+    await app.close();
+  }
+});

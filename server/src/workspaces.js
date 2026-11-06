@@ -32,5 +32,7 @@ export function createWorkspaces({ max = 200, idleMs = IDLE_MS, now = () => Date
     return ws;
   }
 
-  return { create, find, size: () => store.size };
+  function all() { return [...store.values()]; }
+
+  return { create, find, all, size: () => store.size };
 }
