@@ -12,7 +12,8 @@ applyTheme(readTheme());
 applySize(readSize());
 
 // /diagram is the how-it-works diagram on its own page, public, no sign-in.
-const onDiagram = window.location.pathname.replace(/\/$/, '') === '/diagram';
+// Matches the end of the path so it also works behind the lab proxy's prefix (/agent-connect/diagram).
+const onDiagram = window.location.pathname.replace(/\/$/, '').endsWith('/diagram');
 const Diagram = () => (
   <main className="diagram-page">
     <p className="small diagram-nav"><span><a href="/">Back to Personal Agent</a> &middot; <a href="/how-agent-connect-works.html">How it works, in words</a></span><span className="diagram-nav__tools"><TextSize /><ThemeToggle /></span></p>
