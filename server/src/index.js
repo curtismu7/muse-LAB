@@ -84,7 +84,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       at: new Date().toISOString(),
       state: 'ready',
       runtime: 'offline',
-      demo: { id: 'muse', name: 'Agent Connect', version: '0.1.0' },
+      demo: { id: 'muse', name: 'Personal Agent', version: '0.1.0' },
     });
   });
 
@@ -106,9 +106,9 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     next();
   });
 
-  // Agent Connect as a connector for other agents (off unless MUSE_CONNECTOR=1 and real mode is configured).
+  // Personal Agent as a connector for other agents (off unless MUSE_CONNECTOR=1 and real mode is configured).
   const connector = mountConnector(app, { env, live, fetchImpl }) || null;
-  // What ChatGPT, Claude, Codex and Meta AI do on Connect, run by Agent Connect against its own connector (see platforms.js).
+  // What ChatGPT, Claude, Codex and Meta AI do on Connect, run by Personal Agent against its own connector (see platforms.js).
   // The CIMD path: an MCP resource behind a real PingFederate (off unless MUSE_PF_ISSUER is set). ChatGPT's signing key is shared with the engine.
   const simKey = live && env.MUSE_PF_ISSUER ? chatgptKey() : null;
   const pf = simKey ? mountPfResource(app, { env, live, fetchImpl, key: simKey }) : null;
@@ -136,10 +136,10 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   app.get('/sim/:key/callback', async (req, res) => {
     const out = platforms ? await platforms.finish(req.query.state, { code: req.query.code ? String(req.query.code) : null, error: req.query.error }).catch(() => null) : null;
     const ws = out ? workspaces.find(out.wsId) : null;
-    if (!ws) return res.status(400).type('text').send('Unknown or expired connection. Start again from Agent Connect.');
+    if (!ws) return res.status(400).type('text').send('Unknown or expired connection. Start again from Personal Agent.');
     const { wsId, returnTo, ...view } = out;
     ws.assistant = view;
-    res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Agent Connect</title><p>Connected. Returning to Agent Connect.</p><script>location.replace(${JSON.stringify(returnTo)})</script>`);
+    res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Personal Agent</title><p>Connected. Returning to Personal Agent.</p><script>location.replace(${JSON.stringify(returnTo)})</script>`);
   });
 
   app.use(express.json({ limit: '16kb' }));
@@ -243,7 +243,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   });
 
   const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; };
-  // The tool result comes back as MCP text content holding JSON; Agent Connect reads the points out of it.
+  // The tool result comes back as MCP text content holding JSON; Personal Agent reads the points out of it.
   const answerFrom = (steps) => {
     const r = steps.find((x) => x.n === 9)?.response;
     try { return normaliseResult(r.body.result.content[0].text); } catch { return null; }
@@ -254,7 +254,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     const result = answerFrom(steps);
     if (!result) { ws.liveAnswer = null; return; }
     const said = await reply(agent, ws.liveAsk?.prompt, result, fetchImpl);
-    if (agent) addStep(ws, { n: 10, title: 'Agent Connect writes the reply', request: { method: 'POST', url: agent.endpoint, body: { model: agent.model, facts: 'the tool result' } }, response: { status: 200, body: { via: said.via, model: said.model ?? agent.model } }, note: said.note ?? 'The model words the answer from the tool result. Agent Connect checks that every number in it comes from the result.' });
+    if (agent) addStep(ws, { n: 10, title: 'Personal Agent writes the reply', request: { method: 'POST', url: agent.endpoint, body: { model: agent.model, facts: 'the tool result' } }, response: { status: 200, body: { via: said.via, model: said.model ?? agent.model } }, note: said.note ?? 'The model words the answer from the tool result. Personal Agent checks that every number in it comes from the result.' });
     ws.liveAnswer = { ...result, reply: said.text };
   };
   const liveReady = (req, res) => {
@@ -265,16 +265,16 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   const addStep = (ws, step) => { if (step) ws.liveSteps = [...(ws.liveSteps ?? []).filter((x) => x.n !== step.n), step].sort((a, b) => a.n - b.n); };
   const failed = (e) => ({ error: 'Agent Privilege could not be reached', detail: String(e?.name ?? 'error').slice(0, 40) });
 
-  // The user asks first. With no token Agent Connect calls the gateway, gets the 401 and shows it; PingOne comes after.
+  // The user asks first. With no token Personal Agent calls the gateway, gets the 401 and shows it; PingOne comes after.
   app.post('/api/live/ask', limited, async (req, res) => {
     const ws = req.ws;
     if (!live || ws.gatewayMode !== 'live') return res.status(409).json({ error: 'switch to Real (live) first' });
     const prompt = String(req.body?.prompt ?? '').slice(0, 200);
-    // Step 0: Agent Connect's model picks the tool (or declines). Without a model, keywords decide.
+    // Step 0: Personal Agent's model picks the tool (or declines). Without a model, keywords decide.
     const chosen = await plan(agent, prompt, fetchImpl);
-    if (agent) addStep(ws, { n: 0, title: 'Agent Connect asks its model which tool to use', request: { method: 'POST', url: agent.endpoint, body: { model: agent.model, tools: agentTools().map((t) => t.name) } }, response: { status: 200, body: { tool: chosen.tool ?? 'none', via: chosen.via, ...(chosen.model ? { model: chosen.model } : {}) } }, note: chosen.note ?? 'The model chooses one tool from Agent Connect\'s own list, or none. It never writes arguments and never sees a token.' });
+    if (agent) addStep(ws, { n: 0, title: 'Personal Agent asks its model which tool to use', request: { method: 'POST', url: agent.endpoint, body: { model: agent.model, tools: agentTools().map((t) => t.name) } }, response: { status: 200, body: { tool: chosen.tool ?? 'none', via: chosen.via, ...(chosen.model ? { model: chosen.model } : {}) } }, note: chosen.note ?? 'The model chooses one tool from Personal Agent\'s own list, or none. It never writes arguments and never sees a token.' });
     if (!chosen.tool) {
-      if (!agent) return res.status(400).json({ error: 'In Real mode Agent Connect can answer one thing so far: your airline points.' });
+      if (!agent) return res.status(400).json({ error: 'In Real mode Personal Agent can answer one thing so far: your airline points.' });
       ws.liveAsk = { prompt }; ws.liveAnswer = { reply: chosen.reply }; ws.liveError = null;
       return res.json({ state: 'declined', reply: chosen.reply });
     }
@@ -291,10 +291,10 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     if (!liveReady(req, res)) return;
     const ws = req.ws;
     if (live.idp) {
-      // PingOne already has Agent Connect's app, so there is nothing to register: Agent Connect only redirects.
+      // PingOne already has Personal Agent's app, so there is nothing to register: Personal Agent only redirects.
       ws.liveClient = { clientId: live.idp.clientId, redirectUri: (live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback`) };
       ws.liveError = null;
-      addStep(ws, { n: 4, title: "Use Agent Connect's PingOne app", request: { method: 'GET', url: live.idp.authorizeEndpoint }, note: 'No registration. Agent Connect is a PingOne app; PingOne handles login, Protect and consent after the redirect.' });
+      addStep(ws, { n: 4, title: "Use Personal Agent's PingOne app", request: { method: 'GET', url: live.idp.authorizeEndpoint }, note: 'No registration. Personal Agent is a PingOne app; PingOne handles login, Protect and consent after the redirect.' });
       return res.json({ registered: true, error: null });
     }
     try {
@@ -309,7 +309,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   // Connect from an assistant, the way that platform does it: discovery, registration, then the authorize URL the page navigates to.
   app.post('/api/sim/start', limited, async (req, res) => {
     const key = String(req.body?.platform ?? '');
-    // Which airline server the assistant connects to: Agent Connect's connector (PingOne behind it, no CIMD) or the PingFederate one (CIMD).
+    // Which airline server the assistant connects to: Personal Agent's connector (PingOne behind it, no CIMD) or the PingFederate one (CIMD).
     const mcpUrl = req.body?.server === 'pf' ? pf?.url : connector?.url;
     if (!platforms || !PLATFORMS[key] || !mcpUrl) return res.status(409).json({ error: 'that assistant is not available here' });
     const returnTo = /^\/clients\.html\?client=[a-z]{1,12}$/.test(String(req.body?.returnTo ?? '')) ? String(req.body.returnTo) : '/';
@@ -351,14 +351,14 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       ws.userLogin = null;
       return res.json({ url: r.url });
     }
-    if (!ws.liveClient) return res.status(409).json({ error: 'register Agent Connect first' });
-    // With a client secret Agent Connect acts on the user's behalf, so the token is minted for the gateway from the start.
+    if (!ws.liveClient) return res.status(409).json({ error: 'register Personal Agent first' });
+    // With a client secret Personal Agent acts on the user's behalf, so the token is minted for the gateway from the start.
     const resource = live.idp && (!live.idp.clientSecret || live.idp.lane === 'privilege') ? null : live.url;
     const learned = live.idp ? { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] } : ws.discovery.learned;
     const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: Boolean(live.idp), loginHint: live.idp?.loginHint ? (req.body?.mfa === 'off' ? `${live.idp.loginHint}.nomfa` : live.idp.loginHint) : null, scope: live.idp?.clientSecret && live.idp.lane !== 'privilege' ? `openid ${live.idp.gatewayScope}` : null });
     for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
     pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, learned, at: Date.now() });
-    addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: live.idp ? 'The browser leaves Agent Connect for PingOne. PKCE S256, prompt=login so PingOne always asks the user to sign in.' : 'The browser leaves Agent Connect for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
+    addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: live.idp ? 'The browser leaves Personal Agent for PingOne. PKCE S256, prompt=login so PingOne always asks the user to sign in.' : 'The browser leaves Personal Agent for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
     res.json({ url: r.url });
   });
 
@@ -367,9 +367,9 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     const p = pending.get(String(req.query.state ?? ''));
     pending.delete(String(req.query.state ?? ''));
     const ws = p && Date.now() - p.at <= PENDING_MS ? workspaces.find(p.wsId) : null;
-    const done = (msg) => res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Agent Connect</title><p>${msg}</p><script>location.replace(${JSON.stringify(p?.returnTo ?? '/')})</script>`);
-    if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Agent Connect.');
-    if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Agent Connect.'); }
+    const done = (msg) => res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Personal Agent</title><p>${msg}</p><script>location.replace(${JSON.stringify(p?.returnTo ?? '/')})</script>`);
+    if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Personal Agent.');
+    if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Personal Agent.'); }
     if (p.as === 'user') {
       try {
         const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: p.client, resource: null }, fetchImpl);
@@ -382,16 +382,16 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
           ws.userLogin.denied = first == null ? null : first >= 400 || steps.some((x) => x.response?.status >= 400);
         }
       } catch (e) { ws.userLogin = { claims: null, steps: [], error: failed(e).error, denied: null }; }
-      return done('Signed in. Returning to Agent Connect.');
+      return done('Signed in. Returning to Personal Agent.');
     }
     if (p.as === 'assistant') {
       // Same as the connector: swap the code, act for the user with that assistant's app, then ask the gateway for the points.
       ws.assistant = { ...p.assistant, claims: null, points: null, error: null };
       try {
         const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: p.client, resource: null, clientSecret: p.idp.clientSecret }, fetchImpl);
-        if (!r.token) { ws.assistant.error = r.error ?? 'PingOne did not issue a token.'; return done('Sign-in failed. Returning to Agent Connect.'); }
+        if (!r.token) { ws.assistant.error = r.error ?? 'PingOne did not issue a token.'; return done('Sign-in failed. Returning to Personal Agent.'); }
         const d = await delegate(live, p.idp, r.token, fetchImpl);
-        if (!d.token) { ws.assistant.error = d.error ?? 'The token exchange was refused.'; return done('Sign-in failed. Returning to Agent Connect.'); }
+        if (!d.token) { ws.assistant.error = d.error ?? 'The token exchange was refused.'; return done('Sign-in failed. Returning to Personal Agent.'); }
         ws.assistant.claims = d.claims ?? null;
         const ask = () => callGateway(live, d.token, fetchImpl, { tool: 'get_loyalty_status' });
         const steps = await ask().catch(() => ask());
@@ -401,7 +401,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
         if (rec && rec.loyaltyPoints !== undefined) ws.assistant.points = { points: rec.loyaltyPoints, tier: rec.loyaltyTier, passenger: rec.name };
         else ws.assistant.error = `The gateway did not answer (${resp?.status ?? 'no answer'}).`;
       } catch (e) { ws.assistant.error = failed(e).error; }
-      return done('Connected. Returning to Agent Connect.');
+      return done('Connected. Returning to Personal Agent.');
     }
     try {
       const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource, clientSecret: live.idp?.clientSecret }, fetchImpl);
@@ -413,10 +413,10 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
         ws.liveError = d.error ?? null;
         if (d.token) { ws.liveToken = d.token; ws.liveClaims = d.claims ?? { opaque: true }; }
       } else if (r.token) { ws.liveToken = r.token; ws.liveClaims = r.claims ?? { opaque: true }; }
-      // The retry: now that Agent Connect has a token, it finishes the request the user made before signing in.
+      // The retry: now that Personal Agent has a token, it finishes the request the user made before signing in.
       if (ws.liveToken && ws.liveAsk) await runAsk(ws);
     } catch (e) { ws.liveError = failed(e).error; }
-    done('Signed in. Returning to Agent Connect.');
+    done('Signed in. Returning to Personal Agent.');
   });
 
   // Steps 7 and 8. The call that was refused in step 1, now with the token.
@@ -431,7 +431,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   });
 
   app.post('/api/signin', (req, res) => {
-    if (req.ws.gatewayMode === 'live') return res.status(409).json({ error: 'use the live steps below, not the persona sign-in', detail: 'In Real mode Agent Connect registers, then you sign in at the gateway authorization server.' });
+    if (req.ws.gatewayMode === 'live') return res.status(409).json({ error: 'use the live steps below, not the persona sign-in', detail: 'In Real mode Personal Agent registers, then you sign in at the gateway authorization server.' });
     const key = picker ? req.body?.persona : 'finance';
     if (!PERSONAS[key]) return res.status(400).json({ error: 'unknown persona' });
     req.ws.user = key;
@@ -487,7 +487,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     if (!ws.user) return res.status(401).json({ error: 'sign in first' });
     const client = req.body?.client;
     if (!CHANNELS.includes(client)) return res.status(400).json({ error: 'unknown channel' });
-    const name = client === 'muse' ? 'Agent Connect' : 'Sam in the browser';
+    const name = client === 'muse' ? 'Personal Agent' : 'Sam in the browser';
     const steps = [
       `${name} sends an authorization request to PingOne`,
       'PingOne has Sam signed in (simulated)',
@@ -498,11 +498,11 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     if (verdict.deny) return res.status(403).json({ status: 'denied', steps, signals: verdict.signals });
     if (verdict.actor === 'human') {
       ws.tokens[client] = { protect: verdict };
-      steps.push('Not Agent Connect, so PingOne assumes a person and issues the token');
+      steps.push('Not Personal Agent, so PingOne assumes a person and issues the token');
       return res.json({ status: 'issued', actor: 'human', steps, signals: verdict.signals });
     }
     ws.pending[client] = verdict;
-    steps.push('Agent Connect is a bot, so PingOne asks Sam for consent');
+    steps.push('Personal Agent is a bot, so PingOne asks Sam for consent');
     res.json({
       status: 'consent_required',
       actor: 'agent',
@@ -520,7 +520,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     delete ws.pending[client];
     if (req.body?.approve !== true) return res.status(403).json({ status: 'denied', steps: ['Sam declined. No token was issued'] });
     ws.tokens[client] = { protect: verdict };
-    res.json({ status: 'issued', actor: 'agent', steps: ['Sam consented (simulated)', 'PingOne issues the token to Agent Connect'] });
+    res.json({ status: 'issued', actor: 'agent', steps: ['Sam consented (simulated)', 'PingOne issues the token to Personal Agent'] });
   });
 
   app.post('/api/approve/:id', (req, res) => {
@@ -595,5 +595,5 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   // Your own settings (see .env.example). Values already in the environment win; no .env means the mock demo.
   if (typeof process.loadEnvFile === 'function' && existsSync('.env')) process.loadEnvFile('.env');
   const server = start();
-  server.on('listening', () => console.log(`Agent Connect listening on port ${server.address().port} (MODE=${process.env.MODE ?? 'mock'}, ${process.env.MUSE_HOSTED === '1' ? 'hosted' : 'local'})`));
+  server.on('listening', () => console.log(`Personal Agent listening on port ${server.address().port} (MODE=${process.env.MODE ?? 'mock'}, ${process.env.MUSE_HOSTED === '1' ? 'hosted' : 'local'})`));
 }

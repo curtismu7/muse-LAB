@@ -5,7 +5,7 @@ const METHOD = { dcr: 'dynamic client registration (RFC 7591)', cimd: 'its clien
 
 // How a customer adds the airline: they find it in their assistant's app directory and click Connect. No server address, no client id.
 // The directory card is a stand-in (this demo is not listed anywhere). Connect then does what that platform does as an MCP client, against
-// Agent Connect's real connector: 401, metadata, registration or CIMD, PKCE sign-in at PingOne with that assistant's app, the token, the MCP calls.
+// Personal Agent's real connector: 401, metadata, registration or CIMD, PKCE sign-in at PingOne with that assistant's app, the token, the MCP calls.
 export default function AssistantConnect({ session, api, guarded }) {
   const c = session.connector;
   const list = c?.assistants ?? [];
@@ -42,7 +42,7 @@ export default function AssistantConnect({ session, api, guarded }) {
         <div className="small" data-testid="assistant-result">
           {done.points && <p><strong>Connected in {done.name}.</strong> Asked "How many points do I have?": {done.points.points.toLocaleString()} points, {done.points.tier}, for {done.points.passenger}.</p>}
           {done.error && <p role="alert" className="bad">{done.error}</p>}
-          {done.method && <p className="muted">{done.name} identified itself with {METHOD[done.method] ?? done.method}. The sign-in came back to Agent Connect's stand-in for <code>{done.realRedirect}</code>. {done.name} never sees the customer's PingOne token, only the connector's own.</p>}
+          {done.method && <p className="muted">{done.name} identified itself with {METHOD[done.method] ?? done.method}. The sign-in came back to Personal Agent's stand-in for <code>{done.realRedirect}</code>. {done.name} never sees the customer's PingOne token, only the connector's own.</p>}
           {done.steps?.length > 0 && (
             <ol className="disco-steps" data-testid="assistant-steps">
               {done.steps.map((s) => (

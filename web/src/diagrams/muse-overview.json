@@ -1,19 +1,19 @@
 {
  "schema": "diagram-studio/1",
  "id": "muse-overview",
- "title": "Overview: user, Agent Connect, Authorize, MCP server",
- "lede": "The whole idea in four boxes. The user asks Agent Connect, Agent Connect acts for the user, PingOne Authorize decides, and only then does the MCP server run the tool.",
+ "title": "Overview: user, Personal Agent, Authorize, MCP server",
+ "lede": "The whole idea in four boxes. The user asks Personal Agent, Personal Agent acts for the user, PingOne Authorize decides, and only then does the MCP server run the tool.",
  "groups": {
   "green": { "label": "PingOne", "color": "green" },
   "amber": { "label": "Gateway and policy", "color": "amber" },
-  "dark": { "label": "Agent Connect", "color": "dark" },
+  "dark": { "label": "Personal Agent", "color": "dark" },
   "blue": { "label": "Person", "color": "blue" }
  },
  "lanes": [{ "id": "lane0", "label": "One request, end to end", "x": 10, "y": 30, "w": 1100, "h": 190 }],
  "nodes": [
   { "id": "user", "group": "blue", "label": "1. User", "sub": ["Sam asks: \"Show my airline points\""], "x": 40, "y": 100 },
-  { "id": "muse", "group": "dark", "label": "2. Agent Connect", "sub": ["The personal agent. Signs Sam in at PingOne and acts for him."], "x": 330, "y": 100 },
-  { "id": "authorize", "group": "amber", "label": "3. PingOne Authorize", "sub": ["Checks the audience, that Agent Connect is a registered actor, and that the tool is allowed."], "x": 620, "y": 100 },
+  { "id": "muse", "group": "dark", "label": "2. Personal Agent", "sub": ["The personal agent. Signs Sam in at PingOne and acts for him."], "x": 330, "y": 100 },
+  { "id": "authorize", "group": "amber", "label": "3. PingOne Authorize", "sub": ["Checks the audience, that Personal Agent is a registered actor, and that the tool is allowed."], "x": 620, "y": 100 },
   { "id": "mcp", "group": "green", "label": "4. MCP server", "sub": ["Runs the tool and returns 4,500 points, Gold."], "x": 910, "y": 100 }
  ],
  "edges": [
@@ -23,9 +23,9 @@
   { "source": "mcp", "target": "muse", "label": "4", "name": "Points back" }
  ],
  "steps": [
-  { "title": "Ask", "what": "Sam asks Agent Connect for his airline points. Agent Connect acts only when asked.", "why": "The request starts with a person, never with the agent.", "edges": [0] },
-  { "title": "Delegated token", "what": "Agent Connect signs Sam in at PingOne and gets a delegated token: Sam is the subject and Agent Connect is the actor. It presents that token at the gateway, which asks PingOne Authorize.", "why": "Authorize can see who is asking and on whose behalf.", "edges": [0, 1] },
-  { "title": "Allowed, run tool", "what": "Authorize checks the audience, that Agent Connect is a registered actor, and that this tool is allowed. Only then does the request reach the MCP server.", "why": "Policy decides every tool call. Without the actor, the call is refused.", "edges": [0, 1, 2] },
-  { "title": "Points back", "what": "The MCP server runs the tool and returns the points and tier. Agent Connect shows them to Sam.", "why": "The answer exists only because every check passed.", "edges": [0, 1, 2, 3] }
+  { "title": "Ask", "what": "Sam asks Personal Agent for his airline points. Personal Agent acts only when asked.", "why": "The request starts with a person, never with the agent.", "edges": [0] },
+  { "title": "Delegated token", "what": "Personal Agent signs Sam in at PingOne and gets a delegated token: Sam is the subject and Personal Agent is the actor. It presents that token at the gateway, which asks PingOne Authorize.", "why": "Authorize can see who is asking and on whose behalf.", "edges": [0, 1] },
+  { "title": "Allowed, run tool", "what": "Authorize checks the audience, that Personal Agent is a registered actor, and that this tool is allowed. Only then does the request reach the MCP server.", "why": "Policy decides every tool call. Without the actor, the call is refused.", "edges": [0, 1, 2] },
+  { "title": "Points back", "what": "The MCP server runs the tool and returns the points and tier. Personal Agent shows them to Sam.", "why": "The answer exists only because every check passed.", "edges": [0, 1, 2, 3] }
  ]
 }

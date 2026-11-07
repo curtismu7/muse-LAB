@@ -9,7 +9,7 @@
       "color": "blue"
     },
     "dark": {
-      "label": "Agent Connect (Airline Connector)",
+      "label": "Personal Agent (Airline Connector)",
       "color": "dark"
     },
     "green": {
@@ -125,10 +125,10 @@
     {
       "id": "e9",
       "group": "dark",
-      "label": "9. Agent Connect gives ChatGPT its own token",
+      "label": "9. Personal Agent gives ChatGPT its own token",
       "sub": [
         "after the exchanges at /connector/token",
-        "the PingOne token never leaves Agent Connect"
+        "the PingOne token never leaves Personal Agent"
       ],
       "x": 40,
       "y": 382
@@ -242,7 +242,7 @@
     },
     {
       "title": "Authorize",
-      "what": "ChatGPT registers itself, or the admin pastes a client ID, then sends Sam to /connector/authorize. Agent Connect starts the PingOne sign-in with the \"ChatGPT agent login\" PingOne app, chosen because the callback host is chatgpt.com.",
+      "what": "ChatGPT registers itself, or the admin pastes a client ID, then sends Sam to /connector/authorize. Personal Agent starts the PingOne sign-in with the \"ChatGPT agent login\" PingOne app, chosen because the callback host is chatgpt.com.",
       "why": "chatgpt.com is a listed agent host (MUSE_CONNECTOR_AGENTS), so it may register.",
       "edges": [
         0,
@@ -281,8 +281,8 @@
     },
     {
       "title": "Exchanges, token",
-      "what": "Agent Connect does the code swap and both exchanges with the \"ChatGPT agent login\" PingOne app, then gives ChatGPT its own access token at /connector/token.",
-      "why": "So act names ChatGPT. The PingOne token never leaves Agent Connect. ChatGPT holds only a Agent Connect token for scope mcp.",
+      "what": "Personal Agent does the code swap and both exchanges with the \"ChatGPT agent login\" PingOne app, then gives ChatGPT its own access token at /connector/token.",
+      "why": "So act names ChatGPT. The PingOne token never leaves Personal Agent. ChatGPT holds only a Personal Agent token for scope mcp.",
       "edges": [
         0,
         1,
@@ -296,7 +296,7 @@
     },
     {
       "title": "Call with token",
-      "what": "OpenAI's servers call /mcp with that token. Agent Connect calls the gateway, which checks the delegated token, and the points come back.",
+      "what": "OpenAI's servers call /mcp with that token. Personal Agent calls the gateway, which checks the delegated token, and the points come back.",
       "why": "Not tried yet: ChatGPT's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
       "edges": [
         0,

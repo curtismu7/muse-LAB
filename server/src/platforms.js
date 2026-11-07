@@ -1,8 +1,8 @@
-// What ChatGPT, Claude, Codex and Meta AI do when a customer clicks Connect on an MCP server, run by Agent Connect step by step against a real server.
+// What ChatGPT, Claude, Codex and Meta AI do when a customer clicks Connect on an MCP server, run by Personal Agent step by step against a real server.
 // Each platform is an MCP client: it calls /mcp, gets a 401, reads the protected-resource metadata (RFC 9728) and the authorization server
 // metadata (RFC 8414), then identifies itself: with its client ID metadata document (CIMD) when the server says it supports one, otherwise by
 // dynamic client registration (RFC 7591). Then authorization code + PKCE S256 with resource = the MCP server, the token, and MCP calls.
-// Two things are stand-ins and say so: the callback (Agent Connect cannot receive at chatgpt.com or on the customer's loopback, so it listens on its own
+// Two things are stand-ins and say so: the callback (Personal Agent cannot receive at chatgpt.com or on the customer's loopback, so it listens on its own
 // /sim/<platform>/callback), and the model (the platform's model picks the tool from tools/list; here the choice is fixed).
 // Platform facts are from their published client documents (fetched 2026-10-29) and their docs; anything not confirmed is marked.
 import { createHash, randomBytes, sign as signData } from 'node:crypto';
@@ -11,7 +11,7 @@ const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
 const PENDING_MS = 10 * 60 * 1000;
 const CAP = 200;
-// Every platform run calls Agent Connect's own public address about nine times, all from the pod's one address. This per-process value marks those calls
+// Every platform run calls Personal Agent's own public address about nine times, all from the pod's one address. This per-process value marks those calls
 // so the connector's per-address limit does not count them; nobody outside the process knows it.
 export const SELF_MARK = rand(24);
 
@@ -49,7 +49,7 @@ export const simKeyOf = (publicUrl, uri) => {
   return m && PLATFORMS[m[1]] ? m[1] : null;
 };
 
-// Agent Connect's own address is fetched with the plain fetch (a real HTTP call to itself, as the platform would make); anything else goes through fetchImpl.
+// Personal Agent's own address is fetched with the plain fetch (a real HTTP call to itself, as the platform would make); anything else goes through fetchImpl.
 export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch = fetch, signer = null }) {
   const pending = new Map(); // state -> { key, wsId, verifier, clientId, redirectUri, tokenEndpoint, resource, mcpUrl, method, steps, returnTo, at }
   const go = (url, init) => (String(url).startsWith(publicUrl)
@@ -90,7 +90,7 @@ export function createPlatformEngine({ publicUrl, fetchImpl = fetch, selfFetch =
       // No registration: the client_id IS the address of the platform's client document, which the server fetches and checks.
       method = 'cimd';
       clientId = `${publicUrl}/sim/${key}/client.json`;
-      steps.push({ n: 4, title: `${p.name} presents its client ID metadata document (CIMD)`, request: { method: 'GET', url: clientId }, note: `The server advertises client_id_metadata_document_supported, so there is no registration: client_id = the document's address, and the server fetches it. This is Agent Connect's labelled copy of ${p.cimd.url ?? 'the platform\'s document'}, with Agent Connect's callback.${p.cimd.auth === 'private_key_jwt' ? ' It asks for private_key_jwt: the token request is signed with the key in its jwks_uri.' : ''}` });
+      steps.push({ n: 4, title: `${p.name} presents its client ID metadata document (CIMD)`, request: { method: 'GET', url: clientId }, note: `The server advertises client_id_metadata_document_supported, so there is no registration: client_id = the document's address, and the server fetches it. This is Personal Agent's labelled copy of ${p.cimd.url ?? 'the platform\'s document'}, with Personal Agent's callback.${p.cimd.auth === 'private_key_jwt' ? ' It asks for private_key_jwt: the token request is signed with the key in its jwks_uri.' : ''}` });
     } else if (asMeta?.registration_endpoint) {
       method = 'dcr';
       const why = asMeta?.client_id_metadata_document_supported ? '' : 'The server does not advertise client ID metadata documents, so the platform registers. ';

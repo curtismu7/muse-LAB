@@ -37,7 +37,7 @@ button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .band button:focus-visible { outline-color: #fff; }
 img { display: block; }
 
-/* ---------- Page chrome (Agent Connect look) ---------- */
+/* ---------- Page chrome (Personal Agent look) ---------- */
 .topnav { max-width: 1440px; margin: 0 auto; padding: 12px 16px 0; font-size: 14px; }
 .topnav a { color: var(--fg); }
 .real-box { border: 1px solid var(--line); border-left: 4px solid var(--ok); background: var(--surface); border-radius: 8px; padding: 8px 12px; font-size: 13px; display: grid; gap: 4px; }
@@ -91,7 +91,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .pop .go { justify-self: stretch; background: #b3261e; color: #fff; border: 0; border-radius: 6px; padding: 9px 14px; font-weight: 600; }
 .pop .small { font-size: 12px; color: #6b7280; }
 
-/* ======================= Agent Connect ======================= */
+/* ======================= Personal Agent ======================= */
 .muse { display: grid; grid-template-rows: auto minmax(0,1fr) auto; background: var(--surface); }
 .muse .hd { background: linear-gradient(120deg, var(--band-a), var(--band-b)); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
 .muse .log { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
@@ -223,15 +223,15 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 </style>
 </head>
 <body>
-<p class="topnav"><a href="/">Back to Agent Connect</a> &middot; <a href="/how-agent-connect-works.html#publish">How a company adds the connector</a> &middot; <a href="/cimd.html">CIMD examples</a></p>
+<p class="topnav"><a href="/">Back to Personal Agent</a> &middot; <a href="/how-agent-connect-works.html#publish">How a company adds the connector</a> &middot; <a href="/cimd.html">CIMD examples</a></p>
 <header class="band">
   <div class="band__in">
-    <p class="eyebrow">Agent Connect</p>
+    <p class="eyebrow">Personal Agent</p>
     <h1>One airline back end, any agent</h1>
     <p>Pick a client. Each one adds the same Airline Connector, signs Sam in at PingOne, and calls the same gateway. Only the client and the name PingOne shows change.</p>
     <div class="controls">
       <div class="picker" role="group" aria-label="Client">
-        <button type="button" data-c="muse"><span class="m">M</span>Agent Connect</button>
+        <button type="button" data-c="muse"><span class="m">M</span>Personal Agent</button>
         <button type="button" data-c="claude"><img src="brands/claude-symbol.svg" alt="">Claude</button>
         <button type="button" data-c="chatgpt"><img class="inv" src="brands/openai-symbol.svg" alt="">ChatGPT</button>
         <button type="button" data-c="codex"><img class="inv" src="brands/openai-symbol.svg" alt="">Codex</button>
@@ -257,7 +257,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     <p class="sub" id="trace-sub"></p>
     <ol id="trace"></ol>
     <div id="realbox" hidden></div>
-    <p class="same">The same code runs for every client: Agent Connect's <code>/mcp</code> and <code>/connector/*</code>, the PingOne DaVinci flow (Protect, agent detected, consent), the on-behalf-of exchange and the gateway. The client only changes its name, its callback, and which PingOne app signs Sam in (its own when it has one).</p>
+    <p class="same">The same code runs for every client: Personal Agent's <code>/mcp</code> and <code>/connector/*</code>, the PingOne DaVinci flow (Protect, agent detected, consent), the on-behalf-of exchange and the gateway. The client only changes its name, its callback, and which PingOne app signs Sam in (its own when it has one).</p>
   </aside>
 </div>
 
@@ -289,7 +289,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   var OA = '<img class="logo" src="brands/openai-symbol.svg" alt="" ';
 
   var C = {
-    muse:    { label: 'Agent Connect', who: 'Agent Connect', vendor: null, app: "Agent Connect's PingOne app", own: true, cb: '/api/callback' },
+    muse:    { label: 'Personal Agent', who: 'Personal Agent', vendor: null, app: "Personal Agent's PingOne app", own: true, cb: '/api/callback' },
     claude:  { label: 'Claude', who: 'Claude', vendor: 'Anthropic', app: "Claude's own PingOne app", own: true, cb: '/clients/callback' },
     chatgpt: { label: 'ChatGPT', who: 'ChatGPT', vendor: 'OpenAI', app: "ChatGPT's own PingOne app", own: true, cb: '/clients/callback' },
     codex:   { label: 'Codex', who: 'Codex CLI', vendor: 'OpenAI', app: "Codex's own PingOne app", own: true, cb: 'http://127.0.0.1:8765/callback' }
@@ -306,15 +306,15 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   function traceRows(c) {
     var name = c.who + ' (simulated)';
     return [
-      [1, c.who + ' → Agent Connect', 'POST /mcp initialize', '401 · resource_metadata'],
-      [1, c.who + ' → Agent Connect', 'GET /.well-known/oauth-protected-resource and oauth-authorization-server', '200'],
-      [2, c.who + ' → Agent Connect', 'POST /connector/register client_name "' + name + '"', '201 · client_id issued'],
-      [2, 'Agent Connect → PingOne', 'authorize with ' + c.app + ' · PKCE', '302 → DaVinci'],
+      [1, c.who + ' → Personal Agent', 'POST /mcp initialize', '401 · resource_metadata'],
+      [1, c.who + ' → Personal Agent', 'GET /.well-known/oauth-protected-resource and oauth-authorization-server', '200'],
+      [2, c.who + ' → Personal Agent', 'POST /connector/register client_name "' + name + '"', '201 · client_id issued'],
+      [2, 'Personal Agent → PingOne', 'authorize with ' + c.app + ' · PKCE', '302 → DaVinci'],
       [3, 'PingOne', 'DaVinci: Protect risk, then "AI agent detected: ' + (c.own ? c.who : 'Airline Connector') + '"', 'agent · HIGH'],
       [4, 'PingOne', 'Consent agreement for ' + c.who, 'approved'],
-      [5, 'Agent Connect → PingOne', '/connector/callback · code → token, on-behalf-of exchange with ' + c.app, 'act: ' + (c.own ? c.who : 'Airline Connector')],
-      [5, c.who + ' → Agent Connect', 'POST /connector/token · redirect ' + c.cb, '200 · access_token'],
-      [6, 'Agent Connect → Gateway', 'tools/call loyalty_balance · Bearer (sub Sam, act agent)', '200 · ' + fmt(D.points) + ' pts']
+      [5, 'Personal Agent → PingOne', '/connector/callback · code → token, on-behalf-of exchange with ' + c.app, 'act: ' + (c.own ? c.who : 'Airline Connector')],
+      [5, c.who + ' → Personal Agent', 'POST /connector/token · redirect ' + c.cb, '200 · access_token'],
+      [6, 'Personal Agent → Gateway', 'tools/call loyalty_balance · Bearer (sub Sam, act agent)', '200 · ' + fmt(D.points) + ' pts']
     ];
   }
 
@@ -322,12 +322,12 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   var S = {};
 
   S.muse = {
-    shell: function () { return '<div class="app muse"><div class="hd"><strong>Agent Connect</strong><span class="sim">Real back end</span></div><div class="log" id="log"></div><div class="cmp"><span>Ask Agent Connect…</span><span>Send</span></div></div>'; },
+    shell: function () { return '<div class="app muse"><div class="hd"><strong>Personal Agent</strong><span class="sim">Real back end</span></div><div class="log" id="log"></div><div class="cmp"><span>Ask Personal Agent…</span><span>Send</span></div></div>'; },
     steps: [
       function () { add('<div class="u in">' + esc(STORY.ask) + '</div>'); },
-      function () { add('<div class="card in"><b>Sign in to continue</b><span>The airline answered 401. Sign in at PingOne so Agent Connect can act for you.</span><button class="btn" type="button">Sign in with PingOne</button></div>'); },
+      function () { add('<div class="card in"><b>Sign in to continue</b><span>The airline answered 401. Sign in at PingOne so Personal Agent can act for you.</span><button class="btn" type="button">Sign in with PingOne</button></div>'); },
       signin, detected, consent,
-      function () { clearPop(); add('<div class="card in"><b>Signed in</b><span>Agent Connect holds a token for Sam, acting as Agent Connect.</span></div>'); },
+      function () { clearPop(); add('<div class="card in"><b>Signed in</b><span>Personal Agent holds a token for Sam, acting as Personal Agent.</span></div>'); },
       function () { add('<div class="card tool in">loyalty_balance → 200<br>{"points":' + D.points + ',"tier":"' + esc(D.tier) + '"}</div>'); },
       function () { add('<div class="b in">' + answerHtml() + '</div>'); }
     ]
@@ -419,10 +419,10 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     var c = C[cur];
     stage.innerHTML = S[cur].shell();
     document.getElementById('ribbon').textContent = cur === 'codex'
-      ? 'Developer path: Codex has no app directory, so a developer adds the server address once. Customers connect from the directory in Claude, ChatGPT and Meta AI. This is a simulated Codex talking to Agent Connect\'s real back end, not OpenAI\'s app.'
+      ? 'Developer path: Codex has no app directory, so a developer adds the server address once. Customers connect from the directory in Claude, ChatGPT and Meta AI. This is a simulated Codex talking to Personal Agent\'s real back end, not OpenAI\'s app.'
       : c.vendor
-      ? 'Demo: a simulated ' + c.label + ' talking to Agent Connect\'s real back end. This is not ' + c.vendor + '\'s app; the ' + c.label + ' name and logo belong to ' + c.vendor + '.'
-      : 'Agent Connect, the existing app, shown for comparison.';
+      ? 'Demo: a simulated ' + c.label + ' talking to Personal Agent\'s real back end. This is not ' + c.vendor + '\'s app; the ' + c.label + ' name and logo belong to ' + c.vendor + '.'
+      : 'Personal Agent, the existing app, shown for comparison.';
     document.getElementById('trace-sub').textContent = 'Client: ' + c.who + ' · signs in with ' + c.app + ' · callback ' + c.cb;
     trace.innerHTML = (LIVE_ROWS || traceRows(c)).map(function (r, i) {
       var cls = /^4|refused|no answer/.test(r[3]) ? 'e' : 'k';
@@ -469,14 +469,14 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   });
 
 
-  // ---------- live: the platform's real client steps against Agent Connect's /mcp (server: POST /api/sim/start), then the real PingOne sign-in ----------
+  // ---------- live: the platform's real client steps against Personal Agent's /mcp (server: POST /api/sim/start), then the real PingOne sign-in ----------
   var L = { assistants: [], session: null };
   function liveOk() { return cur !== 'muse' && L.assistants.length > 0 && STORY.vertical === 'airline'; }
   function liveState() {
     var b = document.getElementById('live'), n = document.getElementById('livenote');
     b.disabled = !liveOk();
-    n.textContent = cur === 'muse' ? 'Agent Connect is the home page.' : STORY.vertical !== 'airline' ? 'Live runs the airline back end, so it is off for the ' + STORY.label.toLowerCase() + ' story.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.'
-      : (cur === 'codex' ? 'Developer path. ' : '') + 'Live: runs ' + C[cur].who + "'s real client steps against Agent Connect's /mcp, then signs in at PingOne.";
+    n.textContent = cur === 'muse' ? 'Personal Agent is the home page.' : STORY.vertical !== 'airline' ? 'Live runs the airline back end, so it is off for the ' + STORY.label.toLowerCase() + ' story.' : !L.assistants.length ? 'Live sign-in needs the real connector, which is not on here.'
+      : (cur === 'codex' ? 'Developer path. ' : '') + 'Live: runs ' + C[cur].who + "'s real client steps against Personal Agent's /mcp, then signs in at PingOne.";
   }
   function note(t) { document.getElementById('livenote').textContent = t; }
   document.getElementById('live').addEventListener('click', function () {
@@ -518,10 +518,10 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     quiet = false;
     lightTrace();
     var how = String(a.method || 'dcr').toUpperCase();
-    document.getElementById('ribbon').textContent = 'Live: these are the steps ' + C[cur].who + ' really runs (' + how + '), the PingOne sign-in and the gateway call. The chat window is a look-alike of ' + C[cur].label + ', not ' + (C[cur].vendor || 'its') + "'s own app, and its callback is Agent Connect's simulated one.";
+    document.getElementById('ribbon').textContent = 'Live: these are the steps ' + C[cur].who + ' really runs (' + how + '), the PingOne sign-in and the gateway call. The chat window is a look-alike of ' + C[cur].label + ', not ' + (C[cur].vendor || 'its') + "'s own app, and its callback is Personal Agent's simulated one.";
     document.getElementById('trace-sub').textContent = 'Client: ' + C[cur].who + ' · registered by ' + how + ' · ' + (a.steps || []).length + ' real steps';
     var rb = document.getElementById('realbox'); rb.hidden = false; rb.className = 'real-box' + (ok ? '' : ' bad');
-    var rr = a.realRedirect ? '<span>The callback the real ' + esc(a.name || C[cur].label) + ' uses: <code>' + esc(a.realRedirect) + '</code>. This run used Agent Connect\'s own.</span>' : '';
+    var rr = a.realRedirect ? '<span>The callback the real ' + esc(a.name || C[cur].label) + ' uses: <code>' + esc(a.realRedirect) + '</code>. This run used Personal Agent\'s own.</span>' : '';
     rb.innerHTML = ok
       ? '<strong>Real result</strong><span>Registered by ' + esc(how) + ', signed in at PingOne, and the points came back from the gateway: ' + fmt(a.points.points) + ', ' + esc(a.points.tier) + '.</span>' + rr
       : '<strong>Real result: no points</strong><span>' + esc(a.error || 'The gateway did not answer.') + '</span><span>Every step it got through is listed on the right, as it came back.</span>' + rr;

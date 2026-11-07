@@ -9,7 +9,7 @@
       "color": "blue"
     },
     "dark": {
-      "label": "Agent Connect (Airline Connector)",
+      "label": "Personal Agent (Airline Connector)",
       "color": "dark"
     },
     "green": {
@@ -125,10 +125,10 @@
     {
       "id": "d9",
       "group": "dark",
-      "label": "9. Agent Connect gives Claude its own token",
+      "label": "9. Personal Agent gives Claude its own token",
       "sub": [
         "after the exchanges at /connector/token",
-        "the PingOne token never leaves Agent Connect"
+        "the PingOne token never leaves Personal Agent"
       ],
       "x": 40,
       "y": 382
@@ -242,8 +242,8 @@
     },
     {
       "title": "Authorize",
-      "what": "Claude registers itself at /connector/register, then sends Sam to /connector/authorize. Agent Connect starts the PingOne sign-in with the \"Claude agent login\" PingOne app, chosen because the callback host is claude.ai.",
-      "why": "claude.ai is a listed agent host (MUSE_CONNECTOR_AGENTS), so it may register. Agent Connect issues a public client (no secret). The Owner can paste a client ID in Advanced settings instead.",
+      "what": "Claude registers itself at /connector/register, then sends Sam to /connector/authorize. Personal Agent starts the PingOne sign-in with the \"Claude agent login\" PingOne app, chosen because the callback host is claude.ai.",
+      "why": "claude.ai is a listed agent host (MUSE_CONNECTOR_AGENTS), so it may register. Personal Agent issues a public client (no secret). The Owner can paste a client ID in Advanced settings instead.",
       "edges": [
         0,
         1,
@@ -281,8 +281,8 @@
     },
     {
       "title": "Exchanges, token",
-      "what": "Agent Connect does the code swap and both exchanges with the \"Claude agent login\" PingOne app, then gives Claude its own access token at /connector/token.",
-      "why": "So act names Claude. The PingOne token never leaves Agent Connect. Claude holds only a Agent Connect token for scope mcp.",
+      "what": "Personal Agent does the code swap and both exchanges with the \"Claude agent login\" PingOne app, then gives Claude its own access token at /connector/token.",
+      "why": "So act names Claude. The PingOne token never leaves Personal Agent. Claude holds only a Personal Agent token for scope mcp.",
       "edges": [
         0,
         1,
@@ -296,7 +296,7 @@
     },
     {
       "title": "Call with token",
-      "what": "Anthropic's servers call /mcp with that token. Agent Connect calls the gateway, which checks the delegated token, and the points come back.",
+      "what": "Anthropic's servers call /mcp with that token. Personal Agent calls the gateway, which checks the delegated token, and the points come back.",
       "why": "Not tried yet: Claude's PingOne app is not in MUSE_CONNECTOR_AGENTS on SE yet.",
       "edges": [
         0,

@@ -20,7 +20,7 @@ async function api(method, path, body) {
   return json;
 }
 
-// One-tap prompts for the conversation. "burst" and "injected" are the Agent Connect check demos.
+// One-tap prompts for the conversation. "burst" and "injected" are the Personal Agent check demos.
 const PROMPTS = [
   { label: 'Read my calendar', tool: 'calendar.read', args: {} },
   { label: 'Draft a note', tool: 'mail.draft', args: { body: 'Quick note about Thursday.' } },
@@ -49,12 +49,12 @@ const OUTCOME_LABEL = {
 };
 
 const CALLERS = [
-  { id: 'muse', label: 'Agent Connect (agent)' },
+  { id: 'muse', label: 'Personal Agent (agent)' },
   { id: 'browser', label: 'Sam (typing directly)' },
 ];
 
 function callerLine(actor) {
-  return actor === 'human' ? 'Caller: Sam, a person in the browser' : 'Caller: Agent Connect, an agent';
+  return actor === 'human' ? 'Caller: Sam, a person in the browser' : 'Caller: Personal Agent, an agent';
 }
 
 const ICON_PATHS = {
@@ -83,7 +83,7 @@ function MuseReply({ entry, onApprove, busy }) {
       <p className="small muted">{callerLine(entry.actor)}</p>
       <ul className="rules">
         {entry.rules.map((r) => <li key={r}>{r}</li>)}
-        {entry.signals?.length > 0 && <li>Agent Connect check: {entry.signals.join(', ')}</li>}
+        {entry.signals?.length > 0 && <li>Personal Agent check: {entry.signals.join(', ')}</li>}
       </ul>
       {entry.result && <pre>{JSON.stringify(entry.result, null, 2)}</pre>}
       {entry.outcome === 'held' && (
@@ -110,9 +110,9 @@ function ConsentModal({ ask }) {
   return (
     <div className="modal-backdrop" role="presentation">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
-        <h2 id="consent-title">Agent Connect is a bot</h2>
+        <h2 id="consent-title">Personal Agent is a bot</h2>
         <p>{ask.prompt}</p>
-        <p className="small muted">Protect detected the agent client Agent Connect. Simulated: no real PingOne consent is recorded.</p>
+        <p className="small muted">Protect detected the agent client Personal Agent. Simulated: no real PingOne consent is recorded.</p>
         <div className="modal-actions">
           <button type="button" onClick={() => ask.resolve(false)}>No, do not allow</button>
           <button type="button" className="approve" ref={allow} data-default-button onClick={() => ask.resolve(true)}>Yes, I consent</button>
@@ -197,14 +197,14 @@ export default function App() {
   const reset = () => guarded(async () => { await api('POST', '/api/reset'); setTrace(null); setFeed([]); });
 
   // The gateway answers 401 until the caller has a token. Then the caller asks PingOne, which logs Sam in, asks Protect who is
-  // calling, and for Agent Connect puts up the consent modal. After the token is issued the same call is retried.
+  // calling, and for Personal Agent puts up the consent modal. After the token is issued the same call is retried.
   async function callTool(body) {
     try {
       return await api('POST', '/api/request', body);
     } catch (e) {
       if (e.status !== 401 || e.body?.error !== 'invalid_token') throw e;
     }
-    const who = body.via === 'muse' ? 'Agent Connect' : 'Sam';
+    const who = body.via === 'muse' ? 'Personal Agent' : 'Sam';
     push({ kind: 'steps', title: 'Gateway answered 401: no token', steps: [`${who} asks PingOne for one.`] });
     let auth;
     try {
@@ -271,8 +271,8 @@ export default function App() {
     );
   }
 
-  // Red: PingOne's Protect (the Agent Connect agent predictor) rated the caller HIGH (protect_agent claim on the token). Blue: only the client id says it
-  // is Agent Connect (act claim). Neither: no agent signal at all.
+  // Red: PingOne's Protect (the Personal Agent agent predictor) rated the caller HIGH (protect_agent claim on the token). Blue: only the client id says it
+  // is Personal Agent (act claim). Neither: no agent signal at all.
   const agentState = session.mode === 'live' && session.liveAuth?.signedIn ? detectedBy(session.liveAuth.claims) : null;
   const decisions = session.decisions ?? [];
   const lastEntry = [...feed].reverse().find((m) => m.entry)?.entry ?? null;
@@ -282,10 +282,10 @@ export default function App() {
       {consentAsk && <ConsentModal ask={consentAsk} />}
       <header className="page-band">
         <div className="page-band__copy">
-          <p className="page-band__eyebrow">Agent Connect</p>
-          <h1>{session.customer?.brandName ?? 'Agent Connect'}</h1>
+          <p className="page-band__eyebrow">Personal Agent</p>
+          <h1>{session.customer?.brandName ?? 'Personal Agent'}</h1>
         <ShelfLink />
-          <p className="page-band__summary">{session.customer?.agentName ?? 'Agent Connect'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
+          <p className="page-band__summary">{session.customer?.agentName ?? 'Personal Agent'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
           <p className="page-band__links"><a href="/how-agent-connect-works.html">How it works</a><a href="/how-agent-connect-works.html#connect">How customers connect</a><a href="/clients.html">Claude, ChatGPT, Codex</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
           <div className="mode-toggle" role="group" aria-label="Mock or real PingOne">
             <span className="mode-toggle__label">PingOne</span>
@@ -328,7 +328,7 @@ export default function App() {
 
         {session.mode === 'live' ? (
           <aside className="banner live" role="note">
-            Real. PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Agent Connect acts on their behalf through the gateway at {session.live.origin}. Nothing in this mode is simulated. Switch to Fake (mock) below for the offline version.
+            Real. PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Personal Agent acts on their behalf through the gateway at {session.live.origin}. Nothing in this mode is simulated. Switch to Fake (mock) below for the offline version.
           </aside>
         ) : (
           <aside className="banner" role="note">
@@ -345,7 +345,7 @@ export default function App() {
           <div className="signin">
             <span className="avatar big" aria-hidden="true">M</span>
             <h2>Sign in</h2>
-            <p className="muted">{session.mode === 'live' ? 'Agent Connect sends you to your sign-in provider. Signing in with PingOne today.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
+            <p className="muted">{session.mode === 'live' ? 'Personal Agent sends you to your sign-in provider. Signing in with PingOne today.' : 'The sign-in runs a DaVinci-shaped flow, simulated in this build.'}</p>
             <ul className="muted small" aria-label="Other sign-in providers">
               <li>PingFederate: not connected</li>
               <li>PingOne Advanced Identity Cloud (AIC): not connected</li>
@@ -392,13 +392,13 @@ export default function App() {
             </div>
 
             <form className="composer" onSubmit={send}>
-              <label className="sr-only" htmlFor="ask-muse">Ask Agent Connect</label>
+              <label className="sr-only" htmlFor="ask-muse">Ask Personal Agent</label>
               <input
                 id="ask-muse"
                 type="text"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder='Ask Agent Connect, e.g. "pay Acme 800" or "read my calendar"'
+                placeholder='Ask Personal Agent, e.g. "pay Acme 800" or "read my calendar"'
                 autoComplete="off"
                 disabled={busy}
               />
@@ -416,10 +416,10 @@ export default function App() {
         {error && <p className="error" role="alert">{error}</p>}
       </section>
 
-      <aside className="side" aria-label="Agent Connect identity and activity">
+      <aside className="side" aria-label="Personal Agent identity and activity">
         <div className="identity">
           <span className={`avatar ${agentState ?? ''}`} aria-hidden="true">M</span>
-          <h2 className={agentState ?? ''} data-testid="muse-name" data-agent={agentState ?? ''}>Agent Connect</h2>
+          <h2 className={agentState ?? ''} data-testid="muse-name" data-agent={agentState ?? ''}>Personal Agent</h2>
           {agentState && <p className={`small agent-note ${agentState}`}>{AGENT_NOTE[agentState]}</p>}
           <p className={session.signedIn ? 'status ok' : 'status'}>
             <span className="dot" aria-hidden="true" />
@@ -448,7 +448,7 @@ export default function App() {
                   <div>
                     <strong>{session.tools.find((t) => t.id === d.tool)?.label ?? d.tool}</strong>
                     <span className="small muted">{new Date(d.at).toLocaleTimeString()} · {OUTCOME_LABEL[d.outcome]}</span>
-                    <span className="small">{d.actor === 'human' ? 'Sam, in the browser' : 'Agent Connect, an agent'}</span>
+                    <span className="small">{d.actor === 'human' ? 'Sam, in the browser' : 'Personal Agent, an agent'}</span>
                     {d.signals.length > 0 && <span className="small">{d.signals.join(', ')}</span>}
                   </div>
                 </li>
@@ -459,7 +459,7 @@ export default function App() {
 
         {tab === 'policy' && (
           <div className="panel">
-            <h3>What Agent Connect may do</h3>
+            <h3>What Personal Agent may do</h3>
             <ul className="policy">
               {session.tools.map((t) => (
                 <li key={t.id}>

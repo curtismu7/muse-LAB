@@ -1,4 +1,4 @@
-// Privilege-shaped gateway: Agent Connect check first, then the coarse tool check, then the fine business rule.
+// Privilege-shaped gateway: Personal Agent check first, then the coarse tool check, then the fine business rule.
 // The most restrictive answer wins: blocked beats held for approval, which beats allowed.
 import { TOOLS } from './tools.js';
 import { runDetectionFlow } from './detect.js';

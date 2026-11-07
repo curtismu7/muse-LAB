@@ -1,4 +1,4 @@
-# Agent Connect (Muse)
+# Personal Agent (Muse)
 
 Personal-agent demo, tier Demo. A browser front end (Muse, the agent) signs in through PingOne, then calls tools through a Privilege-shaped gateway. By default (`MODE=mock`) everything is simulated and offline; `MODE=live` (with `ALLOW_LIVE=1`) is the owner's real build with their own PingOne and gateway. `/clients.html` shows Claude, ChatGPT, Codex and Muse as look-alike clients on the same back end.
 

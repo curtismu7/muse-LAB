@@ -1,6 +1,6 @@
-// Real Agent Connect's brain: a local model (llama.cpp, OpenAI-compatible) picks ONE tool from a fixed list and writes the reply.
+// Real Personal Agent's brain: a local model (llama.cpp, OpenAI-compatible) picks ONE tool from a fixed list and writes the reply.
 // The model never writes tool arguments and never sees a token. Anything it returns is checked before use, and if the model is
-// off, slow or wrong, Agent Connect falls back to keyword matching so the demo still runs. Off by default; never on a hosted build.
+// off, slow or wrong, Personal Agent falls back to keyword matching so the demo still runs. Off by default; never on a hosted build.
 const TOOLS = [
   { name: 'loyalty_balance', description: 'The member\'s airline points balance and tier.' },
   { name: 'get_loyalty_status', description: 'The member\'s loyalty status: tier, points and passenger name.' },
@@ -42,7 +42,7 @@ const keywordPlan = (prompt, why) => ({ tool: KEYWORDS.test(prompt) ? 'loyalty_b
 export async function plan(cfg, prompt, fetchImpl = fetch) {
   const p = String(prompt ?? '').slice(0, MAX_PROMPT);
   if (!cfg) return keywordPlan(p, 'No model configured, matched by keywords.');
-  const system = 'You are Agent Connect, a personal airline assistant. You can use exactly one tool, or none. Tools:\n'
+  const system = 'You are Personal Agent, a personal airline assistant. You can use exactly one tool, or none. Tools:\n'
     + TOOLS.map((t) => `- ${t.name}: ${t.description}`).join('\n')
     + '\nAnswer with JSON only, no other text: {"tool":"<tool name>"} or {"tool":"none","reply":"<one short sentence>"}. Choose "none" when the request is not about the member\'s airline points or loyalty status.';
   try {
@@ -53,7 +53,7 @@ export async function plan(cfg, prompt, fetchImpl = fetch) {
     // A decline uses a fixed sentence: a small model's own wording for "no" is not worth trusting.
     if (tool === 'none') return { tool: null, reply: DECLINE, via: 'llm', model };
     if (typeof tool === 'string' && TOOLS.some((t) => t.name === tool)) return { tool, reply: null, via: 'llm', model };
-    return keywordPlan(p, 'The model did not name a tool Agent Connect knows, matched by keywords.');
+    return keywordPlan(p, 'The model did not name a tool Personal Agent knows, matched by keywords.');
   } catch (e) {
     return keywordPlan(p, `The model could not be used (${String(e?.message ?? e).slice(0, 60)}), matched by keywords.`);
   }
@@ -81,7 +81,7 @@ export async function reply(cfg, prompt, result, fetchImpl = fetch) {
   try {
     const facts = JSON.stringify(result);
     const { text, model } = await chat(cfg, fetchImpl, [
-      { role: 'system', content: 'You are Agent Connect, a personal airline assistant. Answer the member in one or two plain sentences using only these facts. Do not add numbers that are not in the facts. Facts: ' + facts },
+      { role: 'system', content: 'You are Personal Agent, a personal airline assistant. Answer the member in one or two plain sentences using only these facts. Do not add numbers that are not in the facts. Facts: ' + facts },
       { role: 'user', content: String(prompt ?? '').slice(0, MAX_PROMPT) },
     ], 90);
     const out = text.trim().replace(/\s+/g, ' ').slice(0, 400);

@@ -1,6 +1,6 @@
-# Connect an agent to Agent Connect: setup for each agent type
+# Connect an agent to Personal Agent: setup for each agent type
 
-Written for: colleagues who run or demo Agent Connect and need to connect an agent to it.
+Written for: colleagues who run or demo Personal Agent and need to connect an agent to it.
 
 Two things are called "Muse" or "the connector" here, so to be exact:
 

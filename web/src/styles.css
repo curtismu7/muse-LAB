@@ -385,7 +385,7 @@ h2.detected, .agent-note.detected { color: var(--detected-text); }
 h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .agent-note { margin: 0; font-weight: 600; }
 
-/* How Agent Connect works: two-tab ReactFlow diagram */
+/* How Personal Agent works: two-tab ReactFlow diagram */
 .mflow { gap: 10px; }
 .flow-canvas--xl { height: min(94vh, 1010px); }
 .react-flow__node.lane { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; pointer-events: none; }
@@ -434,7 +434,7 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .page-band { padding: 22px 32px; }
 .page-band__summary { max-width: none; }
 .page-band__links { margin-top: 10px; }
-/* Real mode is one column, like the AI-DEMO2 Agent Connect page: no rail, no empty side panel. */
+/* Real mode is one column, like the AI-DEMO2 Personal Agent page: no rail, no empty side panel. */
 .app--live { grid-template-columns: 1fr; }
 .app--live .rail, .app--live .side { display: none; }
 .banner.live { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); }

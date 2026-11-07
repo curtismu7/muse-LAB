@@ -1,5 +1,5 @@
 // Turns a typed request into one tool call, the same calls the prompt chips make. Anything it cannot map gets a short
-// reply that says what Agent Connect can do. Pure function: no network, no state.
+// reply that says what Personal Agent can do. Pure function: no network, no state.
 const HELP = 'I can read your calendar, draft a note, send a payment, or export records. Try "pay Acme 800" or "export 25 rows".';
 
 export function parseIntent(text) {
