@@ -527,3 +527,6 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .signin-rich p, .signin-rich ul, .signin-rich ol { margin: 0; }
 .signin-rich ul, .signin-rich ol { padding-left: 20px; }
 .signin-rich a { color: var(--accent); }
+
+.connector-signin { max-width: 560px; margin: 48px auto; padding: 0 16px; display: grid; gap: 12px; }
+.connector-signin h1 { margin: 0; }

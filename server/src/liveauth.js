@@ -48,6 +48,18 @@ export function startSignIn(learned, client, resource, { forceLogin = false, sco
   return { url: u.href, state, verifier };
 }
 
+// pi.flow: what the page's DaVinci client SDK needs to run PingOne's sign-in itself instead of leaving for a login page. The server still owns the state, the
+// PKCE verifier and the code swap; this carries the state, the challenge and the hints, never the verifier or a secret.
+export function piflowFor(r, learned, client) {
+  const q = new URL(r.url).searchParams;
+  const query = {};
+  for (const [k, v] of q) if (!['response_type', 'client_id', 'redirect_uri', 'scope'].includes(k)) query[k] = v;
+  const wk = new URL(learned.authorizeEndpoint);
+  wk.pathname = wk.pathname.replace(/\/authorize$/, '/.well-known/openid-configuration');
+  wk.search = '';
+  return { clientId: client.clientId, redirectUri: client.redirectUri, scope: q.get('scope') ?? 'openid', wellknown: wk.href, state: r.state, query };
+}
+
 function claimsOf(token) {
   const part = token.split('.')[1];
   if (token.split('.').length !== 3 || !part) return null;

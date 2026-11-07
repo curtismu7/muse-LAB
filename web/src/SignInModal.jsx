@@ -116,7 +116,8 @@ function Collector({ c, client, disabled, onChange, onPick }) {
   }
 }
 
-export default function SignInModal({ config, api, onClose }) {
+// completePath: where the code is handed back when the flow succeeds; its answer goes to onClose as `result`.
+export default function SignInModal({ config, api, onClose, completePath = '/api/live/signin/complete' }) {
   const [view, setView] = useState({ status: 'loading', collectors: [], name: '', error: '' });
   const [busy, setBusy] = useState(false);
   const [pos, setPos] = useState(null);
@@ -184,8 +185,8 @@ export default function SignInModal({ config, api, onClose }) {
     const auth = c.getClient?.()?.authorization;
     if (!auth?.code) return setView({ status: 'failure', collectors: [], name: '', error: 'PingOne finished the flow without a code. Cancel and try again.' });
     try {
-      await api('POST', '/api/live/signin/complete', { state: auth.state ?? config.state, code: auth.code });
-      if (!dead.current) onClose({ done: true });
+      const result = await api('POST', completePath, { state: auth.state ?? config.state, code: auth.code });
+      if (!dead.current) onClose({ done: true, result });
     } catch (e) { setView({ status: 'failure', collectors: [], name: '', error: e.message }); }
   };
 
