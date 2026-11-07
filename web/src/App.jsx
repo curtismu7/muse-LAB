@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 import PatternFlow from './PatternFlow.jsx';
 import DiscoveryPanel from './DiscoveryPanel.jsx';
 import AssistantConnect from './AssistantConnect.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
+// Loaded when someone signs in: it carries Ping's DaVinci client SDK.
+const SignInModal = lazy(() => import('./SignInModal.jsx'));
 import ThemeToggle from './ThemeToggle.jsx';
 import TextSize from './TextSize.jsx';
 import { parseIntent } from './intent.js';
@@ -130,6 +132,10 @@ export default function App() {
   const [tab, setTab] = useState('activity');
   const [presenter, setPresenter] = useState(false);
   const [error, setError] = useState(null);
+  // The pi.flow Sign in dialog: open while PingOne's flow runs. The promise settles when the user finishes or cancels.
+  const [piflow, setPiflow] = useState(null);
+  const signInWith = (body) => api('POST', '/api/live/signin', { ...body, piflow: true }).then((r) => (r.piflow ? new Promise((resolve) => setPiflow({ config: r.piflow, resolve })) : window.location.assign(r.url)));
+  const closePiflow = (result) => setPiflow((cur) => { cur?.resolve(result); return null; });
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [via, setVia] = useState('muse');
@@ -350,8 +356,8 @@ export default function App() {
               <li>PingFederate: not connected</li>
               <li>PingOne Advanced Identity Cloud (AIC): not connected</li>
             </ul>
-            <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} />
-            <UserLoginPanel session={session} api={api} guarded={guarded} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
+            <DiscoveryPanel session={session} api={api} onChange={refresh} busy={busy} guarded={guarded} signInWith={signInWith} />
+            <UserLoginPanel session={session} api={api} guarded={guarded} signInWith={signInWith} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
             <AssistantConnect session={session} api={api} guarded={guarded} mfaOff={(() => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } })()} />
             {session.picker && (
               <label className="field">
@@ -489,6 +495,7 @@ export default function App() {
           <PatternFlow />
         </div>
       )}
+      {piflow && <Suspense fallback={null}><SignInModal config={piflow.config} api={api} onClose={closePiflow} /></Suspense>}
     </main>
   );
 }

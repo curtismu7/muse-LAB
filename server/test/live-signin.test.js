@@ -309,3 +309,72 @@ test('just a user: separate PingOne app, no exchange, own token to the gateway i
   assert.equal(s.liveAuth.signedIn, false, 'the agent sign-in is untouched');
   await new Promise((r) => server.close(r));
 });
+
+// pi.flow: the page drives PingOne's sign-in with the DaVinci client SDK. The server keeps the verifier and does the code swap.
+async function piflowBoot(over = {}) {
+  const P1 = 'https://auth.pingone.com/env1/as';
+  const n = net({ [`${P1}/token`]: () => json(200, { access_token: jwt({ iss: 'https://auth.pingone.com/env1', aud: 'client1', sub: 'FF1' }) }), ...over });
+  const server = createApp({ ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1' }, { fetchImpl: n.f }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const client = () => {
+    let cookie = null;
+    return async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch { /* not json */ } return { status: r.status, j, t }; };
+  };
+  const call = client();
+  await call('POST', '/api/gateway-mode', { mode: 'live' }); await call('POST', '/api/discover'); await call('POST', '/api/live/register');
+  return { n, P1, call, client, close: () => new Promise((r) => server.close(r)) };
+}
+
+test('pi.flow: sign-in returns the SDK config (state, challenge, hint) and never the verifier or a redirect URL; without the flag the redirect URL still comes back', async () => {
+  const a = await piflowBoot();
+  const r = (await a.call('POST', '/api/live/signin', { piflow: true })).j;
+  assert.equal(r.url, undefined, 'no redirect URL in the pi.flow form');
+  assert.equal(r.piflow.clientId, 'client1');
+  assert.equal(r.piflow.wellknown, 'https://auth.pingone.com/env1/as/.well-known/openid-configuration');
+  assert.equal(r.piflow.scope, 'openid');
+  assert.equal(r.piflow.redirectUri.endsWith('/api/callback'), true);
+  assert.equal(r.piflow.state, r.piflow.query.state);
+  assert.equal(r.piflow.query.code_challenge_method, 'S256');
+  assert.ok(r.piflow.query.code_challenge && r.piflow.query.prompt === 'login' && r.piflow.query.login_hint === 'demouser');
+  for (const k of ['response_type', 'client_id', 'redirect_uri', 'scope']) assert.equal(k in r.piflow.query, false, `${k} is set by the SDK, not passed through`);
+  assert.ok(!/verifier/i.test(JSON.stringify(r)), 'the verifier stays on the server');
+  assert.equal(new URL((await a.call('POST', '/api/live/signin')).j.url).pathname, '/env1/as/authorize', 'old callers still get the redirect URL');
+  await a.close();
+});
+
+test('pi.flow: complete swaps the code with the stored verifier, works once, and the session shows signed in', async () => {
+  const a = await piflowBoot();
+  const { state } = (await a.call('POST', '/api/live/signin', { piflow: true })).j.piflow;
+  const done = await a.call('POST', '/api/live/signin/complete', { state, code: 'the-code' });
+  assert.equal(done.status, 200);
+  assert.equal(done.j.ok, true);
+  const tokenCall = a.n.seen.find((s) => s.url === `${a.P1}/token`);
+  assert.match(tokenCall.init.body, /code=the-code/);
+  assert.match(tokenCall.init.body, /code_verifier=/);
+  assert.equal((await a.call('GET', '/api/session')).j.liveAuth.signedIn, true);
+  assert.equal((await a.call('POST', '/api/live/signin/complete', { state, code: 'the-code' })).status, 400, 'state is single use');
+  await a.close();
+});
+
+test('pi.flow: complete refuses an unknown state and another workspace, and the wrong workspace does not burn the real one', async () => {
+  const a = await piflowBoot();
+  const { state } = (await a.call('POST', '/api/live/signin', { piflow: true })).j.piflow;
+  assert.equal((await a.call('POST', '/api/live/signin/complete', { state: 'nope', code: 'c' })).status, 400);
+  const stranger = a.client();
+  assert.equal((await stranger('POST', '/api/live/signin/complete', { state, code: 'c' })).status, 400);
+  assert.ok(!a.n.seen.some((s) => s.url === `${a.P1}/token`), 'nothing was exchanged for the stranger');
+  assert.equal((await a.call('POST', '/api/live/signin/complete', { state, code: 'c' })).status, 200, 'the owner can still finish');
+  await a.close();
+});
+
+test('pi.flow: an error from the flow is reported, nothing is exchanged', async () => {
+  const a = await piflowBoot();
+  const { state } = (await a.call('POST', '/api/live/signin', { piflow: true })).j.piflow;
+  const done = await a.call('POST', '/api/live/signin/complete', { state, error: 'access_denied' });
+  assert.equal(done.status, 200);
+  assert.match(done.j.message, /refused/i);
+  assert.ok(!a.n.seen.some((s) => s.url === `${a.P1}/token`));
+  assert.match((await a.call('GET', '/api/session')).j.liveAuth.error ?? '', /access_denied/);
+  await a.close();
+});

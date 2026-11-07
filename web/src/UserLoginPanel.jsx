@@ -1,8 +1,8 @@
 // Sam signs in as himself: no agent, no consent, no exchange. Then his own token goes straight to the gateway, which should refuse it.
-export default function UserLoginPanel({ session, api, guarded, mfaOff }) {
+export default function UserLoginPanel({ session, api, guarded, signInWith, mfaOff }) {
   if (session.mode !== 'live' || !session.live?.userLogin) return null;
   const u = session.userLogin;
-  const start = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); const r = await api('POST', '/api/live/signin', { as: 'user', mfa: mfaOff ? 'off' : 'on' }); window.location.assign(r.url); });
+  const start = () => guarded(async () => { if (!session.discovery) await api('POST', '/api/discover'); await signInWith({ as: 'user', mfa: mfaOff ? 'off' : 'on' }); });
   const last = u?.steps?.filter((s) => s.response).slice(-1)[0];
   return (
     <section className="disco userlogin" aria-label="Sign in as a user" data-testid="user-login-panel">
