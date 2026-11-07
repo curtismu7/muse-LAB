@@ -49,3 +49,5 @@ jobs:
           files=$(grep -rlF -f "$list" --exclude-dir=node_modules --exclude-dir=.git . | wc -l | tr -d ' ')
           echo "history hits: $hits, tree files: $files"
           test "$hits" = "0" && test "$files" = "0"
+      - name: No AI attribution
+        run: bash scripts/check-no-ai-attribution.sh
