@@ -6,7 +6,7 @@
 import express from 'express';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { callGateway, delegate, exchangeCode, startSignIn } from './liveauth.js';
+import { callGateway, delegate, exchangeCode, piflowFor, startSignIn } from './liveauth.js';
 import { SELF_MARK, simKeyOf } from './platforms.js';
 
 const b64u = (b) => b.toString('base64url');
@@ -184,7 +184,9 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     const idp = idpFor(cfg, live, String(q.redirect_uri));
     const r = startSignIn(learned, { clientId: idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: idp.loginHint ? `${idp.loginHint}.conn` : null });
     capped(pending);
-    pending.set(r.state, { client: String(q.client_id), redirectUri: String(q.redirect_uri), state: q.state ? String(q.state) : null, challenge: String(q.code_challenge), verifier: r.verifier, learned, idp, at: Date.now(), go: r.url });
+    // The user signs in on Personal Agent's own page, in the Sign in dialog (pi.flow): no redirect to a PingOne login page.
+    const signin = `${PUBLIC}/connector/signin?flow=${r.state}`;
+    pending.set(r.state, { client: String(q.client_id), redirectUri: String(q.redirect_uri), state: q.state ? String(q.state) : null, challenge: String(q.code_challenge), verifier: r.verifier, learned, idp, at: Date.now(), go: signin, authUrl: r.url });
     // Optional: clear any PingOne session in this browser first (demo only), so the consent step cannot hit userSessionMismatch.
     // PingOne sends the browser back to /connector/resume, which must be a registered post-logout redirect URI on the app.
     const signoff = signoutFirst ? String(learned.authorizeEndpoint ?? '').replace(/\/authorize$/, '/signoff') : '';
@@ -193,7 +195,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       res.set('Set-Cookie', `muse_resume=${r.state}; Path=/connector; Max-Age=300; HttpOnly; SameSite=Lax${PUBLIC.startsWith('https:') ? '; Secure' : ''}`);
       return res.redirect(302, u.href);
     }
-    res.redirect(302, r.url);
+    res.redirect(302, signin);
   });
 
   // The browser is back from PingOne's sign-out. Continue to the sign-in that /connector/authorize prepared. The address comes from our own record, never from the request.
@@ -205,23 +207,37 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     res.redirect(302, p.go);
   });
 
-  // PingOne sent the user back. Swap the code, act for the user, and give the agent our own one-time code.
-  app.get('/connector/callback', limit, async (req, res) => {
-    const p = pending.get(String(req.query.state ?? ''));
-    pending.delete(String(req.query.state ?? ''));
-    if (!p || Date.now() - p.at > PENDING_MS) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from the agent.');
-    const back = (params) => { const u = new URL(p.redirectUri); for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v); if (p.state) u.searchParams.set('state', p.state); return res.redirect(302, u.href); };
-    if (req.query.error) return back({ error: 'access_denied' });
+  // PingOne's answer: swap the code, act for the user, and give the agent our own one-time code. Returns where to send the browser: the agent's own redirect address.
+  const finish = async (p, q) => {
+    const back = (params) => { const u = new URL(p.redirectUri); for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v); if (p.state) u.searchParams.set('state', p.state); return u.href; };
+    if (q.error) return back({ error: 'access_denied' });
     try {
-      const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: { clientId: p.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, resource: null, clientSecret: p.idp.clientSecret }, fetchImpl);
+      const r = await exchangeCode(live, p.learned, { code: String(q.code ?? ''), verifier: p.verifier, client: { clientId: p.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, resource: null, clientSecret: p.idp.clientSecret }, fetchImpl);
       if (!r.token) return back({ error: 'server_error' });
       const d = await delegate(live, p.idp, r.token, fetchImpl);
       if (!d.token) return back({ error: 'server_error' });
       capped(codes);
       const code = rand(24);
       codes.set(code, { token: d.token, exp: d.claims?.exp ?? null, client: p.client, redirectUri: p.redirectUri, challenge: p.challenge, at: Date.now() });
-      back({ code });
-    } catch { back({ error: 'server_error' }); }
+      return back({ code });
+    } catch { return back({ error: 'server_error' }); }
+  };
+
+  // The sign-in page (the app's own /connector/signin, served with the rest of the web app) asks for the SDK config of the sign-in that /connector/authorize prepared...
+  app.get('/connector/signin/config', limit, (req, res) => {
+    const flow = String(req.query.flow ?? '');
+    const p = pending.get(flow);
+    if (!p || Date.now() - p.at > PENDING_MS) return res.status(400).set('Cache-Control', 'no-store').json({ error: 'Unknown or expired sign-in. Start again from the agent.' });
+    res.set('Cache-Control', 'no-store').json({ agent: clients.get(p.client)?.name ?? null, piflow: piflowFor({ url: p.authUrl, state: flow }, p.learned, { clientId: p.idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }) });
+  });
+  // ...and hands back the code (or the refusal) when the dialog is done. The answer is the agent's redirect address, which the page then opens. One use per state.
+  app.post('/connector/signin/complete', limit, express.json({ limit: '8kb' }), async (req, res) => {
+    const state = String(req.body?.state ?? '');
+    const p = pending.get(state);
+    pending.delete(state);
+    if (!p || Date.now() - p.at > PENDING_MS) return res.status(400).set('Cache-Control', 'no-store').json({ error: 'Unknown or expired sign-in. Start again from the agent.' });
+    const q = req.body?.error ? { error: String(req.body.error).slice(0, 60) } : { code: String(req.body?.code ?? '') };
+    res.set('Cache-Control', 'no-store').json({ redirectTo: await finish(p, q) });
   });
 
   // The agent trades our code for an access token. PKCE S256, one use, bound to the client and redirect.

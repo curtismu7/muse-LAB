@@ -98,7 +98,13 @@ test('registration only accepts https redirects on allowed hosts', async () => {
   await a.close();
 });
 
-test('authorize: unknown clients and unmatched redirects are never redirected; a good request goes to PingOne with a fresh login', async () => {
+// pi.flow: /connector/authorize sends the browser to Personal Agent's own sign-in page (no redirect to a PingOne login page). The page asks for the SDK config,
+// runs PingOne's flow in the Sign in dialog and posts the code back; the answer is the agent's own redirect address.
+const flowOf = (a, au) => { const u = new URL(au.headers.get('location')); assert.equal(u.origin + u.pathname, `${a.base}/connector/signin`); return u.searchParams.get('flow'); };
+const piflowOf = async (a, flow) => (await (await a.get(`/connector/signin/config?flow=${flow}`)).json()).piflow;
+const completeSignIn = async (a, flow, body = { code: 'pingone-code' }) => { const r = await a.post('/connector/signin/complete', { state: flow, ...body }); const j = await r.json().catch(() => ({})); return { status: r.status, location: j.redirectTo ?? null, json: j }; };
+
+test('authorize: unknown clients and unmatched redirects are never redirected; a good request goes to the sign-in page, whose config carries a fresh login for PingOne', async () => {
   const a = await boot();
   const reg = await (await a.post('/connector/register', { redirect_uris: [REDIRECT] })).json();
   const { challenge } = pkce();
@@ -108,12 +114,18 @@ test('authorize: unknown clients and unmatched redirects are never redirected; a
   const noPkce = await a.get(`/connector/authorize?${q({ code_challenge_method: 'plain' })}`);
   assert.equal(noPkce.status, 302); assert.match(noPkce.headers.get('location'), /error=invalid_request/);
   const ok = await a.get(`/connector/authorize?${q({})}`);
-  const u = new URL(ok.headers.get('location'));
-  assert.equal(u.origin + u.pathname, `${P1}/authorize`);
-  assert.equal(u.searchParams.get('prompt'), 'login');
-  assert.equal(u.searchParams.get('login_hint'), 'demouser.conn', 'the sign-in is marked as coming through the connector');
-  assert.equal(u.searchParams.get('redirect_uri'), `${a.base}/connector/callback`);
-  assert.notEqual(u.searchParams.get('state'), 'st', 'PingOne gets Personal Agent\'s own state, not the agent\'s');
+  assert.equal(ok.status, 302);
+  const flow = flowOf(a, ok);
+  const cfg = await (await a.get(`/connector/signin/config?flow=${flow}`)).json();
+  assert.equal(cfg.piflow.wellknown, `${P1}/.well-known/openid-configuration`);
+  assert.equal(cfg.piflow.clientId, 'c1');
+  assert.equal(cfg.piflow.redirectUri, `${a.base}/connector/callback`);
+  assert.equal(cfg.piflow.query.prompt, 'login');
+  assert.equal(cfg.piflow.query.login_hint, 'demouser.conn', 'the sign-in is marked as coming through the connector');
+  assert.equal(cfg.piflow.state, flow);
+  assert.notEqual(flow, 'st', 'PingOne gets Personal Agent\'s own state, not the agent\'s');
+  assert.ok(!/verifier/i.test(JSON.stringify(cfg)), 'the verifier stays on the server');
+  assert.equal((await a.get('/connector/signin/config?flow=nope')).status, 400);
   await a.close();
 });
 
@@ -121,9 +133,9 @@ async function signedIn(a, clientOverride) {
   const reg = clientOverride ?? await (await a.post('/connector/register', { redirect_uris: [REDIRECT] })).json();
   const { verifier, challenge } = pkce();
   const au = await a.get(`/connector/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: REDIRECT, state: 'agent-state', code_challenge: challenge, code_challenge_method: 'S256' })}`);
-  const ourState = new URL(au.headers.get('location')).searchParams.get('state');
-  const cb = await a.get(`/connector/callback?code=pingone-code&state=${ourState}`);
-  const back = new URL(cb.headers.get('location'));
+  const ourState = flowOf(a, au);
+  const cb = await completeSignIn(a, ourState);
+  const back = new URL(cb.location);
   return { reg, verifier, back, ourState };
 }
 
@@ -171,15 +183,15 @@ test('the token step checks the verifier, the client and the redirect', async ()
   await a.close();
 });
 
-test('callback: an unknown state is refused, a refused sign-in goes back to the agent as access_denied', async () => {
+test('complete: an unknown state is refused, a refused sign-in goes back to the agent as access_denied', async () => {
   const a = await boot();
-  assert.equal((await a.get('/connector/callback?code=x&state=forged')).status, 400);
+  assert.equal((await completeSignIn(a, 'forged', { code: 'x' })).status, 400);
   const reg = await (await a.post('/connector/register', { redirect_uris: [REDIRECT] })).json();
   const au = await a.get(`/connector/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: REDIRECT, state: 's', code_challenge: pkce().challenge, code_challenge_method: 'S256' })}`);
-  const st = new URL(au.headers.get('location')).searchParams.get('state');
-  const denied = await a.get(`/connector/callback?error=access_denied&state=${st}`);
-  assert.match(denied.headers.get('location'), /error=access_denied/); assert.match(denied.headers.get('location'), /state=s/);
-  assert.equal((await a.get(`/connector/callback?code=x&state=${st}`)).status, 400, 'state is single use');
+  const st = flowOf(a, au);
+  const denied = await completeSignIn(a, st, { error: 'access_denied' });
+  assert.match(denied.location, /error=access_denied/); assert.match(denied.location, /state=s/);
+  assert.equal((await completeSignIn(a, st, { code: 'x' })).status, 400, 'state is single use');
   await a.close();
 });
 
@@ -237,11 +249,12 @@ test('an agent with its own PingOne app (by callback host) signs in and acts wit
   const reg = await (await a.post('/connector/register', { redirect_uris: [GPT] })).json();
   const { challenge } = pkce();
   const au = await a.get(`/connector/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: GPT, state: 's', code_challenge: challenge, code_challenge_method: 'S256' })}`);
-  const loc = new URL(au.headers.get('location'));
-  assert.equal(loc.searchParams.get('client_id'), 'gpt-app', 'PingOne sees ChatGPT\'s own app');
-  assert.equal(loc.searchParams.get('login_hint'), 'demouser.conn');
-  const cb = await a.get(`/connector/callback?code=pingone-code&state=${loc.searchParams.get('state')}`);
-  assert.ok(new URL(cb.headers.get('location')).searchParams.get('code'));
+  const flow = flowOf(a, au);
+  const pf = await piflowOf(a, flow);
+  assert.equal(pf.clientId, 'gpt-app', 'PingOne sees ChatGPT\'s own app');
+  assert.equal(pf.query.login_hint, 'demouser.conn');
+  const cb = await completeSignIn(a, flow);
+  assert.ok(new URL(cb.location).searchParams.get('code'));
   const posts = a.seen.filter((x) => x.url === `${P1}/token`).map((x) => new URLSearchParams(x.init.body));
   assert.equal(posts.length, 4);
   assert.ok(posts.every((f) => f.get('client_id') === 'gpt-app' && f.get('client_secret') === 'gpt-sekret'), 'the code swap and both exchanges use ChatGPT\'s app');
@@ -314,7 +327,7 @@ test('an agent with no callback host (Codex) has its own app in the directory Co
     const reg = await (await a.post('/connector/register', { redirect_uris: [LOOP] })).json();
     const { challenge } = pkce();
     const au = await a.get(`/connector/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: LOOP, state: 's', code_challenge: challenge, code_challenge_method: 'S256' })}`);
-    assert.notEqual(new URL(au.headers.get('location')).searchParams.get('client_id'), 'cx-app');
+    assert.notEqual((await piflowOf(a, flowOf(a, au))).clientId, 'cx-app');
   } finally { await a.close(); }
 });
 
@@ -335,10 +348,10 @@ test('Connect the way the platform does it: 401, metadata, dynamic registration,
     assert.equal(au.searchParams.get('code_challenge_method'), 'S256');
     assert.equal(au.searchParams.get('resource'), `${a.base}/mcp`);
     assert.match(au.searchParams.get('client_id'), /^muse-/, 'a client id issued by registration');
-    // The browser: connector -> PingOne (with Claude's own app) -> connector callback -> the stand-in platform callback.
-    const toP1 = new URL((await call('GET', st.url)).headers.get('location'));
-    assert.equal(toP1.searchParams.get('client_id'), 'cl-app', 'PingOne sees Claude\'s app, picked from the stand-in callback');
-    const back = new URL((await call('GET', `/connector/callback?code=p1code&state=${toP1.searchParams.get('state')}`)).headers.get('location'));
+    // The browser: connector -> the sign-in page (PingOne's flow runs in the dialog, with Claude's own app) -> the stand-in platform callback.
+    const flow = flowOf(a, await call('GET', st.url));
+    assert.equal((await piflowOf(a, flow)).clientId, 'cl-app', 'PingOne sees Claude\'s app, picked from the stand-in callback');
+    const back = new URL((await completeSignIn(a, flow, { code: 'p1code' })).location);
     assert.equal(back.origin + back.pathname, `${a.base}/sim/claude/callback`);
     const done = await call('GET', back.pathname + back.search);
     assert.match(await done.text(), /\/clients\.html\?client=claude/);
@@ -388,7 +401,7 @@ test('with MUSE_CONNECTOR_SIGNOUT_FIRST the browser signs out of PingOne first, 
   const regOff = await (await off.post('/connector/register', { redirect_uris: [REDIRECT] })).json();
   const { challenge } = pkce();
   const q = (id) => new URLSearchParams({ response_type: 'code', client_id: id, redirect_uri: REDIRECT, state: 'st', code_challenge: challenge, code_challenge_method: 'S256' });
-  assert.match((await off.get(`/connector/authorize?${q(regOff.client_id)}`)).headers.get('location'), /\/authorize\?/, 'off: straight to sign-in');
+  assert.match((await off.get(`/connector/authorize?${q(regOff.client_id)}`)).headers.get('location'), /\/connector\/signin\?flow=/, 'off: straight to the sign-in page');
   await off.close();
   const a = await boot({ MUSE_CONNECTOR_SIGNOUT_FIRST: '1' });
   try {
@@ -402,8 +415,8 @@ test('with MUSE_CONNECTOR_SIGNOUT_FIRST the browser signs out of PingOne first, 
     const back = await a.get('/connector/resume', { headers: { cookie } });
     assert.equal(back.status, 302);
     const u = new URL(back.headers.get('location'));
-    assert.equal(u.origin + u.pathname, `${P1}/authorize`);
-    assert.equal(u.searchParams.get('prompt'), 'login');
+    assert.equal(u.origin + u.pathname, `${a.base}/connector/signin`);
+    assert.equal((await piflowOf(a, u.searchParams.get('flow'))).query.prompt, 'login');
     assert.equal((await a.get('/connector/resume')).status, 400, 'no cookie, no resume');
     assert.equal((await a.get('/connector/resume', { headers: { cookie: 'muse_resume=nope' } })).status, 400, 'an unknown id never redirects');
   } finally { await a.close(); }
@@ -437,5 +450,5 @@ test('with MUSE_CLIENTS_FILE, a registered client still works after the connecto
   const again = await second.get(`/connector/authorize?${q}`);
   await second.close();
   assert.equal(again.status, 302);
-  assert.match(again.headers.get('location'), /authorize/, 'the restarted connector still knows the client');
+  assert.match(again.headers.get('location'), /\/connector\/signin\?flow=/, 'the restarted connector still knows the client');
 });

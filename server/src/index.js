@@ -14,7 +14,7 @@ import { loadStories, renderStory } from './stories.js';
 import { loadCustomer } from './customer.js';
 import { PLATFORMS, createPlatformEngine } from './platforms.js';
 import { chatgptKey, mountPfResource } from './pf-resource.js';
-import { callGateway, delegate, exchangeCode, registerClient, startSignIn } from './liveauth.js';
+import { callGateway, delegate, exchangeCode, piflowFor, registerClient, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 import { shelfInfo } from './shelfLink.js';
@@ -72,17 +72,6 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   // cookie is not sent; the one-time state value is what ties the return to the visitor who started it.
   const pending = new Map();
   const PENDING_MS = 10 * 60 * 1000;
-  // pi.flow: the page drives PingOne's sign-in itself with the DaVinci client SDK instead of leaving for a login page. The server still owns the
-  // state, the PKCE verifier and the code swap; the page gets only what the SDK needs to start the flow (never the verifier or a secret).
-  const piflowFor = (r, learned, client) => {
-    const q = new URL(r.url).searchParams;
-    const query = {};
-    for (const [k, v] of q) if (!['response_type', 'client_id', 'redirect_uri', 'scope'].includes(k)) query[k] = v;
-    const wk = new URL(learned.authorizeEndpoint);
-    wk.pathname = wk.pathname.replace(/\/authorize$/, '/.well-known/openid-configuration');
-    wk.search = '';
-    return { clientId: client.clientId, redirectUri: client.redirectUri, scope: q.get('scope') ?? 'openid', wellknown: wk.href, state: r.state, query };
-  };
   const signInReply = (req, res, r, learned, client) => res.json(req.body?.piflow === true && live?.idp ? { piflow: piflowFor(r, learned, client) } : { url: r.url });
   const app = express();
   app.disable('x-powered-by');
