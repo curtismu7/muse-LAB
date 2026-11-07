@@ -14,7 +14,7 @@ const pfJwt = (claims, kid = 'pf1', key = pfKey.privateKey) => { const h = `${b6
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 async function freePort() { const s = net.createServer(); s.listen(0, '127.0.0.1'); await once(s, 'listening'); const p = s.address().port; await new Promise((r) => s.close(r)); return p; }
 
-// A stand-in PingFederate: advertises CIMD, fetches the client document (and ChatGPT's JWKS) from Agent Connect, checks the assertion the way
+// A stand-in PingFederate: advertises CIMD, fetches the client document (and ChatGPT's JWKS) from Personal Agent, checks the assertion the way
 // PingFederate 13.1 does (aud = issuer, typ client-authentication+jwt), issues an RS256 JWT.
 function fakePf(base, seen) {
   return async (url, init = {}) => {

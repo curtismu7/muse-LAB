@@ -1,4 +1,4 @@
-// Agent Connect check: a DaVinci-shaped flow, run before the Privilege checks. It is a stub. The real DaVinci flow is not
+// Personal Agent check: a DaVinci-shaped flow, run before the Privilege checks. It is a stub. The real DaVinci flow is not
 // reached from here, and nothing in this file calls out.
 export const BURST_WINDOW_MS = 60_000;
 export const BURST_MAX = 6;

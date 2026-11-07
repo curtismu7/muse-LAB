@@ -1,4 +1,4 @@
-// Steps 4 to 8 of the pattern against the real Agent Privilege: register Agent Connect (RFC 7591), sign in (auth code + PKCE, RFC 8707
+// Steps 4 to 8 of the pattern against the real Agent Privilege: register Personal Agent (RFC 7591), sign in (auth code + PKCE, RFC 8707
 // resource), swap the code for a token, call the gateway with it. Owner-run only. The token stays on the server; the page
 // sees the claims, never the token. Every request goes through one gate: allowed origin, no redirects, a timeout, a size cap.
 import { createHash, randomBytes } from 'node:crypto';
@@ -19,16 +19,16 @@ async function send(cfg, fetchImpl, { n, title, method, url, headers = {}, body,
   const parsed = await readCapped(res);
   // The step shown to the page never carries a bearer token or a client secret.
   const shownReq = { method, url: u.href, ...(body ? { body } : {}), ...(form ? { form: Object.fromEntries(Object.entries(form).map(([k, v]) => [k, ['code_verifier', 'code', 'client_secret', 'subject_token', 'actor_token'].includes(k) ? '(sent)' : v])) } : {}) };
-  const shownRes = parsed && typeof parsed === 'object' && parsed.access_token ? { ...parsed, access_token: '(held by Agent Connect server)', refresh_token: parsed.refresh_token ? '(held by Agent Connect server)' : undefined, id_token: parsed.id_token ? '(held by Agent Connect server)' : undefined } : parsed;
+  const shownRes = parsed && typeof parsed === 'object' && parsed.access_token ? { ...parsed, access_token: '(held by Personal Agent server)', refresh_token: parsed.refresh_token ? '(held by Personal Agent server)' : undefined, id_token: parsed.id_token ? '(held by Personal Agent server)' : undefined } : parsed;
   return { res, parsed, step: { n, title, request: shownReq, response: { status: res.status, headers: Object.fromEntries(['www-authenticate', 'content-type', 'mcp-session-id'].filter((h) => res.headers.get(h)).map((h) => [h, res.headers.get(h)])), body: shownRes }, note } };
 }
 
 export async function registerClient(cfg, learned, redirectUri, fetchImpl = fetch) {
-  if (!learned?.registrationEndpoint) return { step: null, error: 'The authorization server offers no registration endpoint. Agent Connect would need a client metadata document (CIMD), which this build does not publish.' };
+  if (!learned?.registrationEndpoint) return { step: null, error: 'The authorization server offers no registration endpoint. Personal Agent would need a client metadata document (CIMD), which this build does not publish.' };
   const r = await send(cfg, fetchImpl, {
-    n: 4, title: 'Register Agent Connect as a client', method: 'POST', url: learned.registrationEndpoint,
-    body: { client_name: 'Agent Connect (personal agent demo)', redirect_uris: [redirectUri], grant_types: ['authorization_code'], response_types: ['code'], token_endpoint_auth_method: 'none' },
-    note: 'Dynamic client registration. Agent Connect is a public client: PKCE, no secret.',
+    n: 4, title: 'Register Personal Agent as a client', method: 'POST', url: learned.registrationEndpoint,
+    body: { client_name: 'Personal Agent (personal agent demo)', redirect_uris: [redirectUri], grant_types: ['authorization_code'], response_types: ['code'], token_endpoint_auth_method: 'none' },
+    note: 'Dynamic client registration. Personal Agent is a public client: PKCE, no secret.',
   });
   if (r.step.skipped) return { step: r.step, error: 'The registration endpoint is on an origin that is not allowed.' };
   const id = r.parsed?.client_id;
@@ -61,7 +61,7 @@ export async function exchangeCode(cfg, learned, { code, verifier, client, resou
   const r = await send(cfg, fetchImpl, {
     n: 6, title: 'Swap the code for a token', method: 'POST', url: learned.tokenEndpoint,
     form: { grant_type: 'authorization_code', code, redirect_uri: client.redirectUri, client_id: client.clientId, code_verifier: verifier, ...(clientSecret ? { client_secret: clientSecret } : {}), ...(resource ? { resource } : {}) },
-    note: 'The token is held by the Agent Connect server. This page only shows its claims.',
+    note: 'The token is held by the Personal Agent server. This page only shows its claims.',
   });
   if (r.step.skipped) return { step: r.step, error: 'The token endpoint is on an origin that is not allowed.' };
   const token = r.parsed?.access_token;
@@ -69,7 +69,7 @@ export async function exchangeCode(cfg, learned, { code, verifier, client, resou
   const claims = claimsOf(token);
   const aud = claims ? [].concat(claims.aud ?? []) : [];
   const audOk = !resource || aud.some((a) => a === resource || a === new URL(resource).origin);
-  return { step: { ...r.step, note: `${r.step.note} ${claims ? (!resource ? `Issued by PingOne for Agent Connect (aud ${JSON.stringify(claims.aud)}).` : audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
+  return { step: { ...r.step, note: `${r.step.note} ${claims ? (!resource ? `Issued by PingOne for Personal Agent (aud ${JSON.stringify(claims.aud)}).` : audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
 }
 
 export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null } = {}) {
@@ -80,7 +80,7 @@ export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null }
   const steps = [init.step];
   if (init.res.status !== 200) return steps;
   const sid = init.res.headers.get('mcp-session-id');
-  const list = await send(cfg, fetchImpl, { n: 8, title: `List the tools ${gw} lets Agent Connect see`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}) }, body: LIST, note: `Tool-level authorization: ${gw} decides which tools this token may see.` });
+  const list = await send(cfg, fetchImpl, { n: 8, title: `List the tools ${gw} lets Personal Agent see`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}) }, body: LIST, note: `Tool-level authorization: ${gw} decides which tools this token may see.` });
   steps.push(list.step);
   if (tool && list.res?.status === 200) {
     const call = await send(cfg, fetchImpl, { n: 9, title: `Call ${tool}`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}) }, body: { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: tool, arguments: {} } }, note: 'Agent Gateway checks the token, PingOne Authorize decides, then the tool runs.' });
@@ -89,8 +89,8 @@ export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null }
   return steps;
 }
 
-// Steps 6b to 6d: act on the user's behalf (RFC 8693). Agent Connect gets its own actor token, then two exchanges. The first stamps
-// act = Agent Connect on a gateway-side resource; the second carries act on to the gateway's audience.
+// Steps 6b to 6d: act on the user's behalf (RFC 8693). Personal Agent gets its own actor token, then two exchanges. The first stamps
+// act = Personal Agent on a gateway-side resource; the second carries act on to the gateway's audience.
 export async function delegate(cfg, idp, userToken, fetchImpl = fetch) {
   const base = { client_id: idp.clientId, client_secret: idp.clientSecret };
   const steps = [];
@@ -101,9 +101,9 @@ export async function delegate(cfg, idp, userToken, fetchImpl = fetch) {
     return r.res?.status === 200 && typeof token === 'string' ? token : null;
   };
   const TE = 'urn:ietf:params:oauth:grant-type:token-exchange', AT = 'urn:ietf:params:oauth:token-type:access_token';
-  const actor = await post(6.1, 'Agent Connect gets its own agent token', { grant_type: 'client_credentials', scope: idp.actorScope }, 'Who is acting: Agent Connect itself.');
-  if (!actor) return { steps, error: 'PingOne would not issue Agent Connect an agent token.' };
-  const first = await post(6.2, 'Exchange 1: Sam, with Agent Connect acting', { grant_type: TE, subject_token: userToken, subject_token_type: AT, actor_token: actor, actor_token_type: AT, scope: idp.actorScope }, 'Same user, plus act = Agent Connect (RFC 8693 delegation).');
+  const actor = await post(6.1, 'Personal Agent gets its own agent token', { grant_type: 'client_credentials', scope: idp.actorScope }, 'Who is acting: Personal Agent itself.');
+  if (!actor) return { steps, error: 'PingOne would not issue Personal Agent an agent token.' };
+  const first = await post(6.2, 'Exchange 1: Sam, with Personal Agent acting', { grant_type: TE, subject_token: userToken, subject_token_type: AT, actor_token: actor, actor_token_type: AT, scope: idp.actorScope }, 'Same user, plus act = Personal Agent (RFC 8693 delegation).');
   if (!first) return { steps, error: 'The first token exchange was refused.' };
   const second = await post(6.3, 'Exchange 2: for Agent Gateway', { grant_type: TE, subject_token: first, subject_token_type: AT, scope: idp.gatewayScope }, 'Audience becomes the gateway; act carries over.');
   if (!second) return { steps, error: 'The second token exchange was refused.' };

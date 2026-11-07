@@ -9,7 +9,7 @@
       "color": "blue"
     },
     "dark": {
-      "label": "Agent Connect (Airline Connector)",
+      "label": "Personal Agent (Airline Connector)",
       "color": "dark"
     },
     "green": {
@@ -94,7 +94,7 @@
       "group": "green",
       "label": "6. PingOne sign-in",
       "sub": [
-        "Agent Connect's connector app (agents without their own app)",
+        "Personal Agent's connector app (agents without their own app)",
         "same DaVinci flow, login hint ends .conn"
       ],
       "x": 326,
@@ -125,10 +125,10 @@
     {
       "id": "f9",
       "group": "dark",
-      "label": "9. Agent Connect gives Codex its own token",
+      "label": "9. Personal Agent gives Codex its own token",
       "sub": [
         "after the exchanges at /connector/token",
-        "the PingOne token never leaves Agent Connect"
+        "the PingOne token never leaves Personal Agent"
       ],
       "x": 40,
       "y": 382
@@ -242,7 +242,7 @@
     },
     {
       "title": "Authorize",
-      "what": "Codex codex mcp login airline: registers itself, then sends Sam to /connector/authorize. Agent Connect starts the PingOne sign-in with Agent Connect's connector app, because Codex has no app of its own.",
+      "what": "Codex codex mcp login airline: registers itself, then sends Sam to /connector/authorize. Personal Agent starts the PingOne sign-in with Personal Agent's connector app, because Codex has no app of its own.",
       "why": "Fix the port with mcp_oauth_callback_port so the callback is predictable.",
       "edges": [
         0,
@@ -281,8 +281,8 @@
     },
     {
       "title": "Exchanges, token",
-      "what": "Agent Connect does the code swap and both exchanges with Agent Connect's connector app, then gives Codex its own access token at /connector/token.",
-      "why": "The PingOne token never leaves Agent Connect. Codex holds only a Agent Connect token for scope mcp.",
+      "what": "Personal Agent does the code swap and both exchanges with Personal Agent's connector app, then gives Codex its own access token at /connector/token.",
+      "why": "The PingOne token never leaves Personal Agent. Codex holds only a Personal Agent token for scope mcp.",
       "edges": [
         0,
         1,
@@ -296,7 +296,7 @@
     },
     {
       "title": "Call with token",
-      "what": "Sam's own machine calls /mcp with that token. Agent Connect calls the gateway, which checks the delegated token, and the points come back.",
+      "what": "Sam's own machine calls /mcp with that token. Personal Agent calls the gateway, which checks the delegated token, and the points come back.",
       "why": "Not tried yet. Loopback callbacks are already allowed, so this is the shortest to try.",
       "edges": [
         0,

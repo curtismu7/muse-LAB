@@ -18,13 +18,13 @@ test('live mode is refused in the hosted build and without config', () => {
   assert.throws(() => createProtect({ ...LIVE, PROTECT_FLOW_URL: 'http://flow.example/x' }), /https/);
 });
 
-test('live: LOW risk keeps the declared channel; the request carries Agent Connect as the agent client', async () => {
+test('live: LOW risk keeps the declared channel; the request carries Personal Agent as the agent client', async () => {
   let sent;
   const p = createProtect(LIVE, { fetchImpl: async (url, init) => { sent = JSON.parse(init.body); return reply({ protectRiskLevel: 'LOW', protectPredictor: 'NONE', protectRiskEvalId: 'e1' })(); } });
   const v = await p.assess('muse', { userName: 'sam', sessionId: 'abc' });
   assert.equal(v.actor, 'agent');
   assert.ok(!v.deny);
-  assert.match(sent.userAgent, /Agent Connect-Agent/);
+  assert.match(sent.userAgent, /Personal Agent-Agent/);
   assert.equal(sent.p1ProtectRiskPolicyId, 'policy-1');
   assert.ok(v.signals.includes('Protect risk level: LOW'));
 });

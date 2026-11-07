@@ -2,7 +2,7 @@
 
 Written for: the owner running the test, and any agent recording the results.
 
-Goal: connect each real client to the live Agent Connect connector and record what each one actually sends. This settles the two open questions: Claude's client document URL, and whether ChatGPT falls back to `none` when `private_key_jwt` is unavailable.
+Goal: connect each real client to the live Personal Agent connector and record what each one actually sends. This settles the two open questions: Claude's client document URL, and whether ChatGPT falls back to `none` when `private_key_jwt` is unavailable.
 
 Target: `https://agent-connect.ai-demo.ping-devops.com/mcp` (the real host; the mock host has no connector).
 Discovery, already checked live on 2026-10-30:

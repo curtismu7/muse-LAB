@@ -15,8 +15,8 @@ applySize(readSize());
 const onDiagram = window.location.pathname.replace(/\/$/, '') === '/diagram';
 const Diagram = () => (
   <main className="diagram-page">
-    <p className="small diagram-nav"><span><a href="/">Back to Agent Connect</a> &middot; <a href="/how-agent-connect-works.html">How it works, in words</a></span><span className="diagram-nav__tools"><TextSize /><ThemeToggle /></span></p>
-    <h1>How Agent Connect works</h1>
+    <p className="small diagram-nav"><span><a href="/">Back to Personal Agent</a> &middot; <a href="/how-agent-connect-works.html">How it works, in words</a></span><span className="diagram-nav__tools"><TextSize /><ThemeToggle /></span></p>
+    <h1>How Personal Agent works</h1>
     <MuseFlow />
   </main>
 );

@@ -2,7 +2,7 @@
   "schema": "diagram-studio/1",
   "id": "personal-agent-flow",
   "title": "Personal agent flow",
-  "lede": "Sam asks Agent Connect. The gateway answers 401, so Agent Connect asks PingOne for a token. PingOne signs Sam in and calls Protect through DaVinci. If it is not Agent Connect, PingOne assumes a person. If it is Agent Connect, Sam is asked to consent. Then the call is retried: the gateway checks the tool and the call. Everything here is simulated.",
+  "lede": "Sam asks Personal Agent. The gateway answers 401, so Personal Agent asks PingOne for a token. PingOne signs Sam in and calls Protect through DaVinci. If it is not Personal Agent, PingOne assumes a person. If it is Personal Agent, Sam is asked to consent. Then the call is retried: the gateway checks the tool and the call. Everything here is simulated.",
   "groups": {
     "person": {
       "label": "Person",
@@ -35,7 +35,7 @@
     {
       "id": "muse",
       "group": "agent",
-      "label": "Agent Connect",
+      "label": "Personal Agent",
       "sub": [
         "Personal agent"
       ],
@@ -67,7 +67,7 @@
       "group": "gate",
       "label": "Protect",
       "sub": [
-        "Agent Connect or a person? DaVinci flow (simulated)"
+        "Personal Agent or a person? DaVinci flow (simulated)"
       ],
       "x": 1200,
       "y": 0
@@ -77,7 +77,7 @@
       "group": "person",
       "label": "Consent",
       "sub": [
-        "Agent Connect only: \"this is a bot, allow it?\""
+        "Personal Agent only: \"this is a bot, allow it?\""
       ],
       "x": 1200,
       "y": 190
@@ -137,7 +137,7 @@
     {
       "source": "protect",
       "target": "consent",
-      "label": "5 Agent Connect: ask Sam"
+      "label": "5 Personal Agent: ask Sam"
     },
     {
       "source": "consent",
@@ -157,15 +157,15 @@
   ],
   "steps": [
     {
-      "title": "Sam asks Agent Connect",
-      "what": "Agent Connect takes the request from Sam's signed-in session.",
+      "title": "Sam asks Personal Agent",
+      "what": "Personal Agent takes the request from Sam's signed-in session.",
       "edges": [
         0
       ]
     },
     {
-      "title": "Agent Connect calls the gateway",
-      "what": "Agent Connect calls the tool through the gateway with no token yet.",
+      "title": "Personal Agent calls the gateway",
+      "what": "Personal Agent calls the tool through the gateway with no token yet.",
       "edges": [
         0,
         1
@@ -173,7 +173,7 @@
     },
     {
       "title": "401: authorize",
-      "what": "The gateway answers 401. Agent Connect sends an authorization request to PingOne.",
+      "what": "The gateway answers 401. Personal Agent sends an authorization request to PingOne.",
       "edges": [
         0,
         1,
@@ -182,7 +182,7 @@
     },
     {
       "title": "Login and Protect",
-      "what": "PingOne has Sam signed in, then its DaVinci flow calls Protect to detect whether the caller is Agent Connect. If it is not Agent Connect, PingOne assumes a person and issues the token.",
+      "what": "PingOne has Sam signed in, then its DaVinci flow calls Protect to detect whether the caller is Personal Agent. If it is not Personal Agent, PingOne assumes a person and issues the token.",
       "edges": [
         0,
         1,
@@ -191,8 +191,8 @@
       ]
     },
     {
-      "title": "Consent (Agent Connect only)",
-      "what": "Agent Connect is a bot, so Sam sees a modal asking whether to allow it to act on their behalf. A person skips this step.",
+      "title": "Consent (Personal Agent only)",
+      "what": "Personal Agent is a bot, so Sam sees a modal asking whether to allow it to act on their behalf. A person skips this step.",
       "edges": [
         0,
         1,
@@ -203,7 +203,7 @@
     },
     {
       "title": "Retry: coarse check",
-      "what": "With a token, the gateway retries. Agent Connect check looks for bursts and hidden instructions, then Privilege asks whether this persona may call the tool at all.",
+      "what": "With a token, the gateway retries. Personal Agent check looks for bursts and hidden instructions, then Privilege asks whether this persona may call the tool at all.",
       "edges": [
         0,
         1,

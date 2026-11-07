@@ -4,11 +4,11 @@ import '@xyflow/react/dist/style.css';
 import { loadDiagram } from './diagrams/index.js';
 import { useTextSize } from './TextSize.jsx';
 
-// How Agent Connect works, one tab per diagram: Config (set up once) and the Runtime paths (what happens on a request), one per client.
+// How Personal Agent works, one tab per diagram: Config (set up once) and the Runtime paths (what happens on a request), one per client.
 // Standard: movable boxes, Simulate with Prev/Next/Pause, Reset, a speed control, every arrow numbered AND named, a card per step.
 const STEP_MS = 1600;
 const SPEEDS = [0.5, 1, 2];
-const TABS = [{ id: 'muse-overview', label: 'Overview' }, { id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Agent Connect acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }, { id: 'muse-runtime-d', label: 'Runtime D: Claude' }, { id: 'muse-runtime-e', label: 'Runtime E: ChatGPT' }, { id: 'muse-runtime-f', label: 'Runtime F: Codex' }, { id: 'muse-registration', label: 'Who registers with whom' }, { id: 'muse-agent-connect', label: 'A real connect, as logged' }];
+const TABS = [{ id: 'muse-overview', label: 'Overview' }, { id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Personal Agent acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }, { id: 'muse-runtime-d', label: 'Runtime D: Claude' }, { id: 'muse-runtime-e', label: 'Runtime E: ChatGPT' }, { id: 'muse-runtime-f', label: 'Runtime F: Codex' }, { id: 'muse-registration', label: 'Who registers with whom' }, { id: 'muse-agent-connect', label: 'A real connect, as logged' }];
 const BOX_W = 300;
 
 const SIDES = [['t', Position.Top], ['b', Position.Bottom], ['l', Position.Left], ['r', Position.Right]];
@@ -55,7 +55,7 @@ export default function MuseFlow() {
   const [tab, setTab] = useState(TABS[0].id);
   const fs = useTextSize();
   return (
-    <section className="flow mflow" aria-label="How Agent Connect works" data-testid="muse-flow">
+    <section className="flow mflow" aria-label="How Personal Agent works" data-testid="muse-flow">
       <div className="seg" role="tablist" aria-label="Diagram">
         {TABS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
       </div>

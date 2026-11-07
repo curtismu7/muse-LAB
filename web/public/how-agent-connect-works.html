@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How Agent Connect works</title>
+<title>How Personal Agent works</title>
 <script>try{var t=localStorage.getItem('muse.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var f=Number(localStorage.getItem('muse.fs'));if([0.85,1.15,1.3,1.5].indexOf(f)>-1)document.documentElement.style.setProperty('--fs',String(f))}catch(e){}</script>
 <style>
 /* Layout: one column of short sections, one wide flow diagram, one facts table. Palette and type carried over from the first version. */
@@ -76,26 +76,26 @@ a { color: var(--accent); }
 
 </head>
 <body>
-<p class="back"><a href="/">Back to Agent Connect</a><span class="back-actions"><span class="ts" role="group" aria-label="Text size"><button type="button" class="pdf-btn" id="ts-dn" aria-label="Smaller text">A&minus;</button><span id="ts-now" aria-live="polite">100%</span><button type="button" class="pdf-btn" id="ts-up" aria-label="Larger text">A+</button></span> <button type="button" class="pdf-btn" id="theme-btn">Theme</button> <button type="button" class="pdf-btn" onclick="window.print()">Create PDF</button></span></p>
+<p class="back"><a href="/">Back to Personal Agent</a><span class="back-actions"><span class="ts" role="group" aria-label="Text size"><button type="button" class="pdf-btn" id="ts-dn" aria-label="Smaller text">A&minus;</button><span id="ts-now" aria-live="polite">100%</span><button type="button" class="pdf-btn" id="ts-up" aria-label="Larger text">A+</button></span> <button type="button" class="pdf-btn" id="theme-btn">Theme</button> <button type="button" class="pdf-btn" onclick="window.print()">Create PDF</button></span></p>
 <main>
   <header>
-    <h1>How Agent Connect works</h1>
-    <p class="lede">Agent Connect is a personal agent that acts for Sam. It asks, gets turned away, sends Sam to PingOne to sign in, and then asks again with a token that says Agent Connect is acting for Sam. Every step in the real mode talks to the real systems.</p>
+    <h1>How Personal Agent works</h1>
+    <p class="lede">Personal Agent is a personal agent that acts for Sam. It asks, gets turned away, sends Sam to PingOne to sign in, and then asks again with a token that says Personal Agent is acting for Sam. Every step in the real mode talks to the real systems.</p>
   </header>
 
   <section aria-labelledby="flow">
     <h2 id="flow">The path of one request</h2>
-    <p>Sam asks "Show my airline points". The first call carries no token on purpose, so the gateway answers 401 and tells Agent Connect where to sign in.</p>
+    <p>Sam asks "Show my airline points". The first call carries no token on purpose, so the gateway answers 401 and tells Personal Agent where to sign in.</p>
     <div class="wide">
-      <svg viewBox="0 0 900 330" role="img" aria-label="Sam asks Agent Connect. Agent Connect calls the gateway with no token and gets 401. Agent Connect sends Sam to PingOne, where a DaVinci flow signs Sam in, checks Protect, asks for MFA on medium risk, shows that an AI agent was detected, and asks for consent. PingOne returns a code. Agent Connect exchanges it for a token that names Agent Connect as the actor, then calls the gateway again. PingOne Authorize decides, and the tool returns the points.">
+      <svg viewBox="0 0 900 330" role="img" aria-label="Sam asks Personal Agent. Personal Agent calls the gateway with no token and gets 401. Personal Agent sends Sam to PingOne, where a DaVinci flow signs Sam in, checks Protect, asks for MFA on medium risk, shows that an AI agent was detected, and asks for consent. PingOne returns a code. Personal Agent exchanges it for a token that names Personal Agent as the actor, then calls the gateway again. PingOne Authorize decides, and the tool returns the points.">
         <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0 L10 5 L0 10 z"/></marker></defs>
         <rect class="you" x="10" y="20" width="120" height="64" rx="10"/><text x="70" y="48" text-anchor="middle" font-size="16" font-weight="600">Sam</text><text class="sub" x="70" y="66" text-anchor="middle" font-size="13">asks for points</text>
-        <rect class="box" x="160" y="20" width="120" height="64" rx="10"/><text x="220" y="48" text-anchor="middle" font-size="16" font-weight="600">Agent Connect</text><text class="sub" x="220" y="66" text-anchor="middle" font-size="13">personal agent</text>
+        <rect class="box" x="160" y="20" width="120" height="64" rx="10"/><text x="220" y="48" text-anchor="middle" font-size="16" font-weight="600">Personal Agent</text><text class="sub" x="220" y="66" text-anchor="middle" font-size="13">personal agent</text>
         <rect class="ping" x="310" y="20" width="130" height="64" rx="10"/><text x="375" y="48" text-anchor="middle" font-size="16" font-weight="600">Gateway</text><text class="sub" x="375" y="66" text-anchor="middle" font-size="13">no token: 401</text>
         <rect class="ping" x="470" y="20" width="200" height="64" rx="10"/><text x="570" y="48" text-anchor="middle" font-size="16" font-weight="600">PingOne sign-in</text><text class="sub" x="570" y="66" text-anchor="middle" font-size="13">DaVinci flow, airline theme</text>
         <rect class="you" x="700" y="20" width="190" height="64" rx="10"/><text x="795" y="48" text-anchor="middle" font-size="16" font-weight="600">Agent detected</text><text class="sub" x="795" y="66" text-anchor="middle" font-size="13">then Sam consents</text>
-        <rect class="box" x="700" y="130" width="190" height="64" rx="10"/><text x="795" y="158" text-anchor="middle" font-size="16" font-weight="600">Code to Agent Connect</text><text class="sub" x="795" y="176" text-anchor="middle" font-size="13">redirect back</text>
-        <rect class="box" x="440" y="130" width="230" height="64" rx="10"/><text x="555" y="158" text-anchor="middle" font-size="16" font-weight="600">Agent Connect acts for Sam</text><text class="sub" x="555" y="176" text-anchor="middle" font-size="13">agent token + 2 exchanges</text>
+        <rect class="box" x="700" y="130" width="190" height="64" rx="10"/><text x="795" y="158" text-anchor="middle" font-size="16" font-weight="600">Code to Personal Agent</text><text class="sub" x="795" y="176" text-anchor="middle" font-size="13">redirect back</text>
+        <rect class="box" x="440" y="130" width="230" height="64" rx="10"/><text x="555" y="158" text-anchor="middle" font-size="16" font-weight="600">Personal Agent acts for Sam</text><text class="sub" x="555" y="176" text-anchor="middle" font-size="13">agent token + 2 exchanges</text>
         <rect class="ping" x="160" y="240" width="190" height="64" rx="10"/><text x="255" y="268" text-anchor="middle" font-size="16" font-weight="600">Gateway, retry</text><text class="sub" x="255" y="286" text-anchor="middle" font-size="13">token checked</text>
         <rect class="ping" x="380" y="240" width="190" height="64" rx="10"/><text x="475" y="268" text-anchor="middle" font-size="16" font-weight="600">PingOne Authorize</text><text class="sub" x="475" y="286" text-anchor="middle" font-size="13">audience, actor, tool</text>
         <rect class="done" x="600" y="240" width="170" height="64" rx="10"/><text x="685" y="268" text-anchor="middle" font-size="16" font-weight="600">Tool runs</text><text class="sub" x="685" y="286" text-anchor="middle" font-size="13">4,500 points, Gold</text>
@@ -110,14 +110,14 @@ a { color: var(--accent); }
     <h2 id="steps">The steps, in order</h2>
     <ol>
       <li><strong>Sam asks.</strong> A request such as "Show my airline points".</li>
-      <li><strong>Agent Connect calls the gateway with no token and gets 401.</strong> The answer points to the sign-in server. Nothing authenticated has been sent.</li>
-      <li><strong>Agent Connect sends Sam to PingOne</strong> with a fresh sign-in (auth code with PKCE, always asking for the password). The user name is pre-filled, so Sam types only the password.</li>
+      <li><strong>Personal Agent calls the gateway with no token and gets 401.</strong> The answer points to the sign-in server. Nothing authenticated has been sent.</li>
+      <li><strong>Personal Agent sends Sam to PingOne</strong> with a fresh sign-in (auth code with PKCE, always asking for the password). The user name is pre-filled, so Sam types only the password.</li>
       <li><strong>PingOne runs a DaVinci flow.</strong> It checks the user, asks PingOne Protect for a risk level, and acts on it (next section).</li>
-      <li><strong>PingOne returns a code to Agent Connect.</strong> Agent Connect swaps it for Sam's token. The token stays on Agent Connect's server.</li>
-      <li><strong>Agent Connect acts for Sam.</strong> It gets its own agent token, then makes two token exchanges. The result names Sam as the subject and Agent Connect as the actor.</li>
-      <li><strong>Agent Connect asks again with that token.</strong> The gateway checks the signature, audience and scope.</li>
-      <li><strong>PingOne Authorize decides.</strong> It checks the audience, that Agent Connect is a registered actor, and that the tool is allowed.</li>
-      <li><strong>The tool runs</strong> and Agent Connect tells Sam "You have 4,500 points (Gold)."</li>
+      <li><strong>PingOne returns a code to Personal Agent.</strong> Personal Agent swaps it for Sam's token. The token stays on Personal Agent's server.</li>
+      <li><strong>Personal Agent acts for Sam.</strong> It gets its own agent token, then makes two token exchanges. The result names Sam as the subject and Personal Agent as the actor.</li>
+      <li><strong>Personal Agent asks again with that token.</strong> The gateway checks the signature, audience and scope.</li>
+      <li><strong>PingOne Authorize decides.</strong> It checks the audience, that Personal Agent is a registered actor, and that the tool is allowed.</li>
+      <li><strong>The tool runs</strong> and Personal Agent tells Sam "You have 4,500 points (Gold)."</li>
     </ol>
   </section>
 
@@ -126,8 +126,8 @@ a { color: var(--accent); }
     <ul>
       <li><strong>Protect scores the sign-in.</strong> The flow sends the user, the address, the browser and the app to a risk evaluation. The level comes back as LOW, MEDIUM or HIGH.</li>
       <li><strong>HIGH stops the sign-in.</strong> Sam sees "Sign-in blocked: this login looks high risk."</li>
-      <li><strong>MEDIUM asks for MFA.</strong> Agent Connect has a PingOne MFA switch. With it off, the flow skips MFA for that sign-in.</li>
-      <li><strong>Protect flags Agent Connect.</strong> A Protect predictor matches Agent Connect's app id, which the flow sends as the target of the risk evaluation, and rates it HIGH. The flow records that verdict on the user and it travels into the final token as <code>protect_agent</code>. The flow also recognizes Agent Connect by its app id on its own. When both agree, Protect's verdict is the one shown.</li>
+      <li><strong>MEDIUM asks for MFA.</strong> Personal Agent has a PingOne MFA switch. With it off, the flow skips MFA for that sign-in.</li>
+      <li><strong>Protect flags Personal Agent.</strong> A Protect predictor matches Personal Agent's app id, which the flow sends as the target of the risk evaluation, and rates it HIGH. The flow records that verdict on the user and it travels into the final token as <code>protect_agent</code>. The flow also recognizes Personal Agent by its app id on its own. When both agree, Protect's verdict is the one shown.</li>
       <li><strong>An "AI agent detected" screen comes first.</strong> It shows what the flow knows about the requester, then Sam gives consent. The agent's name is bold and coloured: <strong>red</strong> with the line "PingOne Protect agent check: FLAGGED as an AI agent" when Protect rated it HIGH, and <strong>blue</strong> with "no agent signal, identified from the client ID only" when only the app id gave it away.</li>
     </ul>
     <div class="wide">
@@ -145,20 +145,20 @@ a { color: var(--accent); }
   </section>
 
   <section aria-labelledby="act">
-    <h2 id="act">How Agent Connect acts for Sam</h2>
-    <p>Agent Connect never sends Sam's token as if it were Sam. It trades it for a token that says who is acting for whom (RFC 8693, on behalf of).</p>
+    <h2 id="act">How Personal Agent acts for Sam</h2>
+    <p>Personal Agent never sends Sam's token as if it were Sam. It trades it for a token that says who is acting for whom (RFC 8693, on behalf of).</p>
     <ul>
-      <li><strong>Agent token.</strong> Agent Connect proves its own identity with its client credentials.</li>
-      <li><strong>Exchange 1.</strong> Sam's token plus Agent Connect's token become one token for Sam with an <code>act</code> claim naming Agent Connect.</li>
+      <li><strong>Agent token.</strong> Personal Agent proves its own identity with its client credentials.</li>
+      <li><strong>Exchange 1.</strong> Sam's token plus Personal Agent's token become one token for Sam with an <code>act</code> claim naming Personal Agent.</li>
       <li><strong>Exchange 2.</strong> The same token is re-issued for the gateway's audience, and <code>act</code> carries over.</li>
     </ul>
-    <p class="muted">The final token has Sam as <code>sub</code> and Agent Connect's client id as <code>act.sub</code>. Authorize requires Agent Connect to be on its registered actor list, and Agent Connect is.</p>
-    <p>On the Agent Connect page, the name turns <strong>red</strong> ("Detected by Protect") when the token carries Protect's verdict, and <strong>blue</strong> ("Identified from the client id") when only the <code>act</code> claim names Agent Connect. Protect wins when both are present.</p>
+    <p class="muted">The final token has Sam as <code>sub</code> and Personal Agent's client id as <code>act.sub</code>. Authorize requires Personal Agent to be on its registered actor list, and Personal Agent is.</p>
+    <p>On the Personal Agent page, the name turns <strong>red</strong> ("Detected by Protect") when the token carries Protect's verdict, and <strong>blue</strong> ("Identified from the client id") when only the <code>act</code> claim names Personal Agent. Protect wins when both are present.</p>
   </section>
   <section aria-labelledby="user">
     <h2 id="user">Signing in as just a user</h2>
-    <p>The same page has a second button, "Sign in as Sam (no agent)". Sam signs in as himself, through a different PingOne app (Agent Connect user login), so the flow shows no "AI agent detected" screen and no consent, and nothing is exchanged. Sam's own token then goes straight to the gateway, which refuses it: it carries no <code>act</code> claim and is not for the gateway's audience. Only a token that names an agent acting for Sam gets through.</p>
-    <p class="muted">The flow tells the apps apart by app id: it shows the agent screen and asks for consent only when the sign-in comes from the Agent Connect app.</p>
+    <p>The same page has a second button, "Sign in as Sam (no agent)". Sam signs in as himself, through a different PingOne app (Personal Agent user login), so the flow shows no "AI agent detected" screen and no consent, and nothing is exchanged. Sam's own token then goes straight to the gateway, which refuses it: it carries no <code>act</code> claim and is not for the gateway's audience. Only a token that names an agent acting for Sam gets through.</p>
+    <p class="muted">The flow tells the apps apart by app id: it shows the agent screen and asks for consent only when the sign-in comes from the Personal Agent app.</p>
   </section>
 
   <section aria-labelledby="lanes">
@@ -167,8 +167,8 @@ a { color: var(--accent); }
       <table>
         <thead><tr><th>Lane</th><th>Path</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>Agent Gateway</td><td>Agent Connect calls the gateway directly. The gateway validates the token against PingOne's keys and runs Authorize.</td><td><span class="tag real">Works</span></td></tr>
-          <tr><td>Agent Privilege, then Agent Gateway</td><td>Agent Connect calls a Privilege app in front of the gateway. Privilege matches the token to Agent Connect's identity and key, passes it on, and the gateway and Authorize decide.</td><td><span class="tag real">Works</span></td></tr>
+          <tr><td>Agent Gateway</td><td>Personal Agent calls the gateway directly. The gateway validates the token against PingOne's keys and runs Authorize.</td><td><span class="tag real">Works</span></td></tr>
+          <tr><td>Agent Privilege, then Agent Gateway</td><td>Personal Agent calls a Privilege app in front of the gateway. Privilege matches the token to Personal Agent's identity and key, passes it on, and the gateway and Authorize decide.</td><td><span class="tag real">Works</span></td></tr>
           <tr><td>Agent Privilege alone</td><td>Privilege cannot do the on-behalf-of exchange yet, so the gateway has to.</td><td><span class="tag todo">Waiting on Privilege</span></td></tr>
         </tbody>
       </table>
@@ -190,7 +190,7 @@ a { color: var(--accent); }
 
   <section aria-labelledby="connect">
     <h2 id="connect">How a customer connects: from their own assistant</h2>
-    <p>A customer never types a server address or a client ID. The airline lists its connector once in each assistant's directory. The customer finds the airline there by name, clicks Connect, and signs in at PingOne. On the Agent Connect page, "Connect from your assistant" plays this out: the directory card is a stand-in, and everything after Connect is real.</p>
+    <p>A customer never types a server address or a client ID. The airline lists its connector once in each assistant's directory. The customer finds the airline there by name, clicks Connect, and signs in at PingOne. On the Personal Agent page, "Connect from your assistant" plays this out: the directory card is a stand-in, and everything after Connect is real.</p>
     <ol>
       <li><strong>Find it.</strong> In ChatGPT, Claude or Meta AI, the customer searches the apps or connectors directory for the airline, or the assistant suggests it when they mention the airline.</li>
       <li><strong>Connect.</strong> One click. The assistant opens the airline's PingOne sign-in.</li>
@@ -203,12 +203,12 @@ a { color: var(--accent); }
         <tbody>
           <tr><td>ChatGPT (OpenAI)</td><td>Builds an app with the Apps SDK, which runs on MCP, and submits it for review with its listing text, test account and countries. Once approved it is in the app directory.</td><td>Its own PingOne app, "ChatGPT agent login". Protect's agent check lists that app, and the consent is "Allow ChatGPT to act for you".</td></tr>
           <tr><td>Claude (Anthropic)</td><td>Submits the server to Anthropic's Connectors Directory: OAuth, a <code>readOnlyHint</code> or <code>destructiveHint</code> on every tool, a privacy policy, support contacts, example prompts and a test account.</td><td>Its own PingOne app, "Claude agent login", with its own consent.</td></tr>
-          <tr><td>Meta AI</td><td>No public directory yet, so there is nothing to list today. The airline would list it once Meta offers one.</td><td>Agent Connect's PingOne app through the Airline Connector; the screens say "Airline Connector".</td></tr>
+          <tr><td>Meta AI</td><td>No public directory yet, so there is nothing to list today. The airline would list it once Meta offers one.</td><td>Personal Agent's PingOne app through the Airline Connector; the screens say "Airline Connector".</td></tr>
         </tbody>
       </table>
     </div>
     <p>Behind the listing it is the same MCP server and the same PingOne flow for every assistant. Only the PingOne app differs, picked from the assistant's callback address, so Protect and the screens can name each one, and the final token's <code>act</code> is that assistant.</p>
-    <p class="note">The listing steps come from each vendor's documentation as of October 2026, and they change. A listing is the vendor's decision after review. This demo is not listed in any directory, which is why the card on the Agent Connect page is a stand-in.</p>
+    <p class="note">The listing steps come from each vendor's documentation as of October 2026, and they change. A listing is the vendor's decision after review. This demo is not listed in any directory, which is why the card on the Personal Agent page is a stand-in.</p>
   </section>
 
   <section aria-labelledby="register">
@@ -219,7 +219,7 @@ a { color: var(--accent); }
         <thead><tr><th>Between</th><th>What happens</th><th>Client ID used</th></tr></thead>
         <tbody>
           <tr><td>The agent and the connector</td><td>The agent registers at the connector's <code>/connector/register</code> (DCR, RFC 7591). The connector checks the agent's redirect address and PKCE against that registration.</td><td>A <code>muse-</code> ID the connector hands out. It exists only in the connector's memory.</td></tr>
-          <tr><td>The connector and PingOne</td><td>The connector sends the customer to PingOne to sign in, then PingOne returns to the connector. The login hint is marked <code>.conn</code> so the screens name the connector.</td><td>The connector's own PingOne app: Agent Connect's app, or the assistant's own app when the callback host is <code>claude.ai</code> or <code>chatgpt.com</code>.</td></tr>
+          <tr><td>The connector and PingOne</td><td>The connector sends the customer to PingOne to sign in, then PingOne returns to the connector. The login hint is marked <code>.conn</code> so the screens name the connector.</td><td>The connector's own PingOne app: Personal Agent's app, or the assistant's own app when the callback host is <code>claude.ai</code> or <code>chatgpt.com</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -248,7 +248,7 @@ a { color: var(--accent); }
       </table>
     </div>
     <p>To use it, the server's authorization metadata must say <code>client_id_metadata_document_supported: true</code>. Claude also needs <code>none</code> listed in <code>token_endpoint_auth_methods_supported</code>, or it falls back to DCR. ChatGPT's own document asks for <code>private_key_jwt</code> (it signs a token request with a key it publishes), so a server that wants ChatGPT needs to support that too; Codex and Claude Code are public clients that need only PKCE. When the authorize request arrives with an HTTPS <code>client_id</code>, the server fetches the document, checks that the document names that same address, and checks that the requested callback is one of its <code>redirect_uris</code>.</p>
-    <p class="note"><span class="tag todo">Decision</span> Agent Connect's own connector does not use CIMD, on purpose. It sits in front of PingOne, which has no CIMD (its metadata does not advertise it), so Claude, ChatGPT and Codex register with Agent Connect by DCR through <code>/connector/register</code>. <strong>CIMD runs on real PingFederate 13.1</strong>, which advertises it, fetches and validates the client's document and sends the client to its sign-in. <a href="/cimd.html">See the real requests and responses</a>: the three apps' own documents, Linear and Notion accepting ChatGPT and Codex, and PingFederate. The client IDs above come from each vendor's documentation as of October 2026, and the hosted address for Claude's web and Desktop apps has not been confirmed (the docs show Claude Code's).</p>
+    <p class="note"><span class="tag todo">Decision</span> Personal Agent's own connector does not use CIMD, on purpose. It sits in front of PingOne, which has no CIMD (its metadata does not advertise it), so Claude, ChatGPT and Codex register with Personal Agent by DCR through <code>/connector/register</code>. <strong>CIMD runs on real PingFederate 13.1</strong>, which advertises it, fetches and validates the client's document and sends the client to its sign-in. <a href="/cimd.html">See the real requests and responses</a>: the three apps' own documents, Linear and Notion accepting ChatGPT and Codex, and PingFederate. The client IDs above come from each vendor's documentation as of October 2026, and the hosted address for Claude's web and Desktop apps has not been confirmed (the docs show Claude Code's).</p>
   </section>
 
   <section aria-labelledby="real">
@@ -258,10 +258,10 @@ a { color: var(--accent); }
       <li><span class="tag real">Real</span> The token exchanges, the Agent Gateway, Privilege's identity and key check, and PingOne Authorize.</li>
       <li><span class="tag real">Real</span> The "just a user" sign-in and the gateway's refusal of Sam's own token.</li>
       <li><span class="tag real">Real</span> The tool call. The points come back from the gateway's tool server, which holds sample data.</li>
-      <li><span class="tag sim">Mock</span> The offline Agent Connect. It keeps the same screens with a stub gateway and stub checks, and contacts nothing. It is still there for demos with no network.</li>
-      <li><span class="tag real">Real</span> On a local run Agent Connect can use a llama.cpp model. The model picks one tool from Agent Connect's own short list before the 401 and words the reply after the tool runs. It never writes tool arguments and never sees a token, and Agent Connect checks that every number in its reply comes from the result.</li>
-      <li><span class="tag sim">Simple</span> Without a model, and always on the hosted site, Agent Connect reads a request by keyword and answers points requests only.</li>
-      <li><span class="tag sim">Simple</span> Protect's signal for Agent Connect is its app id fed into a custom predictor. It is not behavioural bot detection from the device.</li>
+      <li><span class="tag sim">Mock</span> The offline Personal Agent. It keeps the same screens with a stub gateway and stub checks, and contacts nothing. It is still there for demos with no network.</li>
+      <li><span class="tag real">Real</span> On a local run Personal Agent can use a llama.cpp model. The model picks one tool from Personal Agent's own short list before the 401 and words the reply after the tool runs. It never writes tool arguments and never sees a token, and Personal Agent checks that every number in its reply comes from the result.</li>
+      <li><span class="tag sim">Simple</span> Without a model, and always on the hosted site, Personal Agent reads a request by keyword and answers points requests only.</li>
+      <li><span class="tag sim">Simple</span> Protect's signal for Personal Agent is its app id fed into a custom predictor. It is not behavioural bot detection from the device.</li>
       <li><span class="tag todo">Open</span> The device fingerprint is not passed in yet, so demouser lands on MEDIUM.</li>
     </ul>
     <p class="note">The hosted site runs Real mode with its own PingOne app. A local run needs the PingOne app's secret and the gateway, and the offline Mock is local only.</p>
