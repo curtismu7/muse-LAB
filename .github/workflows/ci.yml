@@ -5,7 +5,7 @@ on:
   pull_request:
 jobs:
   build:
-    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","macOS"]') }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         node: [26]
@@ -30,24 +30,39 @@ jobs:
           sleep 2
           node scripts/doctor.mjs http://127.0.0.1:$PORT
   secrets:
-    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","macOS"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - run: PATH="/opt/homebrew/bin:$PATH" gitleaks detect --source . --redact -v
+      - name: Install gitleaks
+        run: |
+          base=https://github.com/gitleaks/gitleaks/releases/download/v8.18.4
+          curl -sSLO "$base/gitleaks_8.18.4_linux_x64.tar.gz"
+          curl -sSLO "$base/gitleaks_8.18.4_checksums.txt"
+          grep ' gitleaks_8.18.4_linux_x64.tar.gz$' gitleaks_8.18.4_checksums.txt | sha256sum -c -
+          tar -xz -f gitleaks_8.18.4_linux_x64.tar.gz gitleaks
+          ./gitleaks version
+      - name: Scan history
+        run: ./gitleaks detect --source . --redact --no-banner
   forbidden-strings:
-    runs-on: ${{ fromJSON(vars.RUNS_ON || '["self-hosted","macOS"]') }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - run: |
-          list="$HOME/.config/demo-kit/forbidden-strings.txt"
-          test -s "$list" || { echo "forbidden-strings list missing on runner"; exit 1; }
-          hits=$(git log -p --all | grep -cF -f "$list" || true)
-          files=$(grep -rlF -f "$list" --exclude-dir=node_modules --exclude-dir=.git . | wc -l | tr -d ' ')
-          echo "history hits: $hits, tree files: $files"
-          test "$hits" = "0" && test "$files" = "0"
+      - name: Scan history and tree (counts only, the list is never printed)
+        env:
+          FORBIDDEN_STRINGS: ${{ secrets.FORBIDDEN_STRINGS }}
+        run: |
+          list="$RUNNER_TEMP/forbidden.txt"
+          printf '%s\n' "$FORBIDDEN_STRINGS" | grep -v '^$' > "$list" || true
+          test -s "$list" || { echo "FORBIDDEN_STRINGS secret is empty"; exit 1; }
+          hist=$(git log -p --all | grep -cF -f "$list" || true)
+          tree=$(git grep -l -F -f "$list" -- . || true)
+          tree_count=$(printf '%s' "$tree" | grep -c . || true)
+          echo "history hits: $hist"
+          echo "tree files with hits: $tree_count"
+          test "$hist" = "0" && test "$tree_count" = "0"
       - name: No AI attribution
         run: bash scripts/check-no-ai-attribution.sh
