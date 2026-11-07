@@ -32,6 +32,29 @@
 }
 
 
+/* System dark (no data-theme attribute): the family stylesheet flips a few tokens, but Muse's own (muted text, accent, bubbles, status colours) only had
+   dark values under an explicit dark theme, which left light-on-light and dark-on-dark text. Same values as the explicit dark theme below. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --on-fill: #ffffff;
+  --bg: #111317;
+  --detected-text: #ff7a85;
+  --undetected-text: #7fb0ff;
+  --surface: #181b21;
+  --panel: #15181d;
+  --bubble-muse: #1d2128;
+  --bubble-user: #1b3a66;
+  --text: #e9ebef;
+  --muted: #9aa0ab;
+  --line: #2a2f38;
+  --control-border: #c3c8d0;
+  --accent: #6ea8e6;
+  --accent-text: #051727;
+  --ok: #6fd08c;
+  --warn: #f0c060;
+  --bad: #ff8a80;  }
+}
+
 :root[data-theme="dark"] {
     --on-fill: #ffffff;
   --bg: #111317;
@@ -478,3 +501,29 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .mode-toggle__button:first-of-type { border-radius: 999px 0 0 999px; }
 .mode-toggle__button:last-of-type { border-radius: 0 999px 999px 0; margin-left: -1px; }
 .mode-toggle button:disabled { opacity: 0.6; }
+
+/* The pi.flow Sign in dialog: draggable by the title bar, no backdrop, so the trace behind it stays usable. */
+.signin-dialog { position: fixed; top: 96px; left: 50%; transform: translateX(-50%); z-index: 60; width: min(420px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28); }
+.signin-title { margin: 0; padding: 12px 16px; font-size: calc(20px * var(--fs, 1)); border-bottom: 1px solid var(--line); cursor: grab; touch-action: none; user-select: none; }
+.signin-dialog form { padding: 16px; display: grid; gap: 12px; }
+.signin-field { display: grid; gap: 4px; border: 0; margin: 0; padding: 0; }
+.signin-field label, .signin-field legend { font-weight: 600; }
+.signin-field input:not([type='checkbox']), .signin-field select { padding: 9px 10px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.signin-check { display: flex; align-items: center; gap: 8px; }
+.signin-check label { font-weight: 400; }
+.signin-text { margin: 0; color: var(--muted); }
+.signin-error { margin: 0; color: var(--bad); font-weight: 600; }
+.signin-flows { display: flex; flex-wrap: wrap; gap: 8px; }
+.signin-link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
+.signin-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.signin-details { font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
+.signin-details p { margin: 6px 0 0; overflow-wrap: anywhere; }
+
+.signin-choices { display: grid; gap: 8px; }
+.signin-choice { display: grid; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; font: inherit; }
+.signin-choice span { color: var(--muted); font-size: calc(13px * var(--fs, 1)); }
+.signin-choice:hover:not(:disabled) { border-color: var(--accent); }
+.signin-rich { color: var(--text); display: grid; gap: 8px; }
+.signin-rich p, .signin-rich ul, .signin-rich ol { margin: 0; }
+.signin-rich ul, .signin-rich ol { padding-left: 20px; }
+.signin-rich a { color: var(--accent); }

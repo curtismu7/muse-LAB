@@ -72,6 +72,18 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   // cookie is not sent; the one-time state value is what ties the return to the visitor who started it.
   const pending = new Map();
   const PENDING_MS = 10 * 60 * 1000;
+  // pi.flow: the page drives PingOne's sign-in itself with the DaVinci client SDK instead of leaving for a login page. The server still owns the
+  // state, the PKCE verifier and the code swap; the page gets only what the SDK needs to start the flow (never the verifier or a secret).
+  const piflowFor = (r, learned, client) => {
+    const q = new URL(r.url).searchParams;
+    const query = {};
+    for (const [k, v] of q) if (!['response_type', 'client_id', 'redirect_uri', 'scope'].includes(k)) query[k] = v;
+    const wk = new URL(learned.authorizeEndpoint);
+    wk.pathname = wk.pathname.replace(/\/authorize$/, '/.well-known/openid-configuration');
+    wk.search = '';
+    return { clientId: client.clientId, redirectUri: client.redirectUri, scope: q.get('scope') ?? 'openid', wellknown: wk.href, state: r.state, query };
+  };
+  const signInReply = (req, res, r, learned, client) => res.json(req.body?.piflow === true && live?.idp ? { piflow: piflowFor(r, learned, client) } : { url: r.url });
   const app = express();
   app.disable('x-powered-by');
   if (hosted) app.set('trust proxy', 1);
@@ -337,7 +349,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       const returnTo = /^\/clients\.html\?client=[a-z]{1,12}$/.test(String(req.body?.returnTo ?? '')) ? String(req.body.returnTo) : '/';
       pending.set(r.state, { wsId: ws.id, verifier: r.verifier, learned, client, as: 'assistant', assistant: { key: a.key, name: a.name }, idp: a.idp, returnTo, at: Date.now() });
       ws.assistant = null;
-      return res.json({ url: r.url });
+      return signInReply(req, res, r, learned, client);
     }
     if (!liveReady(req, res)) return;
     if (req.body?.as === 'user') {
@@ -349,7 +361,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
       pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource: null, learned, client, as: 'user', at: Date.now() });
       ws.userLogin = null;
-      return res.json({ url: r.url });
+      return signInReply(req, res, r, learned, client);
     }
     if (!ws.liveClient) return res.status(409).json({ error: 'register Personal Agent first' });
     // With a client secret Personal Agent acts on the user's behalf, so the token is minted for the gateway from the start.
@@ -359,20 +371,17 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
     pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, learned, at: Date.now() });
     addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: live.idp ? 'The browser leaves Personal Agent for PingOne. PKCE S256, prompt=login so PingOne always asks the user to sign in.' : 'The browser leaves Personal Agent for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
-    res.json({ url: r.url });
+    signInReply(req, res, r, learned, ws.liveClient);
   });
 
-  // Step 6. The identity provider sends the browser back here with a code.
-  app.get('/api/callback', async (req, res) => {
-    const p = pending.get(String(req.query.state ?? ''));
-    pending.delete(String(req.query.state ?? ''));
-    const ws = p && Date.now() - p.at <= PENDING_MS ? workspaces.find(p.wsId) : null;
-    const done = (msg) => res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Personal Agent</title><p>${msg}</p><script>location.replace(${JSON.stringify(p?.returnTo ?? '/')})</script>`);
-    if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Personal Agent.');
-    if (req.query.error) { ws.liveError = `Sign-in was refused: ${String(req.query.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Personal Agent.'); }
+  // Step 6. Swap the code for a token and finish whatever the sign-in was for. One function, two doors: the redirect callback below and the
+  // pi.flow complete route. `done` here just hands the message back; the callback wraps it in a page.
+  const finishSignIn = async (p, ws, q) => {
+    const done = (msg) => msg;
+    if (q.error) { ws.liveError = `Sign-in was refused: ${String(q.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Personal Agent.'); }
     if (p.as === 'user') {
       try {
-        const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: p.client, resource: null }, fetchImpl);
+        const r = await exchangeCode(live, p.learned, { code: String(q.code ?? ''), verifier: p.verifier, client: p.client, resource: null }, fetchImpl);
         ws.userLogin = { claims: r.claims ?? null, steps: [r.step].filter(Boolean), error: r.error ?? null, denied: null };
         if (r.token) {
           // The user's own token, straight to the gateway. No act claim, no exchange: this is what a non-agent caller gets.
@@ -388,7 +397,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       // Same as the connector: swap the code, act for the user with that assistant's app, then ask the gateway for the points.
       ws.assistant = { ...p.assistant, claims: null, points: null, error: null };
       try {
-        const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: p.client, resource: null, clientSecret: p.idp.clientSecret }, fetchImpl);
+        const r = await exchangeCode(live, p.learned, { code: String(q.code ?? ''), verifier: p.verifier, client: p.client, resource: null, clientSecret: p.idp.clientSecret }, fetchImpl);
         if (!r.token) { ws.assistant.error = r.error ?? 'PingOne did not issue a token.'; return done('Sign-in failed. Returning to Personal Agent.'); }
         const d = await delegate(live, p.idp, r.token, fetchImpl);
         if (!d.token) { ws.assistant.error = d.error ?? 'The token exchange was refused.'; return done('Sign-in failed. Returning to Personal Agent.'); }
@@ -404,7 +413,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       return done('Connected. Returning to Personal Agent.');
     }
     try {
-      const r = await exchangeCode(live, p.learned, { code: String(req.query.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource, clientSecret: live.idp?.clientSecret }, fetchImpl);
+      const r = await exchangeCode(live, p.learned, { code: String(q.code ?? ''), verifier: p.verifier, client: ws.liveClient, resource: p.resource, clientSecret: live.idp?.clientSecret }, fetchImpl);
       addStep(ws, r.step);
       ws.liveError = r.error ?? null;
       if (r.token && live.idp?.clientSecret) {
@@ -416,7 +425,30 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       // The retry: now that Personal Agent has a token, it finishes the request the user made before signing in.
       if (ws.liveToken && ws.liveAsk) await runAsk(ws);
     } catch (e) { ws.liveError = failed(e).error; }
-    done('Signed in. Returning to Personal Agent.');
+    return done('Signed in. Returning to Personal Agent.');
+  };
+
+  // The identity provider sends the browser back here with a code (the redirect form, used by the lanes that have no pi.flow).
+  app.get('/api/callback', async (req, res) => {
+    const p = pending.get(String(req.query.state ?? ''));
+    pending.delete(String(req.query.state ?? ''));
+    const ws = p && Date.now() - p.at <= PENDING_MS ? workspaces.find(p.wsId) : null;
+    if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Personal Agent.');
+    const msg = await finishSignIn(p, ws, req.query);
+    res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Personal Agent</title><p>${msg}</p><script>location.replace(${JSON.stringify(p?.returnTo ?? '/')})</script>`);
+  });
+
+  // The pi.flow form of the same step: the page finished PingOne's flow itself and hands back the code and the state. Only the workspace that
+  // started the sign-in can finish it, and each state works once.
+  app.post('/api/live/signin/complete', limited, async (req, res) => {
+    const state = String(req.body?.state ?? '');
+    const p = pending.get(state);
+    if (!p || Date.now() - p.at > PENDING_MS || p.wsId !== req.ws.id) return res.status(400).json({ error: 'Unknown or expired sign-in. Start again.' });
+    pending.delete(state);
+    const ws = workspaces.find(p.wsId);
+    if (!ws) return res.status(400).json({ error: 'Unknown or expired sign-in. Start again.' });
+    const q = req.body?.error ? { error: String(req.body.error).slice(0, 60) } : { code: String(req.body?.code ?? '') };
+    try { res.json({ ok: true, message: await finishSignIn(p, ws, q) }); } catch (e) { res.status(502).json(failed(e)); }
   });
 
   // Steps 7 and 8. The call that was refused in step 1, now with the token.
