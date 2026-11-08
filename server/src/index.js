@@ -78,7 +78,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   if (hosted) app.set('trust proxy', 1);
 
   // Health is public and read-only. Probes call it with a pod-IP Host, so it sits before the Host check.
-  app.get('/api/shelf', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json(shelfInfo()); }); // the header "Shelf" button
+  app.get('/api/shelf', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json(shelfInfo(env)); }); // the header "Shelf" button
   app.get('/api/health', (req, res) => {
     res.set('Cache-Control', 'no-store').json({
       schema: 'demo-health/1',

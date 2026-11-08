@@ -366,3 +366,14 @@ test('switching modes signs everyone out and clears live state', async () => {
     await app.close();
   }
 });
+
+test('GET /api/shelf returns SHELF_URL (slash trimmed) with no web build; POST is not 200', async () => {
+  const { base, close } = await boot({ SHELF_URL: 'https://shelf.example:8443/', HOME: '/nonexistent' });
+  try {
+    const res = await fetch(`${base}/api/shelf`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { shelfUrl: 'https://shelf.example:8443' });
+    const post = await fetch(`${base}/api/shelf`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    assert.notEqual(post.status, 200);
+  } finally { await close(); }
+});

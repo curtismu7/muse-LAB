@@ -3,3 +3,5 @@ services:
     build: .
     ports:
       - "127.0.0.1:5100:5100"
+    environment:
+      SHELF_URL: ${SHELF_URL:-http://127.0.0.1:4400}
