@@ -131,7 +131,7 @@
    "group": "green",
    "label": "10. Tool runs",
    "sub": [
-    "4,500 points, Gold"
+    "20,320 points, Premier Gold"
    ],
    "x": 898,
    "y": 382
@@ -288,7 +288,7 @@
   },
   {
    "title": "Tool runs",
-   "what": "Allowed, so the tool runs and returns 4,500 points, Gold.",
+   "what": "Allowed, so the tool runs and returns 20,320 points, Premier Gold.",
    "why": "The answer exists only because every check passed.",
    "edges": [
     0,

@@ -14,7 +14,7 @@
   { "id": "user", "group": "blue", "label": "1. User", "sub": ["Sam asks: \"Show my airline points\""], "x": 40, "y": 100 },
   { "id": "muse", "group": "dark", "label": "2. Personal Agent", "sub": ["The personal agent. Signs Sam in at PingOne and acts for him."], "x": 330, "y": 100 },
   { "id": "authorize", "group": "amber", "label": "3. PingOne Authorize", "sub": ["Checks the audience, that Personal Agent is a registered actor, and that the tool is allowed."], "x": 620, "y": 100 },
-  { "id": "mcp", "group": "green", "label": "4. MCP server", "sub": ["Runs the tool and returns 4,500 points, Gold."], "x": 910, "y": 100 }
+  { "id": "mcp", "group": "green", "label": "4. MCP server", "sub": ["Runs the tool and returns 20,320 points, Premier Gold."], "x": 910, "y": 100 }
  ],
  "edges": [
   { "source": "user", "target": "muse", "label": "1", "name": "Ask" },
