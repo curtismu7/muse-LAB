@@ -220,7 +220,7 @@ test('acting for the user: sign-in, agent token, two exchanges, then Agent Gatew
   assert.equal(authed.length, 3);
   assert.equal(authed[0].init.headers['x-token-validation'], 'jwks');
   assert.equal(authed[0].init.headers['mcp-protocol-version'], '2025-06-18');
-  assert.equal(JSON.parse(authed[2].init.body).params.name, 'loyalty_balance');
+  assert.equal(JSON.parse(authed[2].init.body).params.name, 'get_loyalty_status');
   const steps = (await call('GET', '/api/session')).j.liveAuth.steps.map((x) => x.n);
   assert.deepEqual(steps, [4, 5, 6, 6.1, 6.2, 6.3, 7, 8, 9]);
   await new Promise((r) => server.close(r));
@@ -253,7 +253,7 @@ test('the user asks first: 401 from the gateway, then PingOne, then Personal Age
     [GW]: (init) => {
       if (!init.headers.authorization) return json(401, {}, { 'www-authenticate': 'Bearer resource_metadata="https://gw.example/.well-known/oauth-protected-resource/pft/mcp"' });
       const m = JSON.parse(init.body).method;
-      if (m === 'tools/call') return json(200, { result: { content: [{ type: 'text', text: JSON.stringify({ success: true, data: { points: 4500, tier: 'Gold' } }) }] } });
+      if (m === 'tools/call') return json(200, { result: { content: [{ type: 'text', text: JSON.stringify({ loyaltyTier: 'Premier Gold', loyaltyPoints: 20320, name: 'J R' }) }] } });
       return json(200, { result: { tools: [] } }, { 'mcp-session-id': 's1' });
     },
     [`${P1}/token`]: () => json(200, { access_token: jwt({ aud: GW, sub: 'sam', act: { sub: 'client1' } }) }),
@@ -274,7 +274,9 @@ test('the user asks first: 401 from the gateway, then PingOne, then Personal Age
   await call('POST', '/api/live/register');
   await finishFlow(call, (await startFlow(call)).state);
   const after = (await call('GET', '/api/session')).j;
-  assert.deepEqual([after.liveAuth.answer.points, after.liveAuth.answer.tier, after.liveAuth.answer.reply], [4500, 'Gold', 'You have 4,500 points (Gold).'], 'Personal Agent finished the request after the sign-in');
+  assert.deepEqual([after.liveAuth.answer.points, after.liveAuth.answer.tier, after.liveAuth.answer.reply], [20320, 'Premier Gold', 'You have 20,320 points (Premier Gold).'], 'Personal Agent finished the request after the sign-in');
+  const asked = n.seen.filter((x) => x.url === GW && x.init.headers.authorization).map((x) => JSON.parse(x.init.body)).find((b) => b.method === 'tools/call');
+  assert.equal(asked.params.name, 'get_loyalty_status', 'the asked-for loyalty_balance reads the same passenger record the connector reads');
   assert.ok(after.liveAuth.steps.some((x) => x.n === 9));
   await new Promise((r) => server.close(r));
 });

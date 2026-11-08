@@ -249,8 +249,11 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     const r = steps.find((x) => x.n === 9)?.response;
     try { return normaliseResult(r.body.result.content[0].text); } catch { return null; }
   };
+  // Both airline tools read the one passenger record through the gateway (the connector does the same), so a balance never differs between Personal Agent and an assistant.
+  const AIRLINE_RECORD = 'get_loyalty_status';
   const runAsk = async (ws) => {
-    const steps = await callGateway(live, ws.liveToken, fetchImpl, { tool: ws.liveAsk?.tool ?? (live.idp?.clientSecret ? 'loyalty_balance' : null) });
+    const asked = ws.liveAsk?.tool ?? (live.idp?.clientSecret ? 'loyalty_balance' : null);
+    const steps = await callGateway(live, ws.liveToken, fetchImpl, { tool: asked ? AIRLINE_RECORD : null });
     for (const st of steps) addStep(ws, st);
     const result = answerFrom(steps);
     if (!result) { ws.liveAnswer = null; return; }
@@ -364,7 +367,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
         ws.userLogin = { claims: r.claims ?? null, steps: [r.step].filter(Boolean), error: r.error ?? null, denied: null };
         if (r.token) {
           // The user's own token, straight to the gateway. No act claim, no exchange: this is what a non-agent caller gets.
-          const steps = await callGateway(live, r.token, fetchImpl, { tool: 'loyalty_balance' });
+          const steps = await callGateway(live, r.token, fetchImpl, { tool: AIRLINE_RECORD });
           const first = steps[0]?.response?.status;
           ws.userLogin.steps.push(...steps);
           ws.userLogin.denied = first == null ? null : first >= 400 || steps.some((x) => x.response?.status >= 400);
@@ -381,7 +384,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
         const d = await delegate(live, p.idp, r.token, fetchImpl);
         if (!d.token) { ws.assistant.error = d.error ?? 'The token exchange was refused.'; return done('Sign-in failed. Returning to Personal Agent.'); }
         ws.assistant.claims = d.claims ?? null;
-        const ask = () => callGateway(live, d.token, fetchImpl, { tool: 'get_loyalty_status' });
+        const ask = () => callGateway(live, d.token, fetchImpl, { tool: AIRLINE_RECORD });
         const steps = await ask().catch(() => ask());
         const resp = steps.find((x) => x.n === 9)?.response;
         let rec = null;
