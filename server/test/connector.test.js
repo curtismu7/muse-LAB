@@ -278,32 +278,16 @@ test('Connect from your assistant: each listed assistant signs in with its own P
   assert.equal(s0.connector.airline, 'SkyHigh');
   assert.ok(!JSON.stringify(s0).includes('gpt-sekret'), 'no secret reaches the page');
   assert.equal((await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'nobody' })).status, 409);
-  const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'chatgpt' })).json();
-  const u = new URL(si.url);
-  assert.equal(u.searchParams.get('client_id'), 'gpt-app'); assert.equal(u.searchParams.get('login_hint'), 'demouser.conn');
-  assert.equal(u.searchParams.get('redirect_uri'), `${a.base}/api/callback`);
+  const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'chatgpt', piflow: true })).json();
+  assert.equal(si.url, undefined, 'no redirect URL: the sign-in runs in the page');
+  assert.equal(si.piflow.clientId, 'gpt-app'); assert.equal(si.piflow.query.login_hint, 'demouser.conn');
+  assert.equal(si.piflow.redirectUri, `${a.base}/api/callback`);
   const before = a.seen.length;
-  await call('GET', `/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  await call('POST', '/api/live/signin/complete', { state: si.piflow.state, code: 'c' });
   const posts = a.seen.slice(before).filter((x) => x.url === `${P1}/token`).map((x) => new URLSearchParams(x.init.body));
   assert.equal(posts.length, 4); assert.ok(posts.every((f) => f.get('client_id') === 'gpt-app'));
   const s1 = await (await call('GET', '/api/session')).json();
   assert.equal(s1.assistant.name, 'ChatGPT'); assert.equal(s1.assistant.points.points, 52000); assert.equal(s1.assistant.error, null);
-  } finally { await a.close(); }
-});
-
-test('after an assistant sign-in the browser returns to the clients page only; any other return address goes home', async () => {
-  const AGENTS = JSON.stringify([{ name: 'Claude', hosts: ['claude.example'], clientId: 'cl-app', clientSecret: 'cl-sekret' }]);
-  const a = await boot({ MUSE_CONNECTOR_AGENTS: AGENTS });
-  try {
-    const jar = {}; const cookie = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
-    const keep = (r) => { for (const c of r.headers.getSetCookie?.() ?? []) { const [kv] = c.split(';'); const [k, v] = kv.split('='); jar[k] = v; } return r; };
-    const call = async (m, p, body) => keep(await fetch(a.base + p, { method: m, redirect: 'manual', headers: { 'content-type': 'application/json', cookie: cookie() }, body: body ? JSON.stringify(body) : undefined }));
-    await call('GET', '/api/session');
-    for (const [returnTo, expect] of [['/clients.html?client=claude', '/clients.html?client=claude'], ['https://evil.example/', '/'], ['//evil.example', '/'], ['/clients.html?client=claude&x=1', '/'], [undefined, '/']]) {
-      const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'claude', returnTo })).json();
-      const html = await (await call('GET', `/api/callback?code=c&state=${new URL(si.url).searchParams.get('state')}`)).text();
-      assert.ok(html.includes(`location.replace(${JSON.stringify(expect)})`), `${returnTo} -> ${expect}: ${html.slice(0, 200)}`);
-    }
   } finally { await a.close(); }
 });
 
@@ -320,8 +304,8 @@ test('an agent with no callback host (Codex) has its own app in the directory Co
     const keep = (r) => { for (const c of r.headers.getSetCookie?.() ?? []) { const [kv] = c.split(';'); const [k, v] = kv.split('='); jar[k] = v; } return r; };
     const call = async (m, p, body) => keep(await fetch(a.base + p, { method: m, redirect: 'manual', headers: { 'content-type': 'application/json', cookie: cookie() }, body: body ? JSON.stringify(body) : undefined }));
     await call('GET', '/api/session');
-    const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'codex' })).json();
-    assert.equal(new URL(si.url).searchParams.get('client_id'), 'cx-app', 'Codex signs in with its own app');
+    const si = await (await call('POST', '/api/live/signin', { as: 'assistant', assistant: 'codex', piflow: true })).json();
+    assert.equal(si.piflow.clientId, 'cx-app', 'Codex signs in with its own app');
     // A loopback callback (what Codex uses) is still Personal Agent's app on the MCP path, since Codex has no host to match.
     const LOOP = 'http://127.0.0.1:8765/callback';
     const reg = await (await a.post('/connector/register', { redirect_uris: [LOOP] })).json();

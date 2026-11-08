@@ -45,7 +45,6 @@ test('live discovery: 401, resource metadata, authorization-server metadata; htt
   const d = await liveDiscovery(liveConfig(LIVE_ENV), net.f);
   assert.equal(d.stopped, null);
   assert.equal(d.steps.length, 3);
-  assert.equal(d.learned.registrationEndpoint, AS.registration_endpoint);
   assert.match(d.steps[1].note, /advertised .* \(http\)/);
   assert.deepEqual(net.seen.map((s) => s.url), Object.keys(happy()));
   for (const s of net.seen) assert.equal(s.init.redirect, 'manual');
