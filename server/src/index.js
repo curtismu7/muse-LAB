@@ -14,7 +14,7 @@ import { loadStories, renderStory } from './stories.js';
 import { loadCustomer } from './customer.js';
 import { PLATFORMS, createPlatformEngine } from './platforms.js';
 import { chatgptKey, mountPfResource } from './pf-resource.js';
-import { callGateway, delegate, exchangeCode, piflowFor, registerClient, startSignIn } from './liveauth.js';
+import { callGateway, delegate, exchangeCode, piflowFor, startSignIn } from './liveauth.js';
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 import { shelfInfo } from './shelfLink.js';
@@ -68,11 +68,11 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     return false;
   };
   const limited = (req, res, next) => (tooMany(req.ws.id) ? res.status(429).json({ error: 'slow down', detail: 'Too many sign-in attempts. Try again in a minute.' }) : next());
-  // Sign-in state to workspace. The return from the identity provider is a cross-site navigation, so the SameSite=Lax
-  // cookie is not sent; the one-time state value is what ties the return to the visitor who started it.
+  // Sign-in state to workspace: the one-time state value ties the pi.flow complete call to the visitor who started it.
   const pending = new Map();
   const PENDING_MS = 10 * 60 * 1000;
-  const signInReply = (req, res, r, learned, client) => res.json(req.body?.piflow === true && live?.idp ? { piflow: piflowFor(r, learned, client) } : { url: r.url });
+  // Sign-in is pi.flow only: the reply is the SDK's config, never a URL to navigate to.
+  const signInReply = (req, res, r, learned, client) => res.json({ piflow: piflowFor(r, learned, client) });
   const app = express();
   app.disable('x-powered-by');
   if (hosted) app.set('trust proxy', 1);
@@ -260,6 +260,8 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   };
   const liveReady = (req, res) => {
     if (req.ws.gatewayMode !== 'live' || !live) { res.status(409).json({ error: 'switch to Real (live) first' }); return false; }
+    // Sign-in is the pi.flow dialog against PingOne. With no PingOne app there is no sign-in to offer, and no redirect fallback.
+    if (!live.idp) { res.status(409).json({ error: 'Real sign-in needs the PingOne app configured (MUSE_P1_ENV_ID and MUSE_P1_CLIENT_ID)' }); return false; }
     if (!req.ws.discovery?.learned) { res.status(409).json({ error: 'run the discovery steps first' }); return false; }
     return true;
   };
@@ -287,24 +289,15 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     } catch (e) { res.status(502).json(failed(e)); }
   });
 
-  // Step 4. A real write: one client registration at the gateway's authorization server. Only on an explicit click.
-  app.post('/api/live/register', async (req, res) => {
+  // Step 4. No registration: PingOne already has Personal Agent's app, so this only picks it up.
+  app.post('/api/live/register', (req, res) => {
     if (!liveReady(req, res)) return;
     const ws = req.ws;
-    if (live.idp) {
-      // PingOne already has Personal Agent's app, so there is nothing to register: Personal Agent only redirects.
-      ws.liveClient = { clientId: live.idp.clientId, redirectUri: (live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback`) };
-      ws.liveError = null;
-      addStep(ws, { n: 4, title: "Use Personal Agent's PingOne app", request: { method: 'GET', url: live.idp.authorizeEndpoint }, note: 'No registration. Personal Agent is a PingOne app; PingOne handles login, Protect and consent after the redirect.' });
-      return res.json({ registered: true, error: null });
-    }
-    try {
-      const r = await registerClient(live, ws.discovery.learned, (live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback`), fetchImpl);
-      addStep(ws, r.step);
-      ws.liveClient = r.client ?? null;
-      ws.liveError = r.error ?? null;
-      res.json({ registered: Boolean(r.client), error: r.error ?? null });
-    } catch (e) { res.status(502).json(failed(e)); }
+    // PingOne already has Personal Agent's app, so there is nothing to register: Personal Agent only picks it up.
+    ws.liveClient = { clientId: live.idp.clientId, redirectUri: (live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback`) };
+    ws.liveError = null;
+    addStep(ws, { n: 4, title: "Use Personal Agent's PingOne app", request: { method: 'GET', url: live.idp.authorizeEndpoint }, note: 'No registration. Personal Agent is a PingOne app; PingOne handles login, Protect and consent in the sign-in dialog.' });
+    res.json({ registered: true, error: null });
   });
 
   // Connect from an assistant, the way that platform does it: discovery, registration, then the authorize URL the page navigates to.
@@ -322,7 +315,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     } catch (e) { res.status(502).json(failed(e)); }
   });
 
-  // Step 5. Returns the authorize URL; the page navigates there. Nothing is sent to the gateway yet.
+  // Step 5. Returns the pi.flow config for the page's sign-in dialog. Nothing is sent to the gateway yet.
   app.post('/api/live/signin', limited, (req, res) => {
     const ws = req.ws;
     if (req.body?.as === 'assistant') {
@@ -334,9 +327,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       const client = { clientId: a.idp.clientId, redirectUri: live.publicUrl ? `${live.publicUrl}/api/callback` : `http://${req.headers.host}/api/callback` };
       const r = startSignIn(learned, client, null, { forceLogin: true, loginHint: a.idp.loginHint ? `${a.idp.loginHint}.conn${req.body?.mfa === 'off' ? '.nomfa' : ''}` : null });
       for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
-      // Where the browser lands afterwards: only the clients page, from a short fixed pattern. Anything else goes home.
-      const returnTo = /^\/clients\.html\?client=[a-z]{1,12}$/.test(String(req.body?.returnTo ?? '')) ? String(req.body.returnTo) : '/';
-      pending.set(r.state, { wsId: ws.id, verifier: r.verifier, learned, client, as: 'assistant', assistant: { key: a.key, name: a.name }, idp: a.idp, returnTo, at: Date.now() });
+      pending.set(r.state, { wsId: ws.id, verifier: r.verifier, learned, client, as: 'assistant', assistant: { key: a.key, name: a.name }, idp: a.idp, at: Date.now() });
       ws.assistant = null;
       return signInReply(req, res, r, learned, client);
     }
@@ -354,17 +345,16 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     }
     if (!ws.liveClient) return res.status(409).json({ error: 'register Personal Agent first' });
     // With a client secret Personal Agent acts on the user's behalf, so the token is minted for the gateway from the start.
-    const resource = live.idp && (!live.idp.clientSecret || live.idp.lane === 'privilege') ? null : live.url;
-    const learned = live.idp ? { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] } : ws.discovery.learned;
-    const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: Boolean(live.idp), loginHint: live.idp?.loginHint ? (req.body?.mfa === 'off' ? `${live.idp.loginHint}.nomfa` : live.idp.loginHint) : null, scope: live.idp?.clientSecret && live.idp.lane !== 'privilege' ? `openid ${live.idp.gatewayScope}` : null });
+    const resource = !live.idp.clientSecret || live.idp.lane === 'privilege' ? null : live.url;
+    const learned = { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] };
+    const r = startSignIn(learned, ws.liveClient, resource, { forceLogin: true, loginHint: live.idp.loginHint ? (req.body?.mfa === 'off' ? `${live.idp.loginHint}.nomfa` : live.idp.loginHint) : null, scope: live.idp.clientSecret && live.idp.lane !== 'privilege' ? `openid ${live.idp.gatewayScope}` : null });
     for (const [k, v] of pending) if (Date.now() - v.at > PENDING_MS) pending.delete(k);
     pending.set(r.state, { wsId: ws.id, verifier: r.verifier, resource, learned, at: Date.now() });
-    addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: live.idp ? 'The browser leaves Personal Agent for PingOne. PKCE S256, prompt=login so PingOne always asks the user to sign in.' : 'The browser leaves Personal Agent for the identity provider. PKCE S256, and resource = the gateway so the token is minted for it.' });
+    addStep(ws, { n: 5, title: 'Send the user to sign in', request: { method: 'GET', url: r.url.replace(/code_challenge=[^&]+/, 'code_challenge=(sent)') }, note: 'The sign-in dialog runs PingOne\'s flow here on the page. PKCE S256, prompt=login so PingOne always asks the user to sign in.' });
     signInReply(req, res, r, learned, ws.liveClient);
   });
 
-  // Step 6. Swap the code for a token and finish whatever the sign-in was for. One function, two doors: the redirect callback below and the
-  // pi.flow complete route. `done` here just hands the message back; the callback wraps it in a page.
+  // Step 6. Swap the code for a token and finish whatever the sign-in was for. `done` just hands the message back to the pi.flow complete route.
   const finishSignIn = async (p, ws, q) => {
     const done = (msg) => msg;
     if (q.error) { ws.liveError = `Sign-in was refused: ${String(q.error).slice(0, 60)}.`; return done('Sign-in was refused. Returning to Personal Agent.'); }
@@ -417,17 +407,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     return done('Signed in. Returning to Personal Agent.');
   };
 
-  // The identity provider sends the browser back here with a code (the redirect form, used by the lanes that have no pi.flow).
-  app.get('/api/callback', async (req, res) => {
-    const p = pending.get(String(req.query.state ?? ''));
-    pending.delete(String(req.query.state ?? ''));
-    const ws = p && Date.now() - p.at <= PENDING_MS ? workspaces.find(p.wsId) : null;
-    if (!ws) return res.status(400).type('text').send('Unknown or expired sign-in. Start again from Personal Agent.');
-    const msg = await finishSignIn(p, ws, req.query);
-    res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><title>Personal Agent</title><p>${msg}</p><script>location.replace(${JSON.stringify(p?.returnTo ?? '/')})</script>`);
-  });
-
-  // The pi.flow form of the same step: the page finished PingOne's flow itself and hands back the code and the state. Only the workspace that
+  // The page finished PingOne's flow itself and hands back the code and the state. Only the workspace that
   // started the sign-in can finish it, and each state works once.
   app.post('/api/live/signin/complete', limited, async (req, res) => {
     const state = String(req.body?.state ?? '');

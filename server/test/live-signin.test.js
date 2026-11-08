@@ -5,10 +5,12 @@ import { createApp } from '../src/index.js';
 
 const GW = 'https://gw.example/pft/mcp';
 const ENV = { ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: GW };
-const AS = { issuer: 'https://gw.example/pft', authorization_endpoint: 'https://gw.example/pft/authorize', token_endpoint: 'https://gw.example/pft/token', registration_endpoint: 'https://gw.example/pft/register', scopes_supported: ['openid'], code_challenge_methods_supported: ['S256'] };
+const P1ENV = { ...ENV, MUSE_P1_ENV_ID: 'env1', MUSE_P1_CLIENT_ID: 'client1' };
+const P1 = 'https://auth.pingone.com/env1/as';
+const AS = { issuer: 'https://gw.example/pft', authorization_endpoint: 'https://gw.example/pft/authorize', token_endpoint: 'https://gw.example/pft/token', scopes_supported: ['openid'], code_challenge_methods_supported: ['S256'] };
 const json = (status, body, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
 const jwt = (c) => `h.${Buffer.from(JSON.stringify(c)).toString('base64url')}.s`;
-const SECRET_TOKEN = jwt({ iss: 'https://gw.example/pft', aud: GW, sub: 'sam', exp: 9999999999 });
+const SECRET_TOKEN = jwt({ iss: 'https://auth.pingone.com/env1', aud: 'client1', sub: 'sam', exp: 9999999999 });
 
 function net(over = {}) {
   const seen = [];
@@ -18,16 +20,15 @@ function net(over = {}) {
       : json(401, {}, { 'www-authenticate': 'Bearer resource_metadata="https://gw.example/.well-known/oauth-protected-resource/pft/mcp"' })),
     'https://gw.example/.well-known/oauth-protected-resource/pft/mcp': () => json(200, { authorization_servers: ['https://gw.example/pft'] }),
     'https://gw.example/.well-known/oauth-authorization-server/pft': () => json(200, AS),
-    'https://gw.example/pft/register': () => json(201, { client_id: 'muse-123' }),
-    'https://gw.example/pft/token': () => json(200, { access_token: SECRET_TOKEN, token_type: 'Bearer' }),
+    [`${P1}/token`]: () => json(200, { access_token: SECRET_TOKEN, token_type: 'Bearer' }),
     ...over,
   };
   const f = async (url, init) => { seen.push({ url: String(url), init }); const r = routes[String(url)]; if (!r) throw new Error(`unexpected ${url}`); return r(init); };
   return { f, seen };
 }
 
-async function boot(fetchImpl) {
-  const server = createApp(ENV, { fetchImpl }).listen(0, '127.0.0.1');
+async function boot(fetchImpl, env = P1ENV) {
+  const server = createApp(env, { fetchImpl }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}`;
   let cookie = null;
@@ -42,38 +43,35 @@ async function boot(fetchImpl) {
   return { call, live, base, close: () => new Promise((r) => server.close(r)) };
 }
 
-test('live flow: register, sign in with PKCE, token back without the cookie, call the gateway; token never reaches the page', async () => {
+// The pi.flow form of sign-in: the page's dialog runs PingOne's flow, then hands back the code and the state. `call` may return { json } or { j }.
+const startFlow = async (call, body = {}) => { const r = await call('POST', '/api/live/signin', { ...body, piflow: true }); return (r.json ?? r.j)?.piflow; };
+const finishFlow = (call, state, extra = { code: 'c' }) => call('POST', '/api/live/signin/complete', { state, ...extra });
+
+test('live flow: use the PingOne app, sign in with PKCE through pi.flow, token back, call the gateway; token never reaches the page', async () => {
   const n = net();
   const a = await boot(n.f);
   await a.live();
   assert.equal((await a.call('POST', '/api/live/signin')).status, 409, 'cannot sign in before registering');
   const reg = await a.call('POST', '/api/live/register');
   assert.equal(reg.json.registered, true);
-  const body = JSON.parse(n.seen.find((s) => s.url.endsWith('/register')).init.body);
-  assert.deepEqual(body.redirect_uris, [`${a.base}/api/callback`]);
-  assert.equal(body.token_endpoint_auth_method, 'none');
+  assert.ok(!n.seen.some((s) => s.url.endsWith('/register')), 'nothing is registered at the gateway');
 
-  const si = await a.call('POST', '/api/live/signin');
-  const u = new URL(si.json.url);
-  assert.equal(u.origin + u.pathname, AS.authorization_endpoint);
-  assert.equal(u.searchParams.get('code_challenge_method'), 'S256');
-  assert.equal(u.searchParams.get('resource'), GW);
-  assert.equal(u.searchParams.get('client_id'), 'muse-123');
-  const state = u.searchParams.get('state');
-
-  // The identity provider's redirect is cross-site, so it arrives with no cookie.
-  const cb = await fetch(`${a.base}/api/callback?code=abc&state=${state}`);
-  assert.equal(cb.status, 200);
-  const tokenReq = n.seen.find((s) => s.url.endsWith('/token')).init.body;
+  const pf = await startFlow(a.call);
+  assert.equal(pf.clientId, 'client1');
+  assert.equal(pf.redirectUri, `${a.base}/api/callback`);
+  assert.equal(pf.wellknown, `${P1}/.well-known/openid-configuration`);
+  assert.equal(pf.query.code_challenge_method, 'S256');
+  const done = await finishFlow(a.call, pf.state, { code: 'abc' });
+  assert.equal(done.status, 200);
+  const tokenReq = n.seen.find((s) => s.url === `${P1}/token`).init.body;
   assert.match(tokenReq, /code_verifier=/);
   assert.match(tokenReq, /code=abc/);
 
-  const again = await fetch(`${a.base}/api/callback?code=abc&state=${state}`);
-  assert.equal(again.status, 400, 'state is single use');
+  assert.equal((await finishFlow(a.call, pf.state, { code: 'abc' })).status, 400, 'state is single use');
 
   const sess = await a.call('GET', '/api/session');
   assert.equal(sess.json.liveAuth.signedIn, true);
-  assert.equal(sess.json.liveAuth.claims.aud, GW);
+  assert.equal(sess.json.liveAuth.claims.aud, 'client1');
   assert.ok(!sess.text.includes(SECRET_TOKEN), 'the token is not in the session');
 
   assert.equal((await a.call('POST', '/api/live/call')).status, 200);
@@ -95,31 +93,23 @@ test('live flow: a bad state is refused and nothing is exchanged', async () => {
   const a = await boot(n.f);
   await a.live();
   const before = n.seen.length;
-  assert.equal((await fetch(`${a.base}/api/callback?code=x&state=forged`)).status, 400);
+  assert.equal((await finishFlow(a.call, 'forged', { code: 'x' })).status, 400);
   assert.equal(n.seen.length, before);
   await a.close();
 });
 
-test('live flow: a refused registration, a refusal at sign-in and a wrong audience are each reported', async () => {
-  const a = await boot(net({ 'https://gw.example/pft/register': () => json(400, { error: 'invalid_redirect_uri' }) }).f);
-  await a.live();
-  const reg = await a.call('POST', '/api/live/register');
-  assert.equal(reg.json.registered, false);
-  assert.match(reg.json.error, /refused \(400\)/);
-  await a.close();
-
-  const b = await boot(net({ 'https://gw.example/pft/token': () => json(200, { access_token: jwt({ aud: 'https://other.example', sub: 's' }) }) }).f);
+test('live flow: a refusal at sign-in and a wrong audience are each reported', async () => {
+  // A client secret makes the token be minted for the gateway (resource = the gateway), so a token for someone else is called out.
+  const b = await boot(net({ [`${P1}/token`]: () => json(200, { access_token: jwt({ aud: 'https://other.example', sub: 's' }) }) }).f, { ...P1ENV, MUSE_P1_CLIENT_SECRET: 's' });
   await b.live(); await b.call('POST', '/api/live/register');
-  const state = new URL((await b.call('POST', '/api/live/signin')).json.url).searchParams.get('state');
-  await fetch(`${b.base}/api/callback?code=c&state=${state}`);
+  await finishFlow(b.call, (await startFlow(b.call)).state);
   const steps = (await b.call('GET', '/api/session')).json.liveAuth.steps;
   assert.match(steps.find((s) => s.n === 6).note, /not the gateway/);
   await b.close();
 
   const c = await boot(net().f);
   await c.live(); await c.call('POST', '/api/live/register');
-  const st = new URL((await c.call('POST', '/api/live/signin')).json.url).searchParams.get('state');
-  await fetch(`${c.base}/api/callback?error=access_denied&state=${st}`);
+  await finishFlow(c.call, (await startFlow(c.call)).state, { error: 'access_denied' });
   const s = (await c.call('GET', '/api/session')).json.liveAuth;
   assert.match(s.error, /access_denied/);
   assert.equal(s.signedIn, false);
@@ -136,7 +126,33 @@ test('live steps are refused in mock mode and before discovery; mock mode makes 
   await a.close();
 });
 
-test('PingOne mode: no registration, redirect to PingOne with prompt=login and no resource, token swapped at PingOne', async () => {
+test('with no PingOne app, Real mode refuses to register or sign in, and never hands back a redirect or a flow to follow', async () => {
+  const n = net();
+  const a = await boot(n.f, ENV);
+  await a.live();
+  const seenAfterDiscovery = n.seen.length;
+  const tries = [
+    ['POST', '/api/live/register', undefined],
+    ['POST', '/api/live/signin', undefined],
+    ['POST', '/api/live/signin', { piflow: true }],
+    ['POST', '/api/live/signin', { as: 'user', piflow: true }],
+    ['POST', '/api/live/signin', { as: 'assistant', assistant: 'chatgpt', piflow: true }],
+    ['POST', '/api/live/call', undefined],
+  ];
+  for (const [m, p, b] of tries) {
+    const r = await a.call(m, p, b);
+    assert.equal(r.status, 409, `${p} ${JSON.stringify(b)}`);
+    assert.ok(r.json && !('url' in r.json) && !('piflow' in r.json), 'no redirect URL and no sign-in config');
+  }
+  assert.match((await a.call('POST', '/api/live/register')).json.error, /PingOne app/);
+  assert.match((await a.call('POST', '/api/live/signin', { piflow: true })).json.error, /PingOne app/);
+  assert.equal(n.seen.length, seenAfterDiscovery, 'nothing was sent to the gateway or an authorization server after discovery');
+  assert.ok(!n.seen.some((s) => /\/(register|authorize|token)$/.test(s.url)), 'no registration, authorize or token request');
+  assert.equal((await a.call('GET', '/api/session')).json.liveAuth.registered, false);
+  await a.close();
+});
+
+test('PingOne mode: no registration, pi.flow config for PingOne with prompt=login and no resource, token swapped at PingOne', async () => {
   const P1 = 'https://auth.pingone.com/env1/as';
   const n = net({
     [`${P1}/token`]: () => json(200, { access_token: jwt({ iss: 'https://auth.pingone.com/env1', aud: 'client1', sub: 'FF1' }) }),
@@ -149,13 +165,13 @@ test('PingOne mode: no registration, redirect to PingOne with prompt=login and n
   await call('POST', '/api/gateway-mode', { mode: 'live' }); await call('POST', '/api/discover');
   assert.equal((await call('POST', '/api/live/register')).j.registered, true);
   assert.ok(!n.seen.some((s) => s.url.endsWith('/register')), 'nothing registered at the gateway');
-  const u = new URL((await call('POST', '/api/live/signin')).j.url);
-  assert.equal(u.origin + u.pathname, `${P1}/authorize`);
-  assert.equal(u.searchParams.get('prompt'), 'login');
-  assert.equal(u.searchParams.get('login_hint'), 'demouser', 'the sign-in page is pre-filled with the user name');
-  assert.equal(u.searchParams.get('client_id'), 'client1');
-  assert.equal(u.searchParams.has('resource'), false);
-  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const pf = await startFlow(call);
+  assert.equal(pf.wellknown, `${P1}/.well-known/openid-configuration`);
+  assert.equal(pf.query.prompt, 'login');
+  assert.equal(pf.query.login_hint, 'demouser', 'the sign-in page is pre-filled with the user name');
+  assert.equal(pf.clientId, 'client1');
+  assert.equal('resource' in pf.query, false);
+  assert.equal((await finishFlow(call, pf.state)).s, 200);
   const tokenCall = n.seen.find((s) => s.url === `${P1}/token`);
   assert.ok(tokenCall && !/resource=/.test(tokenCall.init.body));
   assert.equal((await call('GET', '/api/session')).j.liveAuth.signedIn, true);
@@ -187,10 +203,10 @@ test('acting for the user: sign-in, agent token, two exchanges, then Agent Gatew
   let cookie = null;
   const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; const t = await r.text(); return { s: r.status, t, j: (() => { try { return JSON.parse(t); } catch { return null; } })() }; };
   await call('POST', '/api/gateway-mode', { mode: 'live' }); await call('POST', '/api/discover'); await call('POST', '/api/live/register');
-  const u = new URL((await call('POST', '/api/live/signin')).j.url);
-  assert.equal(u.searchParams.get('resource'), GW);
-  assert.equal(u.searchParams.get('scope'), 'openid gateway:mcp:invoke');
-  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const pf = await startFlow(call);
+  assert.equal(pf.query.resource, GW);
+  assert.equal(pf.scope, 'openid gateway:mcp:invoke');
+  await finishFlow(call, pf.state);
   assert.deepEqual(bodies.map((b) => b.grant_type), ['authorization_code', 'client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange', 'urn:ietf:params:oauth:grant-type:token-exchange']);
   assert.ok(bodies.every((b) => b.client_secret === 'sekret'));
   assert.equal(bodies[2].actor_token_type, 'urn:ietf:params:oauth:token-type:access_token');
@@ -223,15 +239,15 @@ test('Privilege lane: sign-in asks for openid only, no resource; exchange 2 asks
   const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { j: await r.json().catch(() => null) }; };
   assert.equal((await call('GET', '/api/session')).j.live.lane, 'privilege');
   await call('POST', '/api/discover'); await call('POST', '/api/live/register');
-  const u = new URL((await call('POST', '/api/live/signin')).j.url);
-  assert.equal(u.searchParams.get('scope'), 'openid');
-  assert.equal(u.searchParams.has('resource'), false);
-  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const pf = await startFlow(call);
+  assert.equal(pf.scope, 'openid');
+  assert.equal('resource' in pf.query, false);
+  await finishFlow(call, pf.state);
   assert.equal(bodies.at(-1).scope, 'mcp:invoke', 'exchange 2 targets the Personal Agent Privilege resource');
   await new Promise((r) => server.close(r));
 });
 
-test('the user asks first: 401 from the gateway, then PingOne, then Personal Agent retries and answers on return', async () => {
+test('the user asks first: 401 from the gateway, then PingOne, then Personal Agent retries and answers once signed in', async () => {
   const P1 = 'https://auth.pingone.com/env1/as';
   const n = net({
     [GW]: (init) => {
@@ -256,10 +272,9 @@ test('the user asks first: 401 from the gateway, then PingOne, then Personal Age
   assert.equal(before.liveAuth.answer, null, 'no answer before sign-in');
   assert.equal(n.seen.filter((x) => x.init.headers.authorization).length, 0, 'nothing authenticated was sent yet');
   await call('POST', '/api/live/register');
-  const u = new URL((await call('POST', '/api/live/signin')).j.url);
-  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  await finishFlow(call, (await startFlow(call)).state);
   const after = (await call('GET', '/api/session')).j;
-  assert.deepEqual([after.liveAuth.answer.points, after.liveAuth.answer.tier, after.liveAuth.answer.reply], [4500, 'Gold', 'You have 4,500 points (Gold).'], 'Personal Agent finished the request after the redirect');
+  assert.deepEqual([after.liveAuth.answer.points, after.liveAuth.answer.tier, after.liveAuth.answer.reply], [4500, 'Gold', 'You have 4,500 points (Gold).'], 'Personal Agent finished the request after the sign-in');
   assert.ok(after.liveAuth.steps.some((x) => x.n === 9));
   await new Promise((r) => server.close(r));
 });
@@ -272,10 +287,10 @@ test('the PingOne MFA switch: off adds the .nomfa flag to the login hint, on lea
   let cookie = null;
   const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { j: await r.json().catch(() => null) }; };
   await call('POST', '/api/discover'); await call('POST', '/api/live/register');
-  const on = new URL((await call('POST', '/api/live/signin', { mfa: 'on' })).j.url);
-  const off = new URL((await call('POST', '/api/live/signin', { mfa: 'off' })).j.url);
-  assert.equal(on.searchParams.get('login_hint'), 'demouser');
-  assert.equal(off.searchParams.get('login_hint'), 'demouser.nomfa');
+  const on = await startFlow(call, { mfa: 'on' });
+  const off = await startFlow(call, { mfa: 'off' });
+  assert.equal(on.query.login_hint, 'demouser');
+  assert.equal(off.query.login_hint, 'demouser.nomfa');
   await new Promise((r) => server.close(r));
 });
 
@@ -294,13 +309,12 @@ test('just a user: separate PingOne app, no exchange, own token to the gateway i
   const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: b ? JSON.stringify(b) : undefined }); const s = r.headers.get('set-cookie'); if (s) cookie = s.split(';')[0]; return { s: r.status, j: await r.json().catch(() => null) }; };
   await call('POST', '/api/gateway-mode', { mode: 'live' }); await call('POST', '/api/discover');
   assert.equal((await call('GET', '/api/session')).j.live.userLogin, true);
-  const su = await call('POST', '/api/live/signin', { as: 'user', mfa: 'off' });
-  assert.ok(su.j?.url, JSON.stringify(su));
-  const u = new URL(su.j.url);
-  assert.equal(u.searchParams.get('client_id'), UID, 'a different app from Personal Agent, so the flow skips the agent screen and consent');
-  assert.equal(u.searchParams.get('login_hint'), 'demouser.nomfa');
-  assert.equal(u.searchParams.has('resource'), false);
-  await fetch(`${base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const pf = await startFlow(call, { as: 'user', mfa: 'off' });
+  assert.ok(pf, 'the user sign-in returns the pi.flow config');
+  assert.equal(pf.clientId, UID, 'a different app from Personal Agent, so the flow skips the agent screen and consent');
+  assert.equal(pf.query.login_hint, 'demouser.nomfa');
+  assert.equal('resource' in pf.query, false);
+  await finishFlow(call, pf.state);
   assert.deepEqual(bodies.map((b) => b.grant_type), ['authorization_code'], 'no agent token, no exchange');
   assert.equal(bodies[0].client_secret, undefined, 'public client');
   const s = (await call('GET', '/api/session')).j;
@@ -326,7 +340,7 @@ async function piflowBoot(over = {}) {
   return { n, P1, call, client, close: () => new Promise((r) => server.close(r)) };
 }
 
-test('pi.flow: sign-in returns the SDK config (state, challenge, hint) and never the verifier or a redirect URL; without the flag the redirect URL still comes back', async () => {
+test('pi.flow: sign-in returns the SDK config (state, challenge, hint) and never the verifier or a redirect URL, with or without the flag', async () => {
   const a = await piflowBoot();
   const r = (await a.call('POST', '/api/live/signin', { piflow: true })).j;
   assert.equal(r.url, undefined, 'no redirect URL in the pi.flow form');
@@ -339,7 +353,9 @@ test('pi.flow: sign-in returns the SDK config (state, challenge, hint) and never
   assert.ok(r.piflow.query.code_challenge && r.piflow.query.prompt === 'login' && r.piflow.query.login_hint === 'demouser');
   for (const k of ['response_type', 'client_id', 'redirect_uri', 'scope']) assert.equal(k in r.piflow.query, false, `${k} is set by the SDK, not passed through`);
   assert.ok(!/verifier/i.test(JSON.stringify(r)), 'the verifier stays on the server');
-  assert.equal(new URL((await a.call('POST', '/api/live/signin')).j.url).pathname, '/env1/as/authorize', 'old callers still get the redirect URL');
+  const bare = (await a.call('POST', '/api/live/signin')).j;
+  assert.equal(bare.url, undefined, 'there is no redirect form: a caller that omits the flag still gets the SDK config');
+  assert.equal(bare.piflow.clientId, 'client1');
   await a.close();
 });
 

@@ -105,8 +105,8 @@ test('API: the model picks the tool before the 401, and writes the reply after s
   assert.equal(s1.liveAuth.steps[0].response.body.tool, 'get_loyalty_status');
   assert.equal(n.seen.filter((x) => x.url === GW && x.init.headers.authorization).length, 0, 'no authenticated call before sign-in');
   await a.call('POST', '/api/live/register');
-  const u = new URL((await a.call('POST', '/api/live/signin')).j.url);
-  await fetch(`${a.base}/api/callback?code=c&state=${u.searchParams.get('state')}`);
+  const { state } = (await a.call('POST', '/api/live/signin', { piflow: true })).j.piflow;
+  await a.call('POST', '/api/live/signin/complete', { state, code: 'c' });
   const call = n.seen.filter((x) => x.url === GW && x.init.headers.authorization).map((x) => JSON.parse(x.init.body)).find((b) => b.method === 'tools/call');
   assert.equal(call.params.name, 'get_loyalty_status');
   assert.deepEqual(call.params.arguments, {}, 'the model never writes arguments');

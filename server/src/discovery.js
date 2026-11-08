@@ -10,7 +10,6 @@ const learnedFrom = (as) => ({
   authorizationServer: as.issuer ?? null,
   authorizeEndpoint: as.authorization_endpoint ?? null,
   tokenEndpoint: as.token_endpoint ?? null,
-  registrationEndpoint: as.registration_endpoint ?? null,
   pkce: (as.code_challenge_methods_supported ?? []).includes('S256'),
   clientMetadataDocuments: as.client_id_metadata_document_supported === true,
   scopes: as.scopes_supported ?? [],
@@ -67,7 +66,7 @@ export function liveConfig(env) {
   for (const o of (env.MUSE_LIVE_ALLOW_ORIGINS ?? '').split(',').map((x) => x.trim()).filter(Boolean)) {
     try { const ou = new URL(o); if (ou.protocol === 'https:') allow.add(ou.origin); } catch { /* ignore */ }
   }
-  // Optional: sign in at PingOne instead of the gateway's own authorization server. Personal Agent only redirects; PingOne runs the rest.
+  // Real sign-in needs this: PingOne signs the user in through the pi.flow dialog and runs the rest. Without it Real mode refuses to register or sign in.
   let idp = null;
   if (env.MUSE_P1_ENV_ID && env.MUSE_P1_CLIENT_ID) {
     const base = `https://auth.pingone.${/^[a-z]{2,4}$/.test(env.MUSE_P1_REGION ?? '') ? env.MUSE_P1_REGION : 'com'}`;

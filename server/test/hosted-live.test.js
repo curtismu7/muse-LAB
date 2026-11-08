@@ -48,8 +48,8 @@ const net = () => async (url) => {
 test('hosted real mode returns to the public https address, not the host the request names', async () => {
   const a = await boot({ ...BASE, ...P1, MUSE_ALLOW_LIVE_HOSTED: '1', MUSE_PUBLIC_URL: 'https://muse.example', MUSE_P1_CLIENT_SECRET: 's' }, net());
   await a.call('POST', '/api/discover'); await a.call('POST', '/api/live/register');
-  const u = new URL((await a.call('POST', '/api/live/signin')).j.url);
-  assert.equal(u.searchParams.get('redirect_uri'), 'https://muse.example/api/callback');
+  const pf = (await a.call('POST', '/api/live/signin', { piflow: true })).j.piflow;
+  assert.equal(pf.redirectUri, 'https://muse.example/api/callback');
   await a.close();
 });
 

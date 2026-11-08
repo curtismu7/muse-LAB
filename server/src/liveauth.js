@@ -1,4 +1,4 @@
-// Steps 4 to 8 of the pattern against the real Agent Privilege: register Personal Agent (RFC 7591), sign in (auth code + PKCE, RFC 8707
+// Steps 5 to 8 of the pattern against the real Agent Privilege: sign in at PingOne (auth code + PKCE through the pi.flow dialog, RFC 8707
 // resource), swap the code for a token, call the gateway with it. Owner-run only. The token stays on the server; the page
 // sees the claims, never the token. Every request goes through one gate: allowed origin, no redirects, a timeout, a size cap.
 import { createHash, randomBytes } from 'node:crypto';
@@ -21,19 +21,6 @@ async function send(cfg, fetchImpl, { n, title, method, url, headers = {}, body,
   const shownReq = { method, url: u.href, ...(body ? { body } : {}), ...(form ? { form: Object.fromEntries(Object.entries(form).map(([k, v]) => [k, ['code_verifier', 'code', 'client_secret', 'subject_token', 'actor_token'].includes(k) ? '(sent)' : v])) } : {}) };
   const shownRes = parsed && typeof parsed === 'object' && parsed.access_token ? { ...parsed, access_token: '(held by Personal Agent server)', refresh_token: parsed.refresh_token ? '(held by Personal Agent server)' : undefined, id_token: parsed.id_token ? '(held by Personal Agent server)' : undefined } : parsed;
   return { res, parsed, step: { n, title, request: shownReq, response: { status: res.status, headers: Object.fromEntries(['www-authenticate', 'content-type', 'mcp-session-id'].filter((h) => res.headers.get(h)).map((h) => [h, res.headers.get(h)])), body: shownRes }, note } };
-}
-
-export async function registerClient(cfg, learned, redirectUri, fetchImpl = fetch) {
-  if (!learned?.registrationEndpoint) return { step: null, error: 'The authorization server offers no registration endpoint. Personal Agent would need a client metadata document (CIMD), which this build does not publish.' };
-  const r = await send(cfg, fetchImpl, {
-    n: 4, title: 'Register Personal Agent as a client', method: 'POST', url: learned.registrationEndpoint,
-    body: { client_name: 'Personal Agent (personal agent demo)', redirect_uris: [redirectUri], grant_types: ['authorization_code'], response_types: ['code'], token_endpoint_auth_method: 'none' },
-    note: 'Dynamic client registration. Personal Agent is a public client: PKCE, no secret.',
-  });
-  if (r.step.skipped) return { step: r.step, error: 'The registration endpoint is on an origin that is not allowed.' };
-  const id = r.parsed?.client_id;
-  if (r.res.status >= 300 || typeof id !== 'string') return { step: r.step, error: `Registration was refused (${r.res.status}).` };
-  return { step: r.step, client: { clientId: id, redirectUri } };
 }
 
 export function startSignIn(learned, client, resource, { forceLogin = false, scope = null, loginHint = null } = {}) {

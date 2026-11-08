@@ -134,7 +134,7 @@ export default function App() {
   const [error, setError] = useState(null);
   // The pi.flow Sign in dialog: open while PingOne's flow runs. The promise settles when the user finishes or cancels.
   const [piflow, setPiflow] = useState(null);
-  const signInWith = (body) => api('POST', '/api/live/signin', { ...body, piflow: true }).then((r) => (r.piflow ? new Promise((resolve) => setPiflow({ config: r.piflow, resolve })) : window.location.assign(r.url)));
+  const signInWith = (body) => api('POST', '/api/live/signin', { ...body, piflow: true }).then((r) => new Promise((resolve) => setPiflow({ config: r.piflow, resolve })));
   const closePiflow = (result) => setPiflow((cur) => { cur?.resolve(result); return null; });
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
