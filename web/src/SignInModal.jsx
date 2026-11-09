@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { davinci } from '@forgerock/davinci-client';
 import { protect } from '@forgerock/protect';
+import FloatingDialog from './floating-dialog/FloatingDialog';
 
 // The standard pi.flow Sign in dialog. PingOne's DaVinci flow runs in this dialog through Ping's DaVinci client SDK: the SDK asks PingOne what
 // the next screen is (username and password, MFA, consent, ...), this component draws it, and the SDK sends the answers back. The page never
 // leaves for a PingOne login page. When the flow succeeds the SDK hands over the code and state; the server swaps them (it holds the PKCE verifier).
 //
-// Shape of the family's dialog (copied, not imported): title bar "Sign in", fields, an error line, Cancel and Sign in in the footer. Draggable by
-// the title bar and not blocking: no backdrop and no focus trap, so the trace steps behind it stay usable while it waits.
+// Shape of the family's dialog: title bar "Sign in", fields, an error line, Cancel and Sign in in the footer. The frame is the shared
+// FloatingDialog (owner 2026-11-09): drag by the title bar, resize, keyboard move. Not blocking: no backdrop and no focus trap (noBackdrop), so
+// the trace steps behind it stay usable while it waits. No pop-out: the DaVinci SDK and Protect's behaviour signals run in this document.
 
 const textOf = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
 
@@ -120,7 +122,6 @@ function Collector({ c, client, disabled, onChange, onPick }) {
 export default function SignInModal({ config, api, onClose, completePath = '/api/live/signin/complete' }) {
   const [view, setView] = useState({ status: 'loading', collectors: [], name: '', error: '' });
   const [busy, setBusy] = useState(false);
-  const [pos, setPos] = useState(null);
   const [, bump] = useState(0);
   const client = useRef(null);
   const dead = useRef(false);
@@ -226,23 +227,13 @@ export default function SignInModal({ config, api, onClose, completePath = '/api
     try { await show(await client.current.flow(c)()); } catch (err) { setView({ status: 'failure', collectors: [], name: '', error: textOf(err?.message) || 'That choice failed.' }); } finally { if (!dead.current) setBusy(false); }
   };
 
-  // Drag by the title bar. Pointer events, no library.
-  const drag = (e) => {
-    if (e.button !== 0 || !dialog.current) return;
-    const r = dialog.current.getBoundingClientRect();
-    const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    const move = (m) => setPos({ x: Math.max(0, Math.min(window.innerWidth - 80, m.clientX - dx)), y: Math.max(0, Math.min(window.innerHeight - 40, m.clientY - dy)) });
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
-  };
-
   const submitC = view.collectors.find((c) => c.type === 'SubmitCollector');
   const flowCs = view.collectors.filter((c) => c.type === 'FlowCollector' && !/^cancel$/i.test(textOf(c.output?.label).trim())); // this dialog has its own Cancel
   const ready = view.status === 'continue';
   return (
-    <div className="signin-dialog" ref={dialog} role="dialog" aria-labelledby="signin-title" data-testid="signin-modal" style={pos ? { left: pos.x, top: pos.y, transform: 'none' } : undefined}>
-      <h2 id="signin-title" className="signin-title" onPointerDown={drag}>Sign in</h2>
-      <form onSubmit={submit} noValidate>
+    <FloatingDialog isOpen noBackdrop disablePopOut onClose={() => onClose({ cancelled: true })} title="Sign in" closeAriaLabel="Close sign-in"
+      footer={null} className="signin-dialog" testId="signin-modal" defaultWidth={420} defaultHeight={null} defaultY={96} minHeight={200}>
+      <form ref={dialog} onSubmit={submit} noValidate>
         {view.status === 'loading' && <p className="signin-text" role="status">Opening PingOne…</p>}
         {ready && view.collectors.map((c) => <Collector key={`${c.id}-${c.type}`} c={c} client={client.current} disabled={busy} onChange={() => bump((n) => n + 1)} onPick={pick} />)}
         {view.error && <p className="signin-error" role="alert">{view.error}</p>}
@@ -254,6 +245,6 @@ export default function SignInModal({ config, api, onClose, completePath = '/api
         {ready && <details className="signin-details"><summary>Screen details</summary>
           <p>{view.name || 'PingOne screen'}: {view.collectors.map((c) => `${c.type} ${textOf(c.output?.label)}`.trim()).join(' · ')}</p></details>}
       </form>
-    </div>
+    </FloatingDialog>
   );
 }
