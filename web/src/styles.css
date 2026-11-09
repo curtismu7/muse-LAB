@@ -16,6 +16,7 @@
   --accent-text: #ffffff;
   --on-fill: #ffffff;
   --scrim: rgba(0, 0, 0, 0.45);
+  --dialog-shadow: rgba(0, 0, 0, 0.28);
   --on-fill-soft: rgba(255, 255, 255, 0.75);
   --on-fill-faint: rgba(255, 255, 255, 0.14);
   --on-fill-line: rgba(255, 255, 255, 0.55);
@@ -503,7 +504,7 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .mode-toggle button:disabled { opacity: 0.6; }
 
 /* The pi.flow Sign in dialog: draggable by the title bar, no backdrop, so the trace behind it stays usable. */
-.signin-dialog { position: fixed; top: 96px; left: 50%; transform: translateX(-50%); z-index: 60; width: min(420px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28); }
+.signin-dialog { position: fixed; top: 96px; left: 50%; transform: translateX(-50%); z-index: 60; width: min(420px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px var(--dialog-shadow); }
 .signin-title { margin: 0; padding: 12px 16px; font-size: calc(20px * var(--fs, 1)); border-bottom: 1px solid var(--line); cursor: grab; touch-action: none; user-select: none; }
 .signin-dialog form { padding: 16px; display: grid; gap: 12px; }
 .signin-field { display: grid; gap: 4px; border: 0; margin: 0; padding: 0; }
