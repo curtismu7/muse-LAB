@@ -5,6 +5,7 @@ import DiscoveryPanel from './DiscoveryPanel.jsx';
 import AssistantConnect from './AssistantConnect.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
 import BookFlight from './BookFlight.jsx';
+import FloatingDialog from './floating-dialog/FloatingDialog';
 // Loaded when someone signs in: it carries Ping's DaVinci client SDK.
 const SignInModal = lazy(() => import('./SignInModal.jsx'));
 import ThemeToggle from './ThemeToggle.jsx';
@@ -109,21 +110,21 @@ function StepsReply({ title, steps }) {
   );
 }
 
-function ConsentModal({ ask }) {
+// The frame is the shared FloatingDialog (owner 2026-11-09): modal, drag by the title bar, resize, pop out. It has no close button and
+// no Escape, as before: the answer is one of the two buttons.
+export function ConsentModal({ ask }) {
   const allow = useRef(null);
   useEffect(() => { allow.current?.focus(); }, []);
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
-        <h2 id="consent-title">Personal Agent is a bot</h2>
-        <p>{ask.prompt}</p>
-        <p className="small muted">Protect detected the agent client Personal Agent. Simulated: no real PingOne consent is recorded.</p>
-        <div className="modal-actions">
-          <button type="button" onClick={() => ask.resolve(false)}>No, do not allow</button>
-          <button type="button" className="approve" ref={allow} data-default-button onClick={() => ask.resolve(true)}>Yes, I consent</button>
-        </div>
+    <FloatingDialog isOpen title="Personal Agent is a bot" footer={null} className="modal" testId="consent-modal"
+      defaultWidth={420} defaultHeight={null} minHeight={180}>
+      <p>{ask.prompt}</p>
+      <p className="small muted">Protect detected the agent client Personal Agent. Simulated: no real PingOne consent is recorded.</p>
+      <div className="modal-actions">
+        <button type="button" onClick={() => ask.resolve(false)}>No, do not allow</button>
+        <button type="button" className="approve" ref={allow} data-default-button onClick={() => ask.resolve(true)}>Yes, I consent</button>
       </div>
-    </div>
+    </FloatingDialog>
   );
 }
 

@@ -8,5 +8,5 @@ export default defineConfig({
     port: 5173,
     proxy: { '/api': 'http://127.0.0.1:5100' },
   },
-  test: { environment: 'jsdom' },
+  test: { environment: 'jsdom', setupFiles: ['./src/test/setup.js'] },
 });
