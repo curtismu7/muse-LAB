@@ -5,3 +5,5 @@ services:
       - "127.0.0.1:5100:5100"
     environment:
       SHELF_URL: ${SHELF_URL:-http://127.0.0.1:4400}
+      # Names besides loopback the app answers to (as <name>:5100). The default is the Host the family lab-proxy sends.
+      LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-muse.local.ping-devops.com}

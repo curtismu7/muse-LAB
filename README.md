@@ -40,7 +40,7 @@ If the port is taken:
    PORT=<other port> npm start
 ```
 
-Other variable: `HOST_PORT` (Docker host port, default 5100).
+Other variable: `HOST_PORT` (Docker host port, default 5100). `LAB_ALLOWED_HOSTS`: comma-separated host names (no ports) the app answers to besides loopback, as `<name>:<PORT>`; Docker defaults it to the name the family lab-proxy sends in Host (see `docker-compose.yml`), and on that Host only a write whose Origin equals `X-Forwarded-Proto://X-Forwarded-Host` counts as same-origin.
 
 ## Run locally
     npm install

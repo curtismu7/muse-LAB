@@ -37,7 +37,26 @@ function record(ws, entry) {
   if (ws.decisions.length > 50) ws.decisions.length = 50;
 }
 
+// LAB_ALLOWED_HOSTS: comma list of host names (no ports), each accepted in Host only as "<name>:<PORT>" (the family
+// lab-proxy's name for this app). Unset = none. A malformed entry stops the start.
+export function labProxyHosts(env = process.env) {
+  const names = String(env.LAB_ALLOWED_HOSTS ?? '').split(',').map((n) => n.trim().toLowerCase()).filter(Boolean);
+  for (const n of names) if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/.test(n)) throw new Error(`LAB_ALLOWED_HOSTS: "${n}" is not a host name`);
+  const port = Number(env.PORT ?? 5100);
+  return new Set(names.map((n) => `${n}:${port}`));
+}
+
+// Behind the lab-proxy the browser's Origin is the launcher's while Host is this app's LAB_ALLOWED_HOSTS name.
+// X-Forwarded-Host/-Proto are believed only on such a Host, so a request that did not come through the proxy cannot use them.
+function isProxiedSameOrigin(headers, proxyHosts) {
+  const xfh = String(headers['x-forwarded-host'] ?? '').trim().toLowerCase();
+  const xfp = String(headers['x-forwarded-proto'] ?? '').trim().toLowerCase();
+  return proxyHosts.has(String(headers.host ?? '').trim().toLowerCase()) && xfh !== '' && (xfp === 'https' || xfp === 'http')
+    && headers.origin === `${xfp}://${xfh}`;
+}
+
 export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {}) {
+  const proxyHosts = labProxyHosts(env); // before any timer or server starts
   const hosted = env.MUSE_HOSTED === '1';
   const picker = !hosted && env.IDP === 'mock' && env.ALLOW_MOCK_SIGNIN === '1' && env.NODE_ENV !== 'production';
   const allowedHosts = new Set([
@@ -91,7 +110,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
 
   app.use((req, res, next) => {
     const host = (req.headers.host ?? '').replace(/:\d+$/, '');
-    if (!allowedHosts.has(host)) return res.status(403).json({ error: 'host not allowed' });
+    if (!allowedHosts.has(host) && !proxyHosts.has(String(req.headers.host ?? '').trim().toLowerCase())) return res.status(403).json({ error: 'host not allowed' });
     next();
   });
 
@@ -102,7 +121,8 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     if (req.method === 'POST' && req.headers.origin && !(req.path === '/mcp' || req.path.startsWith('/connector/'))) {
       let origin = null;
       try { origin = new URL(req.headers.origin).host; } catch { origin = null; }
-      if (origin && origin !== req.headers.host && origin !== publicHost) return res.status(403).json({ error: 'cross-origin write refused' });
+      // An Origin that does not parse ("null", "https://") is refused too: it cannot be this app's page.
+      if (origin === null || (origin !== req.headers.host && origin !== publicHost && !isProxiedSameOrigin(req.headers, proxyHosts))) return res.status(403).json({ error: 'cross-origin write refused' });
     }
     next();
   });
