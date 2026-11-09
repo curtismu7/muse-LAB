@@ -87,6 +87,23 @@ test('/mcp-pf refuses tokens that are not PingFederate\'s, for another resource,
   } finally { await a.close(); }
 });
 
+test('/mcp-pf lists the flight tools too: list_flights answers the catalogue, book_flight books nothing (the gateway is not called on this path)', async () => {
+  const a = await boot();
+  try {
+    const t = pfJwt({ iss: PF, aud: `${a.base}/mcp-pf`, sub: 's', scope: 'muse:mcp', exp: Math.floor(Date.now() / 1000) + 60 });
+    const ask = async (method, params) => (await a.call('POST', '/mcp-pf', { jsonrpc: '2.0', id: 1, method, params }, { authorization: `Bearer ${t}` })).json();
+    const list = await ask('tools/list');
+    assert.deepEqual(list.result.tools.map((x) => x.name), ['loyalty_balance', 'get_loyalty_status', 'list_flights', 'book_flight']);
+    for (const x of list.result.tools) { assert.equal(x.inputSchema.type, 'object'); assert.equal(typeof x.inputSchema.properties, 'object'); }
+    const flights = JSON.parse((await ask('tools/call', { name: 'list_flights', arguments: {} })).result.content[0].text);
+    assert.equal(flights.currency, 'USD'); assert.equal(flights.flights[0].flightId, 'SH101'); assert.equal(flights.flights.length, 9);
+    const before = a.seen.length;
+    const book = (await ask('tools/call', { name: 'book_flight', arguments: { flightId: 'SH101' } })).result;
+    assert.equal(book.isError, true); assert.match(book.content[0].text, /not available on the PingFederate path/); assert.match(book.content[0].text, /Nothing was booked/);
+    assert.ok(!a.seen.slice(before).some((x) => x.url.includes('gw.example')), 'the gateway is not called');
+  } finally { await a.close(); }
+});
+
 test('checkPfToken reads the scope as a list or a string', async () => {
   const getJwks = async () => [PF_JWK];
   const c = { iss: PF, aud: 'r', exp: Math.floor(Date.now() / 1000) + 60 };

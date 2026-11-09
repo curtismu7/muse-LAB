@@ -8,15 +8,65 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { callGateway, delegate, exchangeCode, piflowFor, startSignIn } from './liveauth.js';
 import { SELF_MARK, simKeyOf } from './platforms.js';
+import { bookingTool, classifyBooking } from './booking.js';
+import { RULES, PREMIUM_THRESHOLD, fareFor, flightId as flightIdOf, listFlights } from './fares.js';
 
 const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
 const schema = { type: 'object', properties: {}, additionalProperties: false };
+const FLIGHT_ID_MAX = 16;
 // With an airline named (MUSE_CONNECTOR_AIRLINE), the tool descriptions say whose points these are, so an agent with two airline connectors can tell them apart.
 export const toolsFor = (airline) => [
   { name: 'loyalty_balance', description: airline ? `The member's ${airline} points balance and tier. Use it for ${airline} points only.` : "The member's airline points balance and tier.", inputSchema: schema },
   { name: 'get_loyalty_status', description: airline ? `The member's ${airline} loyalty status: tier, points and account status. Use it for ${airline} only.` : "The member's loyalty status: tier, points and account status.", inputSchema: schema },
+  {
+    name: 'list_flights', description: airline ? `Lists the ${airline} flights that can be booked: flight id, route and fare in US dollars. Call it before book_flight. Read-only.` : 'Lists the flights that can be booked: flight id, route and fare in US dollars. Call it before book_flight. Read-only.', inputSchema: schema,
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'book_flight',
+    description: airline ? `Books one ${airline} flight for the signed-in member, by flight id from list_flights. The fare comes from the airline's own catalogue, never from the caller. Authorization rules may deny or hold the booking; the result says which and nothing is booked unless it says Booked.` : 'Books one flight for the signed-in member, by flight id from list_flights. The fare comes from the airline\'s own catalogue, never from the caller. Authorization rules may deny or hold the booking; the result says which and nothing is booked unless it says Booked.',
+    inputSchema: { type: 'object', properties: { flightId: { type: 'string', maxLength: FLIGHT_ID_MAX, description: 'A flight id from list_flights, for example SH101.' } }, required: ['flightId'], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
 ];
+
+// list_flights: the fixed, invented catalogue. No gateway call.
+export const flightsResult = () => ({ content: [{ type: 'text', text: JSON.stringify({ currency: 'USD', flights: listFlights().map((f) => ({ flightId: f.id, route: f.route, fare: f.fare })) }) }], isError: false });
+
+const toolError = (text) => ({ content: [{ type: 'text', text }], isError: true });
+// Gateway-supplied words (a rule code, a tier, a reference) reach the agent only after they are cut down to plain, short text.
+const plain = (v, n = 40) => String(v ?? '').replace(/[^\w .:-]/g, '').trim().slice(0, n);
+// The flight id the caller named, or null: a string, short, and in the catalogue. Nothing else is ever sent to the gateway.
+export const validFlight = (args) => {
+  const raw = args && typeof args === 'object' && !Array.isArray(args) ? args.flightId : undefined;
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > FLIGHT_ID_MAX) return null;
+  const id = flightIdOf(raw);
+  return fareFor(id) === null ? null : id;
+};
+
+// What muse.ai is told, from what the gateway answered. Booked only for HTTP 200 with booked true; every other path says nothing was booked or that no booking was confirmed.
+export function bookingToolResult(bk, flight) {
+  const fare = typeof bk.fare === 'number' ? bk.fare : fareFor(flight);
+  if (bk.status === 'booked') {
+    const ref = plain(bk.confirmation, 60);
+    return { content: [{ type: 'text', text: `Booked ${flight} for $${fare}.${ref ? ` Booking reference: ${ref}.` : ''}` }], isError: false };
+  }
+  if (bk.status === 'denied') {
+    const codes = (bk.evidence?.statements ?? []).map((s) => plain(s.code, 80)).filter(Boolean);
+    const parts = [];
+    if (codes.includes(RULES.agentSpendLimit.code)) parts.push(`an AI agent cannot buy a ticket over your limit (${flight} costs $${fare}; ${typeof bk.facts?.agentSpendLimit === 'number' ? `your limit is $${bk.facts.agentSpendLimit}` : 'your limit was not reported'})`);
+    if (codes.includes(RULES.premiumOnly.code)) parts.push(`fares over $${PREMIUM_THRESHOLD} are for premium members only (${flight} costs $${fare}; ${bk.facts?.memberTier ? `your member tier is ${plain(bk.facts.memberTier)}` : 'your member tier was not reported'})`);
+    const other = codes.filter((c) => c !== RULES.agentSpendLimit.code && c !== RULES.premiumOnly.code);
+    if (parts.length) return toolError(`The booking was denied: ${parts.join(', and ')}.${other.length ? ` The gateway also returned ${other.join(', ')}.` : ''} Nothing was booked.`);
+    return toolError(`The gateway did not allow this booking${other.length ? ` (${other.join(', ')})` : ''}. Nothing was booked.`);
+  }
+  if (bk.status === 'consent_pending') return toolError(`This booking is held for the member's approval. Nothing was booked yet. Do not book it again until the member has approved it.`);
+  if (bk.status === 'not_booked') return toolError(`The airline server did not book ${flight}. Nothing was booked.`);
+  const http = bk.evidence?.httpStatus;
+  if (http === 401) return toolError('The gateway did not accept the connector\'s sign-in (HTTP 401). Nothing was booked. Reconnect the connector and try again.');
+  return toolError(`The gateway's answer${Number.isInteger(http) ? ` (HTTP ${http})` : ''} could not be read as a booking. No booking was confirmed.`);
+}
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const PENDING_MS = 10 * 60 * 1000;
 const CODE_MS = 60 * 1000;
@@ -261,6 +311,40 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   const challenge = (res) => res.status(401).set('WWW-Authenticate', `Bearer resource_metadata="${PUBLIC}/.well-known/oauth-protected-resource/mcp"`).json({ error: 'unauthorized' });
   const rpc = (id, result) => ({ jsonrpc: '2.0', id, result });
   const rpcErr = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
+  // The gateway sits behind a load balancer and now and then drops a connection; one retry covers it (the sign-in and tool-list steps; a booking call that was sent is never repeated).
+  async function askGateway(session, tool, args) {
+    const ask = () => callGateway(live, session.delegated, fetchImpl, { tool, args });
+    const steps = await ask().catch((e) => { console.log(`[connector] gateway call failed once: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return ask(); });
+    console.log(`[connector] gateway steps ${JSON.stringify(steps.map((x) => [x.n, x.skipped ? 'skipped' : x.response?.status ?? null]))}`);
+    // When a step is refused, say why: the error text only (for example an audience mismatch), never a token or the rest of the body.
+    for (const x of steps) {
+      const b = x.response?.body; const why = typeof b === 'object' && b ? (b.error_description ?? b.error?.message ?? b.error) : null;
+      if (x.response && x.response.status >= 400 && typeof why === 'string') console.log(`[connector] gateway step ${x.n} refused: ${why.replace(/\s+/g, ' ').slice(0, 300)}`);
+    }
+    return steps;
+  }
+  // book_flight: only the flight id goes to the gateway (flight_number); the gateway sets the fare from its own catalogue.
+  async function bookFlight(args, session) {
+    const flight = validFlight(args);
+    if (!flight) return toolError('flightId must be a flight id from list_flights, for example SH101. Nothing was booked.');
+    try {
+      const tool = bookingTool(env);
+      const steps = await askGateway(session, tool, { flight_number: flight });
+      const step9 = steps.find((x) => x.n === 9);
+      if (!step9) {
+        const last = steps.at(-1);
+        console.log(`[connector] book_flight ${flight} -> not sent (${last?.skipped ? 'origin not allowed' : last?.response?.status ?? 'no answer'})`);
+        return toolError(`The booking was not sent: the gateway refused the sign-in or tool list${Number.isInteger(last?.response?.status) ? ` (HTTP ${last.response.status})` : ''}. Nothing was booked.${last?.response?.status === 401 ? ' Reconnect the connector and try again.' : ''}`);
+      }
+      if (step9.error) {
+        console.log(`[connector] book_flight ${flight} -> no answer (${plain(step9.error, 40)})`);
+        return toolError('The gateway did not answer the booking call in time. No booking was confirmed, so do not assume it was booked; check before trying again.');
+      }
+      const bk = classifyBooking(step9, { flightId: flight, tool });
+      console.log(`[connector] book_flight ${flight} -> ${bk.status} (HTTP ${bk.evidence?.httpStatus ?? 'none'})`);
+      return bookingToolResult(bk, flight);
+    } catch (e) { console.log(`[connector] book_flight failed: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return toolError('The gateway could not be reached. No booking was confirmed, so do not assume it was booked.'); }
+  }
   async function handle(msg, session) {
     const { id, method, params } = msg ?? {};
     if (method === 'initialize') return rpc(id, { protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[1], capabilities: { tools: { listChanged: false } }, serverInfo: { name: airline ? `${airline.toLowerCase().replace(/ +/g, '-')}-airline-connector` : 'airline-connector', version: '0.1.0' } });
@@ -269,17 +353,11 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     if (method === 'tools/call') {
       const name = params?.name;
       if (!TOOLS.some((t) => t.name === name)) return rpcErr(id, -32602, 'Unknown tool');
+      if (name === 'list_flights') return rpc(id, flightsResult());
+      if (name === 'book_flight') return rpc(id, await bookFlight(params?.arguments, session));
       try {
         // Both tools read the airline passenger record (get_loyalty_status) through the gateway, so the balance and the status can never disagree.
-        // The gateway sits behind a load balancer and now and then drops a connection; one retry covers it.
-        const ask = () => callGateway(live, session.delegated, fetchImpl, { tool: 'get_loyalty_status' });
-        const steps = await ask().catch((e) => { console.log(`[connector] gateway call failed once: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return ask(); });
-        console.log(`[connector] gateway steps ${JSON.stringify(steps.map((x) => [x.n, x.skipped ? 'skipped' : x.response?.status ?? null]))}`);
-        // When a step is refused, say why: the error text only (for example an audience mismatch), never a token or the rest of the body.
-        for (const x of steps) {
-          const b = x.response?.body; const why = typeof b === 'object' && b ? (b.error_description ?? b.error?.message ?? b.error) : null;
-          if (x.response && x.response.status >= 400 && typeof why === 'string') console.log(`[connector] gateway step ${x.n} refused: ${why.replace(/\s+/g, ' ').slice(0, 300)}`);
-        }
+        const steps = await askGateway(session, 'get_loyalty_status');
         const resp = steps.find((s) => s.n === 9)?.response;
         const content = resp?.status === 200 ? resp.body?.result?.content : null;
         if (Array.isArray(content) && content.length) {

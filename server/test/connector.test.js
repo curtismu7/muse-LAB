@@ -159,7 +159,7 @@ test('the full flow: sign-in at PingOne, Personal Agent acts for the user, the a
   assert.equal(init.result.protocolVersion, '2025-06-18'); assert.equal(init.result.serverInfo.name, 'airline-connector');
   assert.equal((await a.post('/mcp', { jsonrpc: '2.0', method: 'notifications/initialized' }, auth)).status, 202);
   const list = await (await a.post('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list' }, auth)).json();
-  assert.deepEqual(list.result.tools.map((t) => t.name), ['loyalty_balance', 'get_loyalty_status']);
+  assert.deepEqual(list.result.tools.map((t) => t.name), ['loyalty_balance', 'get_loyalty_status', 'list_flights', 'book_flight']);
   const call = await (await a.post('/mcp', { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'loyalty_balance', arguments: {} } }, auth)).json();
   assert.equal(call.result.isError, false); assert.deepEqual(a.seen.filter((x) => x.url === GW && x.init.body).map((x) => JSON.parse(x.init.body)).filter((m) => m.method === 'tools/call').map((m) => m.params.name).slice(-1), ['get_loyalty_status'], 'the gateway is asked for the airline record'); assert.equal(JSON.parse(call.result.content[0].text).points, 52000);
   const st = await (await a.post('/mcp', { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_loyalty_status', arguments: {} } }, auth)).json();

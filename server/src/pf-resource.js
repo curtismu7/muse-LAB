@@ -6,7 +6,7 @@
 // Only on when real mode is configured and MUSE_PF_ISSUER is set.
 import express from 'express';
 import { createPublicKey, generateKeyPairSync, verify as verifySig } from 'node:crypto';
-import { toolsFor } from './connector.js';
+import { flightsResult, toolsFor } from './connector.js';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const JWKS_TTL_MS = 10 * 60 * 1000;
@@ -101,6 +101,9 @@ export function mountPfResource(app, { env, live, fetchImpl = fetch, key }) {
       if (method === 'tools/list') return rpc(id, { tools: TOOLS });
       if (method === 'tools/call') {
         if (!TOOLS.some((t) => t.name === params?.name)) return { jsonrpc: '2.0', id, error: { code: -32602, message: 'Unknown tool' } };
+        // The flight tools: the catalogue needs no gateway; booking needs the gateway, which this path does not call, so it books nothing and says so.
+        if (params.name === 'list_flights') return rpc(id, flightsResult());
+        if (params.name === 'book_flight') return rpc(id, { content: [{ type: 'text', text: 'Booking is not available on the PingFederate path: the airline gateway is not called here. Nothing was booked. Use the PingOne connector to book.' }], isError: true });
         const who = String(r.claims.sub ?? 'member').slice(0, 60);
         const rec = { points: 52000, tier: 'Premier Gold', passenger: who, source: 'Personal Agent demo record: on the PingFederate path the airline gateway is not called (that leg runs on the PingOne path).' };
         return rpc(id, { content: [{ type: 'text', text: JSON.stringify(rec) }], isError: false });
