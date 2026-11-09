@@ -150,10 +150,36 @@ If the model is off, slow or wrong, Muse falls back to keyword matching and says
 
 With `MUSE_CONNECTOR=1`, real mode configured and an https `MUSE_PUBLIC_URL`, this app also acts as the **Airline Connector**,  a standard MCP server with OAuth, so another agent can add it as a custom connector (remote streamable HTTP, OAuth).
 
-- **MCP endpoint:** `<public address>/mcp` (JSON responses, `initialize`, `tools/list`, `tools/call`). Tools: `loyalty_balance` and `get_loyalty_status`, answered through the gateway.
+- **MCP endpoint:** `<public address>/mcp` (JSON responses, `initialize`, `tools/list`, `tools/call`). Tools: `loyalty_balance` and `get_loyalty_status` (answered through the gateway), `list_flights` (the fixed invented catalogue, no gateway call) and `book_flight` (see below). The PingFederate path (`/mcp-pf`) lists the same four, but it never calls the gateway: `list_flights` answers, `book_flight` books nothing and says so.
 - **Sign-in:** `/connector/authorize` sends the user to the same PingOne flow as the app (login, Protect, agent-detected screen, consent). `/connector/callback` does the on-behalf-of exchanges. `/connector/token` gives the agent its own opaque token (PKCE S256, one-use code, no refresh token, at most an hour). The agent never receives the delegated token.
 - **Clients:** dynamic registration (`/connector/register`) is offered only for redirect hosts you list in `MUSE_CONNECTOR_REDIRECT_HOSTS` (comma separated, https only). For an agent that asks you to type a client id, set `MUSE_CONNECTOR_CLIENT_ID` and `MUSE_CONNECTOR_REDIRECT_URIS`. With neither set, nothing can be issued.
 - **Assistants with their own PingOne app:** `MUSE_CONNECTOR_AGENTS` is a JSON list of `{ name, hosts, clientId, clientSecret }` (for example ChatGPT on `chatgpt.com`, Claude on `claude.ai`). The agent's callback host picks the app, so Protect and the PingOne screens name the agent and the token's `act` is that agent. Their hosts may register. Agents not listed use Muse's app.
 - **Connect from your assistant:** the page's customer path. A stand-in directory card per assistant (the listed ones plus Meta AI, which uses Muse's app). Connect (`POST /api/sim/start {platform}`) then does what that platform does as an MCP client, against Muse's real connector (`server/src/platforms.js`): `/mcp` without a token (401), the protected-resource and authorization-server metadata, then CIMD if the server advertises it or dynamic registration otherwise (Muse's connector has no CIMD, so today it is registration), authorization code with PKCE S256 and `resource`, the PingOne sign-in with that assistant's own app, the token, `initialize`, `tools/list` and `tools/call`. Each request and response is shown. Stand-ins, labelled on the page: the callback (`/sim/<platform>/callback` instead of chatgpt.com or the customer's loopback) and the model's choice of tool. The older `POST /api/live/signin` with `as: 'assistant'` still works for `/clients.html`.
 - **PingOne:** the Muse app needs `<public address>/connector/callback` as a redirect URI; each assistant's app needs both `<public address>/connector/callback` and `<public address>/api/callback`.
 - Refused registrations and authorizations log the redirect host only, so you can see what an agent asked for.
+
+### Booking from muse.ai (or any connected agent)
+
+`book_flight {flightId}` books one flight from `list_flights`. Muse calls the gateway tool `book_airline_flight` with the user's delegated token (same sign-in, same audience handling and one retry on a dropped connection before the call as `get_loyalty_status`). Only the flight id goes to the gateway (as `flight_number`); there is no price argument, and a `fare`, `amount` or `flight_number` the agent adds is ignored. The gateway looks the fare up in its own catalogue, so the two Authorize rules judge the real fare. A booking call that was sent is never repeated, so a timeout cannot double-book. The unknown-flight, missing, non-string or longer-than-16-character `flightId` is refused as a tool error with no gateway call.
+
+Try it from muse.ai once the connector is added and signed in:
+
+1. Ask: "List the flights I can book." (`list_flights`: nine invented flights, SH101 to SH109, with route and fare.)
+2. Ask: "Book SH106." ($620, over your $500 limit) The result is an error: an AI agent cannot buy a ticket over your limit, with the fare and the limit. Nothing is booked.
+3. Ask: "Book SH107." ($940) Over your limit, so your rule fires; the airline rule (premium members only over $750) fires too when the PingOne user's `airlineMemberTier` is not premium, and then both rules are named.
+4. Ask: "Book SH101." ($180, a cheap flight) It passes both rules, so the gateway stops it at its approval step (HTTP 428). In Real today that is the expected answer: the result says the booking is held for the member's approval and nothing was booked yet. This connector has no way to approve it, so a cheap booking does not complete from muse.ai. `Booked ...` only appears if the gateway itself answers 200 with `booked: true`.
+5. Change the PingOne user's `airlineMemberTier` (Premier Gold or Premier Silver) or the agent limit and ask again: the decision changes with the rule inputs, not with anything the agent sends.
+
+What each result means (`isError` is true for everything except Booked):
+
+| Gateway answered | muse.ai is told |
+|---|---|
+| 200 and `booked: true` | `Booked <flight> for $<fare>. Booking reference: <ref>.` |
+| 403 with `mcp-airline-agent-spend-limit` and/or `mcp-airline-premium-only` in `X-Gw-Audit-Trail` | The rule in plain words (agent over your limit; fares over $750 are for premium members, with the member tier), both if both fired. Nothing was booked. |
+| 403, another or no code | The gateway did not allow this booking (plus the code when it sent one). Nothing was booked. |
+| 428 `consent_pending` | Held for the member's approval. Nothing was booked yet. |
+| 401 from the gateway | The gateway did not accept the connector's sign-in. Nothing was booked. Reconnect. |
+| timeout or dropped connection on the booking call | No answer. No booking was confirmed; do not assume it was booked. |
+| 5xx, unreadable body, JSON-RPC error | No booking was confirmed. |
+
+Nothing is reported as booked unless the gateway answered 200 with `booked: true`. Results carry no token, header value, URL or raw body; the log has one line per booking (`book_flight <id> -> booked|denied|consent_pending|error (HTTP n)`).
