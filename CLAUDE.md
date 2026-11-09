@@ -8,6 +8,13 @@ Personal-agent demo, tier Demo. A browser front end (Muse, the agent) signs in t
 - `npm run build` (web bundle)
 - `npm start` (http://127.0.0.1:5100/); `node scripts/doctor.mjs` checks a running app.
 
+## Book a flight (two Authorize rules)
+- `server/src/fares.js`: the fare catalogue (`fares.json`, SH101-SH109), the two rules (`RULES`: names and codes match the Authorize policy: `mcp-airline-agent-spend-limit`, `mcp-airline-premium-only`), the Mock member records (`MEMBERS`: standard = Premier Silver, premium = Premier Gold, none = no `airlineMemberTier`; each mimics the PingOne user attribute, the agent limit lives there, default 500) and `evaluateBooking`. Strict "over": exactly 500 and 750 pass. Premium = `PREMIUM_TIERS` (explicit list, `Premier Gold` only; any other value, empty or missing is NOT premium). **The tier is the PingOne user attribute `airlineMemberTier` (owner decision 2026-11-09); in Real, PingOne Authorize reads it itself. The gateway does not look it up or send it, so Real usually shows `member tier not reported to Muse`; never invent a value. Mock labels its tier as a Mock PingOne user mimicking the attribute (`TIER_SOURCE_MOCK`); Real labels it `TIER_SOURCE_REAL`.**
+- Mock: `gateway.js fineCheck('flights.book', args, {actor, member})` ignores `args.fare/amount/quoted/tier/limit`; `POST /api/member {member: standard|premium|none}` sets which Mock PingOne user the simulated Authorize reads (refused in Real); `booking.js mockBooking` builds the five hops, all labelled simulated.
+- Real: `POST /api/live/ask {scenario:'book', flightId, channel:'agent'|'user', quoted?}`; `booking.js classifyBooking` reads the gateway's answer (403 + `X-Gw-Audit-Trail` statements, 428 consent, 200 booked or not_booked, anything else an error). A direct-user token is kept in `ws.userToken` on the server only. Only tested against stubs.
+- UI: `web/src/BookFlight.jsx`; diagram `booking-rules-flow` (also a tab on /diagram).
+- Never call a real tenant or the real gateway from tests or agents; Real is owner-run.
+
 ## Rules that bite
 - Mock mode contacts nothing: the netguard (`server/src/netguard.js`) refuses every non-loopback outbound call and counts them (`GET /api/netguard`; the doctor and a test assert zero attempts). In live mode it only counts origins.
 - Branding is data: `server/src/customer.config.json` (brandName, agentName, tagline, default vertical); `MUSE_CUSTOMER_CONFIG` points at another file. Bad values fall back to the defaults.

@@ -4,7 +4,7 @@
   "tier": "Demo",
   "composeFile": "docker-compose.yml",
   "port": 5100,
-  "description": "A personal agent (Muse) calls tools through a PingOne Privilege-shaped gateway, with a DaVinci-shaped detection flow in front. Simulated: no tenant, no OBO.",
+  "description": "A personal agent (Muse) calls tools through a Privilege-shaped gateway. Book a flight: two PingOne Authorize rules stop a booking (yours: no AI-agent tickets over $500; the airline's: premium only over $750). Mock and Real; Mock is simulated.",
   "url": "http://127.0.0.1:5100",
   "healthPath": "/api/health"
 }

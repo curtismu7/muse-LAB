@@ -1,3 +1,5 @@
+import { fareFor, flightId } from './fares.js';
+
 // Tool catalogue and personas. The coarse check (gateway.js) asks which personas may call a tool at all;
 // the fine check asks whether this particular call passes the business rule.
 export const PERSONAS = {
@@ -10,7 +12,10 @@ export const TOOLS = {
   'mail.draft': { label: 'Draft email', personas: ['staff', 'finance'], fields: ['body'] },
   'payments.send': { label: 'Send payment', personas: ['finance'], fields: ['payee', 'amount'] },
   'records.export': { label: 'Export records', personas: ['finance'], fields: ['rows'] },
+  'flights.book': { label: 'Book a flight', personas: ['staff', 'finance'], fields: ['flightId'] },
 };
+
+let bookingNumber = 1000;
 
 // Simulated results. Nothing leaves the process: no mail, no payment, no export file.
 export function runTool(tool, args = {}) {
@@ -23,6 +28,13 @@ export function runTool(tool, args = {}) {
       return { queued: true, payee: String(args.payee ?? ''), amount: Number(args.amount), simulated: true, note: 'No money moves in this demo.' };
     case 'records.export':
       return { rows: Math.min(Number(args.rows) || 0, 100), simulated: true };
+    case 'flights.book': {
+      // The fare is the catalogue's. Nothing the caller sent is used for it.
+      const fare = fareFor(args.flightId);
+      if (fare === null) throw new Error(`unknown flight: ${args.flightId}`);
+      bookingNumber += 1;
+      return { booked: true, confirmationNumber: `MUSE-SIM-${bookingNumber}`, flightId: flightId(args.flightId), fare, simulated: true, note: 'No seat is held in this demo.' };
+    }
     default:
       throw new Error(`unknown tool: ${tool}`);
   }

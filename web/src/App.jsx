@@ -4,6 +4,7 @@ import PatternFlow from './PatternFlow.jsx';
 import DiscoveryPanel from './DiscoveryPanel.jsx';
 import AssistantConnect from './AssistantConnect.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
+import BookFlight from './BookFlight.jsx';
 // Loaded when someone signs in: it carries Ping's DaVinci client SDK.
 const SignInModal = lazy(() => import('./SignInModal.jsx'));
 import ThemeToggle from './ThemeToggle.jsx';
@@ -234,6 +235,17 @@ export default function App() {
       }
     }
     return api('POST', '/api/request', body);
+  }
+
+  // The Book a flight panel in Mock: Sam is signed in for you, the member record is set, then the booking goes through the same
+  // path as any other tool call (token, consent for the agent, gateway decision), so the chat feed shows the decision card too.
+  async function bookMock({ flightId, caller, member, quoted }) {
+    if (!session.signedIn) setTrace((await api('POST', '/api/signin', session.picker ? { persona } : {})).trace);
+    await api('POST', '/api/member', { member });
+    const via = caller === 'agent' ? 'muse' : 'browser';
+    push({ kind: 'user', text: `Book ${flightId}${quoted !== undefined ? ` (claiming ${quoted})` : ''} as ${caller === 'agent' ? 'Personal Agent' : 'Sam directly'}` });
+    const entry = await callTool({ tool: 'flights.book', args: { flightId, ...(quoted !== undefined ? { quoted } : {}) }, via });
+    if (entry) push({ kind: 'muse', entry });
   }
 
   const ask = (prompt) => guarded(async () => {
@@ -492,6 +504,10 @@ export default function App() {
           </div>
         )}
       </aside>
+
+      <div className="flow-row">
+        <BookFlight session={session} api={api} busy={busy} guarded={guarded} signInWith={signInWith} bookMock={bookMock} onReset={reset} />
+      </div>
 
       {session.signedIn && (
         <div className="flow-row">

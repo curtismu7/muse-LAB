@@ -6,6 +6,9 @@ import { readCapped, TIMEOUT_MS } from './discovery.js';
 
 const b64u = (buf) => buf.toString('base64url');
 const INIT = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'muse', version: '0.1.0' } } };
+// Response headers the page may see. x-gw-audit-trail is the gateway's own account of an Authorize decision (the booking scenario reads it); it is capped.
+const KEPT_HEADERS = ['www-authenticate', 'content-type', 'mcp-session-id', 'x-gw-audit-trail'];
+const HEADER_CAP = 32768;
 const LIST = { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} };
 
 async function send(cfg, fetchImpl, { n, title, method, url, headers = {}, body, form, note }) {
@@ -20,7 +23,7 @@ async function send(cfg, fetchImpl, { n, title, method, url, headers = {}, body,
   // The step shown to the page never carries a bearer token or a client secret.
   const shownReq = { method, url: u.href, ...(body ? { body } : {}), ...(form ? { form: Object.fromEntries(Object.entries(form).map(([k, v]) => [k, ['code_verifier', 'code', 'client_secret', 'subject_token', 'actor_token'].includes(k) ? '(sent)' : v])) } : {}) };
   const shownRes = parsed && typeof parsed === 'object' && parsed.access_token ? { ...parsed, access_token: '(held by Personal Agent server)', refresh_token: parsed.refresh_token ? '(held by Personal Agent server)' : undefined, id_token: parsed.id_token ? '(held by Personal Agent server)' : undefined } : parsed;
-  return { res, parsed, step: { n, title, request: shownReq, response: { status: res.status, headers: Object.fromEntries(['www-authenticate', 'content-type', 'mcp-session-id'].filter((h) => res.headers.get(h)).map((h) => [h, res.headers.get(h)])), body: shownRes }, note } };
+  return { res, parsed, step: { n, title, request: shownReq, response: { status: res.status, headers: Object.fromEntries(KEPT_HEADERS.filter((h) => res.headers.get(h)).map((h) => [h, res.headers.get(h).slice(0, HEADER_CAP)])), body: shownRes }, note } };
 }
 
 export function startSignIn(learned, client, resource, { forceLogin = false, scope = null, loginHint = null } = {}) {
@@ -71,7 +74,7 @@ export async function exchangeCode(cfg, learned, { code, verifier, client, resou
   return { step: { ...r.step, note: `${r.step.note} ${claims ? (!resource ? `Issued by PingOne for Personal Agent (aud ${JSON.stringify(claims.aud)}).` : audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
 }
 
-export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null } = {}) {
+export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null, args } = {}) {
   const gw = cfg.idp ? 'Agent Gateway' : 'Agent Privilege';
   const auth = { authorization: `Bearer ${token}`, ...(cfg.idp ? { 'x-token-validation': 'jwks', 'mcp-protocol-version': '2025-06-18' } : {}) };
   const init = await send(cfg, fetchImpl, { n: 7, title: `Call ${gw} with the token`, method: 'POST', url: cfg.url, headers: auth, body: INIT, note: 'Same call as step 1, now with the bearer token.' });
@@ -82,8 +85,15 @@ export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null }
   const list = await send(cfg, fetchImpl, { n: 8, title: `List the tools ${gw} lets Personal Agent see`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}) }, body: LIST, note: `Tool-level authorization: ${gw} decides which tools this token may see.` });
   steps.push(list.step);
   if (tool && list.res?.status === 200) {
-    const call = await send(cfg, fetchImpl, { n: 9, title: `Call ${tool}`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}) }, body: { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: tool, arguments: {} } }, note: 'Agent Gateway checks the token, PingOne Authorize decides, then the tool runs.' });
-    steps.push(call.step);
+    // With args the caller is booking: a timeout or network failure here is a step of its own (nothing booked), not a lost trace.
+    const callBody = { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: tool, arguments: args ?? {} } };
+    const callStep = { n: 9, title: `Call ${tool}`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}) }, body: callBody, note: 'Agent Gateway checks the token, PingOne Authorize decides, then the tool runs.' };
+    if (args === undefined) steps.push((await send(cfg, fetchImpl, callStep)).step);
+    else {
+      try { steps.push((await send(cfg, fetchImpl, callStep)).step); } catch (e) {
+        steps.push({ n: 9, title: callStep.title, request: { method: 'POST', url: cfg.url, body: callBody }, error: String(e?.name ?? 'error').slice(0, 40), note: callStep.note });
+      }
+    }
   }
   return steps;
 }

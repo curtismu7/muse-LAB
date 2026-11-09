@@ -23,3 +23,12 @@ test('burst and an empty or unknown request are handled', () => {
   assert.match(parseIntent('').reply, /I can read your calendar/);
   assert.match(parseIntent('make me a sandwich').reply, /I can read your calendar/);
 });
+
+test('"book SH106" maps to the booking tool with the flight id only: a typed price is never an argument', () => {
+  const i = parseIntent('book SH106');
+  assert.equal(i.tool, 'flights.book');
+  assert.deepEqual(i.args, { flightId: 'SH106' });
+  assert.deepEqual(parseIntent('Book flight sh107').args, { flightId: 'SH107' });
+  assert.match(parseIntent('book SH106 for 100').reply, /I can read your calendar/, 'a price after the flight is not understood, so it cannot be smuggled in');
+  assert.match(parseIntent('book SH106').label, /book SH106/i);
+});

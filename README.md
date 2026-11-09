@@ -13,6 +13,25 @@ DaVinci-shaped detection flow ("Muse-detect"). Each tool call then passes a Agen
 
 The most restrictive answer wins. Held calls wait for a simulated CIBA approval.
 
+## Book a flight: two rules stop a booking
+
+The "Book a flight" panel (both modes) shows Muse calling the Agent Gateway to book a flight, the gateway asking PingOne Authorize, and two rules from two owners:
+
+- **Your rule** (owner: you): *no tickets bought by an AI agent over $500.* Applies only when an agent is acting. The $500 is your own setting (gateway-side data, default 500), not part of the rule. A person booking directly ("Sam directly, no agent") is not limited by it.
+- **Airline rule** (owner: the airline): *only premium members can book over $750.* Applies to every caller. The member tier is a custom field on the PingOne user, the user-schema attribute `airlineMemberTier` (STRING), and **PingOne Authorize reads it from the PingOne user itself**; the gateway does not look it up or send it. Premium is an explicit list, currently `Premier Gold` (the owner does not care whether it is called Gold or premium). Premier Silver, any other value, an empty value and a missing attribute are **not premium** (fail closed).
+
+Both are strict "over": exactly $500 and exactly $750 pass. When both fail, both are listed ("2 rules denied this booking"). The fare that is judged always comes from the catalogue by flight id (`SH101`-`SH109`), never from what the caller says. The panel has ten scenario rows (the nine contract scenarios plus row 10, a user with no `airlineMemberTier`: $940 direct is denied by the airline rule), a free flight picker and a "try to lie" button; the banner reads "Authorize rule applied: booking stopped", the five-hop trace shows the attributes Authorize was given and the rule that fired, and the ledger ("Bookings made this session") stays at "Nothing booked." on a deny.
+
+**Honesty.** Mock is a local stand-in: its rules live in `server/src/fares.js` and every Mock hop says "simulated"; it never claims to be PingOne Authorize. The three Mock members (Standard = `Premier Silver`, Premium = `Premier Gold`, No tier set = no attribute) are labelled as a Mock PingOne user that mimics the `airlineMemberTier` attribute; there is no tenant behind them. Real sends `tools/call book_airline_flight {flight_number, amount}` to the gateway at `MUSE_LIVE_GATEWAY_URL` and reads the answer, including the gateway's `X-Gw-Audit-Trail` header, which is where the rule names come from. Real is wired and tested against stubs only. It stays unproven until the owner has imported the policy change into PingOne Authorize, restarted the gateway and signed in. A booking that passes both rules still meets the consent gate (HTTP 428) in Real, and Muse does not approve it. In Real the tier is Authorize's own read, so Muse usually cannot show its value: the trace says `Member tier not reported to Muse, read from the PingOne user attribute airlineMemberTier (read by Authorize)` and never invents one. Muse shows a value only if the gateway's answer happens to carry it, with the same source label. See `docs/talk-track.md` and the AI-DEMO2 import note (`docs/airline-booking-rules-import.md`) for the owner steps.
+
+**Real setup (owner-run; agents never do these).**
+
+1. The `airlineMemberTier` attribute exists in your PingOne user schema and the demo user holds `Premier Gold`. There is **no `members` entry** to add for the tier: the gateway's data file no longer carries one, and an unmapped or tier-less user is NOT premium.
+2. In the Authorize console, create the `MemberTier` attribute with the PingOne User resolver (reads `airlineMemberTier`), merge and import the rules, publish, restart the gateway (steps in the AI-DEMO2 import note).
+3. In Muse, switch to Real and run the rows. While the demo user holds `Premier Gold`, a direct $940 booking is allowed (row 8); rows 7, 9 and 10 only show the airline rule after you change the user (step 4).
+4. To demo the airline rule in Real, flip the demo user to `Premier Silver` (the AI-DEMO2 owner script `scripts/set-airline-member-tier.js <username> "Premier Silver" --apply`), run rows 7 and 9, then flip back to `Premier Gold` and run row 8. For row 10, sign in as a test user that has no `airlineMemberTier`.
+5. Nothing here has been run against a real tenant by an agent. Real stays unproven until you do.
+
 ## Run from a clone
 
 Prerequisites: Node 26. Docker (OrbStack) only for the Docker form.
