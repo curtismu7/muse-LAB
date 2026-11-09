@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "test": "vitest run"
   },
   "dependencies": {
     "@forgerock/davinci-client": "^2.3.1",
@@ -15,7 +16,11 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@vitejs/plugin-react": "^6.1.2",
-    "vite": "^8.3.5"
+    "jsdom": "^26.1.0",
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
   }
 }
