@@ -1,6 +1,6 @@
 // Turns a typed request into one tool call, the same calls the prompt chips make. Anything it cannot map gets a short
 // reply that says what Personal Agent can do. Pure function: no network, no state.
-const HELP = 'I can read your calendar, draft a note, send a payment, or export records. Try "pay Acme 800" or "export 25 rows".';
+const HELP = 'I can read your calendar, draft a note, send a payment, export records, or book a flight. Try "pay Acme 800", "export 25 rows" or "book SH106".';
 
 export function parseIntent(text) {
   const t = text.trim();
@@ -19,6 +19,10 @@ export function parseIntent(text) {
   }
 
   if (/^(?:pay|send|transfer)\b/i.test(t) && /\d/.test(t)) return { reply: 'Who should I pay? Try "pay Acme 800".' };
+
+  // "book SH106" or "book flight SH106": the flight id only. The fare is looked up by the gateway, never typed.
+  const flight = t.match(/^book\s+(?:flight\s+)?([a-z]{2}\d{3,4})$/i);
+  if (flight) return { tool: 'flights.book', args: { flightId: flight[1].toUpperCase() }, label: t };
 
   const rows = t.match(/\bexport\D*(\d+)/i);
   if (rows) return { tool: 'records.export', args: { rows: Number(rows[1]) }, label: t };

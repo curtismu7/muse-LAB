@@ -3,6 +3,7 @@
 import { TOOLS } from './tools.js';
 import { runDetectionFlow } from './detect.js';
 import { assessCaller } from './protect.js';
+import { evaluateBooking, fareFor, flightId, memberFor } from './fares.js';
 
 export const PAYMENT_APPROVAL_LIMIT = 500;
 export const EXPORT_ROW_CAP = 100;
@@ -16,7 +17,7 @@ export function coarseCheck(persona, tool) {
   };
 }
 
-export function fineCheck(tool, args = {}) {
+export function fineCheck(tool, args = {}, ctx = {}) {
   if (tool === 'payments.send') {
     const amount = Number(args.amount);
     const payee = String(args.payee ?? '').trim();
@@ -26,6 +27,18 @@ export function fineCheck(tool, args = {}) {
       return { result: 'step_up', rule: `Payments over ${PAYMENT_APPROVAL_LIMIT} need a person to approve` };
     }
     return { result: 'allow', rule: `Payments up to ${PAYMENT_APPROVAL_LIMIT} go straight through` };
+  }
+  if (tool === 'flights.book') {
+    // The fare is the catalogue's, looked up by flight. args.fare, args.amount, args.quoted, args.tier and args.limit are never read:
+    // a caller cannot lower the price that is judged, claim a tier, or raise its own limit. Who is calling and which member record
+    // applies come from the session (ctx). The Mock member record stands in for the PingOne user (attribute airlineMemberTier), which in Real
+    // PingOne Authorize reads itself; the gateway does not send a tier.
+    const fare = fareFor(args.flightId);
+    if (fare === null) return { result: 'deny', rule: `Unknown flight "${flightId(args.flightId).slice(0, 12)}": no fare in the catalogue` };
+    // Mock stands in for two Authorize rules. Both are evaluated and every failure is reported. Over is a deny, never a step-up; exactly the limit passes.
+    const ev = evaluateBooking({ fare, actor: ctx.actor === 'human' ? 'human' : 'agent', member: memberFor(ctx.member) ?? memberFor('standard') });
+    if (ev.failed.length) return { result: 'deny', rules: ev.failed, rule: ev.failed.map((r) => `Authorize rule (simulated) "${r.name}": ${r.message}`).join(' | ') };
+    return { result: 'allow', rule: `Both booking rules pass (fare $${fare}, agent limit $${ev.limit}, member tier ${ev.tier})` };
   }
   if (tool === 'records.export') {
     const rows = Number(args.rows);
@@ -43,12 +56,17 @@ export function fineCheck(tool, args = {}) {
 // Records the call on the workspace (for the burst check) and returns the decision. It does not run the tool.
 // Protect and consent happen earlier, when the caller is authorized (see /api/authorize). The verdict rides in on the token.
 export function decide(ws, { tool, args = {}, now = Date.now(), via = 'muse', protect = assessCaller(via) }) {
-  const detect = runDetectionFlow({ ws, args, now });
-  ws.calls.push(now);
-  if (ws.calls.length > 50) ws.calls.splice(0, ws.calls.length - 50);
+  // Booking calls sit outside the velocity (burst) check: they neither count toward it nor are held by it, so the ten booking rows
+  // run in any order, even right after the burst demo. The instruction check still applies to them.
+  const countsForBurst = tool !== 'flights.book';
+  const detect = runDetectionFlow({ ws: countsForBurst ? ws : { calls: [] }, args, now });
+  if (countsForBurst) {
+    ws.calls.push(now);
+    if (ws.calls.length > 50) ws.calls.splice(0, ws.calls.length - 50);
+  }
 
   const coarse = coarseCheck(ws.user, tool);
-  const fine = coarse.result === 'allow' ? fineCheck(tool, args) : null;
+  const fine = coarse.result === 'allow' ? fineCheck(tool, args, { actor: protect.actor, member: ws.member }) : null;
 
   let outcome = 'allowed';
   if (protect.deny || detect.verdict === 'block' || coarse.result === 'deny' || fine?.result === 'deny') outcome = 'blocked';

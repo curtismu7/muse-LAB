@@ -8,7 +8,7 @@ import { useTextSize } from './TextSize.jsx';
 // Standard: movable boxes, Simulate with Prev/Next/Pause, Reset, a speed control, every arrow numbered AND named, a card per step.
 const STEP_MS = 1600;
 const SPEEDS = [0.5, 1, 2];
-const TABS = [{ id: 'muse-overview', label: 'Overview' }, { id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Personal Agent acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }, { id: 'muse-runtime-d', label: 'Runtime D: Claude' }, { id: 'muse-runtime-e', label: 'Runtime E: ChatGPT' }, { id: 'muse-runtime-f', label: 'Runtime F: Codex' }, { id: 'muse-registration', label: 'Who registers with whom' }, { id: 'muse-agent-connect', label: 'A real connect, as logged' }];
+const TABS = [{ id: 'muse-overview', label: 'Overview' }, { id: 'muse-config', label: 'Config' }, { id: 'muse-runtime-a', label: 'Runtime A: Personal Agent acts for Sam' }, { id: 'muse-runtime-b', label: 'Runtime B: Airline Connector' }, { id: 'muse-runtime-c', label: 'Runtime C: just a user' }, { id: 'muse-runtime-d', label: 'Runtime D: Claude' }, { id: 'muse-runtime-e', label: 'Runtime E: ChatGPT' }, { id: 'muse-runtime-f', label: 'Runtime F: Codex' }, { id: 'muse-registration', label: 'Who registers with whom' }, { id: 'muse-agent-connect', label: 'A real connect, as logged' }, { id: 'booking-rules-flow', label: 'Book a flight: two rules' }];
 const BOX_W = 300;
 
 const SIDES = [['t', Position.Top], ['b', Position.Bottom], ['l', Position.Left], ['r', Position.Right]];
@@ -51,14 +51,15 @@ function sides(a, b) {
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? ['r', 'l'] : ['l', 'r']) : (dy > 0 ? ['b', 't'] : ['t', 'b']);
 }
 
-export default function MuseFlow() {
-  const [tab, setTab] = useState(TABS[0].id);
+// `only`: show just that diagram, with no tab bar (the Book a flight panel embeds its own diagram this way).
+export default function MuseFlow({ only = null }) {
+  const [tab, setTab] = useState(only ?? TABS[0].id);
   const fs = useTextSize();
   return (
     <section className="flow mflow" aria-label="How Personal Agent works" data-testid="muse-flow">
-      <div className="seg" role="tablist" aria-label="Diagram">
+      {!only && <div className="seg" role="tablist" aria-label="Diagram">
         {TABS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
-      </div>
+      </div>}
       <Canvas key={`${tab}-${fs}`} diagram={loadDiagram(tab)} fs={fs} />
     </section>
   );

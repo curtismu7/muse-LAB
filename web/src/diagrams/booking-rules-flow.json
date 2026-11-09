@@ -1,0 +1,210 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "booking-rules-flow",
+  "title": "Book a flight: two rules, one gateway",
+  "lede": "Muse calls the Agent Gateway to book a flight. The gateway looks up the fare and your agent limit, then asks PingOne Authorize, which reads the member tier from the PingOne user (airlineMemberTier). Two rules can stop it: yours (no tickets bought by an AI agent over your limit) and the airline's (only premium members over $750). Mock is a local stand-in for Authorize; Real needs your tenant.",
+  "groups": {
+    "dark": {
+      "label": "Muse",
+      "color": "dark"
+    },
+    "amber": {
+      "label": "Agent Gateway",
+      "color": "amber"
+    },
+    "blue": {
+      "label": "Gateway data",
+      "color": "blue"
+    },
+    "green": {
+      "label": "PingOne Authorize",
+      "color": "green"
+    },
+    "grey": {
+      "label": "Airline server",
+      "color": "grey"
+    }
+  },
+  "lanes": [
+    {
+      "id": "lane0",
+      "label": "Muse, Agent Gateway, PingOne Authorize and the airline server",
+      "x": 10,
+      "y": 30,
+      "w": 1168,
+      "h": 464
+    }
+  ],
+  "nodes": [
+    {
+      "id": "b1",
+      "group": "dark",
+      "label": "1. Muse (the app)",
+      "sub": [
+        "Personal Agent acts for Sam, or Sam books directly",
+        "Sends only flight_number and amount"
+      ],
+      "x": 40,
+      "y": 74
+    },
+    {
+      "id": "b2",
+      "group": "amber",
+      "label": "2. Agent Gateway",
+      "sub": [
+        "The only way to the airline tool",
+        "Looks up the facts, asks Authorize"
+      ],
+      "x": 326,
+      "y": 74
+    },
+    {
+      "id": "b3",
+      "group": "blue",
+      "label": "3. Fare + agent limit",
+      "sub": [
+        "Read-only, gateway side",
+        "Fare by flight, agent spend limit"
+      ],
+      "x": 612,
+      "y": 74
+    },
+    {
+      "id": "b4",
+      "group": "green",
+      "label": "4. PingOne Authorize",
+      "sub": [
+        "Your rule: no tickets bought by an AI agent over your limit ($500)",
+        "Airline rule: only premium members can book over $750",
+        "Reads the tier from the PingOne user (airlineMemberTier)"
+      ],
+      "x": 898,
+      "y": 74
+    },
+    {
+      "id": "b5",
+      "group": "grey",
+      "label": "5. Airline MCP server",
+      "sub": [
+        "book_airline_flight",
+        "Runs only on PERMIT"
+      ],
+      "x": 326,
+      "y": 284
+    },
+    {
+      "id": "b6",
+      "group": "dark",
+      "label": "6. Muse ledger",
+      "sub": [
+        "Bookings made this session",
+        "Empty on a deny"
+      ],
+      "x": 612,
+      "y": 284
+    }
+  ],
+  "edges": [
+    {
+      "source": "b1",
+      "target": "b2",
+      "label": "B1",
+      "name": "tools/call"
+    },
+    {
+      "source": "b2",
+      "target": "b3",
+      "label": "B2",
+      "name": "Facts lookup"
+    },
+    {
+      "source": "b2",
+      "target": "b4",
+      "label": "B3",
+      "name": "Authorize request"
+    },
+    {
+      "source": "b4",
+      "target": "b2",
+      "label": "B4",
+      "name": "Decision"
+    },
+    {
+      "source": "b2",
+      "target": "b5",
+      "label": "B5",
+      "name": "Tool runs only on PERMIT"
+    },
+    {
+      "source": "b2",
+      "target": "b6",
+      "label": "B6",
+      "name": "Result to Muse"
+    }
+  ],
+  "steps": [
+    {
+      "title": "tools/call",
+      "what": "Muse sends tools/call for book_airline_flight with a flight number and an amount. It never sends a tier, a limit or a token in the arguments.",
+      "why": "The model never writes arguments, and a caller's price is a claim, not a fact.",
+      "edges": [
+        0
+      ]
+    },
+    {
+      "title": "Facts lookup",
+      "what": "The gateway looks up the fare for that flight and the member's agent spend limit from its own read-only data. The amount Muse sent is overwritten. It does not look up the member tier.",
+      "why": "A caller cannot lower the price that is judged or raise its own limit.",
+      "edges": [
+        0,
+        1
+      ]
+    },
+    {
+      "title": "Authorize request",
+      "what": "The gateway asks PingOne Authorize with the attributes: ToolName, Amount, DecisionContext, ActClientId (empty for a direct caller), AgentSpendLimit, and the user's subject. It does not send a tier.",
+      "why": "Both rules decide from facts the gateway or the PingOne user holds, not from what the caller says.",
+      "edges": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "title": "Decision",
+      "what": "Authorize applies both rules. Your rule only applies when an agent is acting and fare is over your limit. Authorize reads the member tier itself, from the PingOne user attribute airlineMemberTier (Premier Gold is premium; any other value or none is not). The airline rule applies to everyone: over $750 needs a premium tier. Exactly $500 and exactly $750 pass. Every rule that denied is named.",
+      "why": "Two owners, two rules, one decision. Both are reported when both fail.",
+      "edges": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "title": "Tool runs only on PERMIT",
+      "what": "On PERMIT the gateway forwards the call to the airline MCP server. On DENY it answers HTTP 403 and the tool never runs. A permit still meets the consent gate in Real (HTTP 428).",
+      "why": "A stopped booking is stopped before the airline server sees it.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "title": "Result to Muse",
+      "what": "The result comes back to Muse. A booking adds a ledger row; a deny leaves the ledger empty and Muse shows which rule applied.",
+      "why": "The proof that nothing was booked is the empty ledger.",
+      "edges": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
+  ]
+}

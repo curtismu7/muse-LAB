@@ -14,6 +14,7 @@
   "glossary": [
     { "id": "coarse-check", "term": "Coarse check", "definition": "Whether a persona may call a tool at all. The first gate after detection." },
     { "id": "fine-check", "term": "Fine check", "definition": "The business rule inside an allowed call, such as a payment limit or an export row cap." },
+    { "id": "booking-rules", "term": "Booking rules", "definition": "Two PingOne Authorize rules on the airline booking tool: yours (no tickets bought by an AI agent over your limit, $500 by default) and the airline's (only premium members over $750; the tier is the PingOne user attribute airlineMemberTier, read by Authorize). Mock simulates them; Real reads the gateway's answer." },
     { "id": "muse-detect", "term": "Muse-detect", "definition": "A detection flow in front of the gateway. It flags bursts of calls and instructions hidden in tool arguments. Simulated here." }
   ],
   "sources": [
@@ -22,6 +23,7 @@
   "cards": [
     { "id": "try-burst", "label": "Trigger Muse-detect", "group": "try-it", "description": "Send seven calls in a row and watch the seventh held.", "action": { "type": "route", "href": "/" }, "terms": ["muse-detect"] },
     { "id": "coarse", "label": "Staff cannot pay", "group": "concept", "description": "Sign in as staff and try a payment. The coarse check blocks it before any amount is checked.", "action": { "type": "route", "href": "/" }, "terms": ["coarse-check"] },
+    { "id": "two-booking-rules", "label": "Two rules can stop a booking", "group": "try-it", "description": "Book a flight as an AI agent or as Sam directly. Your rule stops agent tickets over your limit ($500); the airline's rule stops anyone but premium members over $750 (the tier comes from the PingOne user, a missing tier is not premium). Exactly $500 and $750 pass, and both rules are listed when both fail.", "action": { "type": "route", "href": "/" }, "terms": ["fine-check", "booking-rules"] },
     { "id": "fine", "label": "Big payments need a person", "group": "concept", "description": "A payment over 500 is held until approved (simulated CIBA).", "action": { "type": "route", "href": "/" }, "terms": ["fine-check"] }
   ]
 }

@@ -33,6 +33,35 @@ try {
     if (/\{\{cast/.test(`${t.ask} ${t.answer} ${t.summary}`)) filled = false;
   }
   check('story packs have no undefined cast token', filled);
+  // Book a flight (Mock): the two rules, the contract's boundaries, and a ledger that stays empty on a deny. Uses its own visitor.
+  let cookie = null;
+  const call = async (method, path, body) => {
+    const r = await fetch(`${base}${path}`, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const set = r.headers.get('set-cookie'); if (set) cookie = set.split(';')[0];
+    return { status: r.status, json: await r.json().catch(() => null) };
+  };
+  const book = async (flightId, via, member) => {
+    await call('POST', '/api/member', { member });
+    const a = await call('POST', '/api/authorize', { client: via });
+    if (a.json?.status === 'consent_required') await call('POST', '/api/consent', { client: via, approve: true });
+    return (await call('POST', '/api/request', { tool: 'flights.book', args: { flightId }, via })).json;
+  };
+  if (session.mode === 'mock') {
+    await call('GET', '/api/session'); await call('POST', '/api/signin');
+    const ids = (r) => (r?.authorize?.rulesDenied ?? []).map((x) => x.id).join('+');
+    check('book: agent $620 is denied by your rule only', ids(await book('SH106', 'muse', 'standard')) === 'agent_spend_limit');
+    check('book: agent exactly $500 passes both rules', (await book('SH104', 'muse', 'standard'))?.outcome === 'allowed');
+    check('book: Sam directly, $750 standard, passes', (await book('SH108', 'browser', 'standard'))?.outcome === 'allowed');
+    check('book: Sam directly, $940 standard, is denied by the airline rule only', ids(await book('SH107', 'browser', 'standard')) === 'premium_only');
+    check('book: Sam directly, $940, user with no airlineMemberTier, is denied by the airline rule only', ids(await book('SH107', 'browser', 'none')) === 'premium_only');
+    check('book: agent $940 standard is denied by both rules', ids(await book('SH107', 'muse', 'standard')) === 'agent_spend_limit+premium_only');
+    await call('POST', '/api/reset'); await call('POST', '/api/signin');
+    await book('SH106', 'muse', 'standard');
+    const after = (await call('GET', '/api/session')).json;
+    check('book: a denied booking leaves the ledger empty', Array.isArray(after.bookings) && after.bookings.length === 0);
+    const ng2 = await (await fetch(`${base}/api/netguard`)).json();
+    check('book: still zero outbound attempts', ng2.attempts === 0, `attempts ${ng2.attempts}`);
+  }
 } catch (e) {
   check('app reachable', false, e.message);
 }

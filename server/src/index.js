@@ -18,6 +18,8 @@ import { callGateway, delegate, exchangeCode, piflowFor, startSignIn } from './l
 import { CHANNELS, createProtect } from './protect.js';
 import { PERSONAS, TOOLS, runTool } from './tools.js';
 import { shelfInfo } from './shelfLink.js';
+import { AGENT_LIMIT_DEFAULT, MEMBERS, PREMIUM_THRESHOLD, PREMIUM_TIERS, RULES, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, fareFor, flightId, listFlights, memberFor } from './fares.js';
+import { bookingTool, classifyBooking, mockAuthorize, mockBooking } from './booking.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const LOOPBACK_BINDS = new Set(['127.0.0.1', '::1', 'localhost']);
@@ -214,6 +216,9 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
       tools: Object.entries(TOOLS).map(([id, t]) => ({ id, label: t.label, fields: t.fields, personas: t.personas })),
       decisions: ws.decisions,
+      member: ws.member,
+      booking: ws.booking ?? null,
+      bookings: ws.bookings ?? [],
       held: [...ws.holds.keys()],
     });
   });
@@ -227,6 +232,22 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     req.ws.discovery = null;
     clearLive(req.ws);
     res.json({ mode });
+  });
+
+  // The fare list for the "Book a flight" panel and the limit it shows. Display data, the same in both modes.
+  app.get('/api/flights', (req, res) => res.set('Cache-Control', 'no-store').json({
+    rules: { agentLimit: AGENT_LIMIT_DEFAULT, premiumThreshold: PREMIUM_THRESHOLD, premiumTiers: PREMIUM_TIERS, tierAttribute: TIER_ATTRIBUTE, tierSourceReal: TIER_SOURCE_REAL, tierSourceMock: TIER_SOURCE_MOCK },
+    ruleCards: Object.values(RULES).map((r) => ({ id: r.id, name: r.name, code: r.code, owner: r.owner, short: r.short, line: r.line(r.id === RULES.agentSpendLimit.id ? AGENT_LIMIT_DEFAULT : undefined) })),
+    members: Object.values(MEMBERS),
+    flights: listFlights(),
+  }));
+  // Mock only: which Mock PingOne user (airlineMemberTier) the simulated Authorize reads. In Real, Authorize reads the real user. Anything but a known key is refused.
+  app.post('/api/member', (req, res) => {
+    if (req.ws.gatewayMode === 'live') return res.status(409).json({ error: 'in Real, Authorize reads the tier from the PingOne user; Muse cannot set it' });
+    const m = memberFor(req.body?.member);
+    if (!m) return res.status(400).json({ error: 'member must be "standard", "premium" or "none"' });
+    req.ws.member = m.key;
+    res.json({ member: m.key });
   });
 
   // Rule 19: the Mock/Real toggle. Server-side mode, for the whole lab. Switching signs everyone out and
@@ -263,7 +284,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     res.json(ws.discovery);
   });
 
-  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; };
+  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; ws.booking = null; ws.bookings = []; ws.member = 'standard'; ws.userToken = null; };
   // The tool result comes back as MCP text content holding JSON; Personal Agent reads the points out of it.
   const answerFrom = (steps) => {
     const r = steps.find((x) => x.n === 9)?.response;
@@ -271,7 +292,19 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   };
   // Both airline tools read the one passenger record through the gateway (the connector does the same), so a balance never differs between Personal Agent and an assistant.
   const AIRLINE_RECORD = 'get_loyalty_status';
+  // The booking scenario in Real: Muse sends { flight_number, amount } to the gateway's book tool. Whatever the gateway answers is read, never assumed.
+  const runBooking = async (ws) => {
+    const { tool, args, channel } = ws.liveAsk;
+    // 'user' = Sam's own token (no act claim), held on the server only; 'agent' = the delegated token.
+    const steps = await callGateway(live, channel === 'user' ? ws.userToken : ws.liveToken, fetchImpl, { tool, args });
+    for (const st of steps) addStep(ws, st);
+    const bk = classifyBooking(steps.find((x) => x.n === 9), { flightId: args.flight_number, quoted: args.amount, tool, channel });
+    ws.booking = bk;
+    if (bk.status === 'booked') ws.bookings.push({ flightId: bk.flightId, fare: bk.fare, confirmation: bk.confirmation, mode: 'live', at: bk.at });
+    ws.liveAnswer = null;
+  };
   const runAsk = async (ws) => {
+    if (ws.liveAsk?.scenario === 'book') return runBooking(ws);
     const asked = ws.liveAsk?.tool ?? (live.idp?.clientSecret ? 'loyalty_balance' : null);
     const steps = await callGateway(live, ws.liveToken, fetchImpl, { tool: asked ? AIRLINE_RECORD : null });
     for (const st of steps) addStep(ws, st);
@@ -295,6 +328,22 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   app.post('/api/live/ask', limited, async (req, res) => {
     const ws = req.ws;
     if (!live || ws.gatewayMode !== 'live') return res.status(409).json({ error: 'switch to Real (live) first' });
+    if (req.body?.scenario === 'book') {
+      // Booking is button-driven: the page names the flight, Muse sends only flight_number and the fare it showed. The model never writes arguments.
+      const id = flightId(req.body.flightId);
+      const known = fareFor(id) !== null;
+      if (!known && !(req.body.unknown === true && /^[A-Z]{2}\d{3,4}$/.test(id))) return res.status(400).json({ error: 'unknown flight', detail: 'Pick a flight from the fare list.' });
+      const quoted = req.body.quoted === undefined ? (fareFor(id) ?? 100) : Number(req.body.quoted);
+      if (!Number.isFinite(quoted) || quoted <= 0 || quoted > 100000) return res.status(400).json({ error: 'bad fare', detail: 'The quoted fare must be a number above 0 and at most 100000.' });
+      const channel = req.body.channel === 'user' ? 'user' : 'agent';
+      ws.liveAsk = { prompt: `Book ${id}`, tool: bookingTool(env), args: { flight_number: id, amount: quoted }, scenario: 'book', channel };
+      ws.liveAnswer = null; ws.liveError = null; ws.booking = null;
+      try {
+        if (channel === 'user' ? ws.userToken : ws.liveToken) { await runAsk(ws); return res.json({ state: 'done' }); }
+        ws.discovery = await liveDiscovery(live, fetchImpl);
+        return res.json({ state: 'auth_required', channel });
+      } catch (e) { return res.status(502).json(failed(e)); }
+    }
     const prompt = String(req.body?.prompt ?? '').slice(0, 200);
     // Step 0: Personal Agent's model picks the tool (or declines). Without a model, keywords decide.
     const chosen = await plan(agent, prompt, fetchImpl);
@@ -385,7 +434,11 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       try {
         const r = await exchangeCode(live, p.learned, { code: String(q.code ?? ''), verifier: p.verifier, client: p.client, resource: null }, fetchImpl);
         ws.userLogin = { claims: r.claims ?? null, steps: [r.step].filter(Boolean), error: r.error ?? null, denied: null };
-        if (r.token) {
+        if (r.token && ws.liveAsk?.scenario === 'book' && ws.liveAsk.channel === 'user') {
+          // The booking scenario as Sam himself: his own token is kept on the server (never sent to the page) and the booking call runs now.
+          ws.userToken = r.token;
+          await runBooking(ws);
+        } else if (r.token) {
           // The user's own token, straight to the gateway. No act claim, no exchange: this is what a non-agent caller gets.
           const steps = await callGateway(live, r.token, fetchImpl, { tool: AIRLINE_RECORD });
           const first = steps[0]?.response?.status;
@@ -500,6 +553,12 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     };
     if (d.outcome === 'held') ws.holds.set(entry.id, { tool, args, actor: entry.actor });
     if (d.outcome === 'allowed') entry.result = runTool(tool, args);
+    if (tool === 'flights.book') {
+      // The Authorize rule's stand-in: it saw the catalogue fare, not the quote. A stopped booking never reaches runTool, so the ledger stays empty.
+      entry.authorize = mockAuthorize({ flightId: flightId(args.flightId), fine: d.fine, actor: d.protect.actor, member: ws.member });
+      ws.booking = mockBooking({ flightId: flightId(args.flightId), quoted: args.quoted, fine: d.fine, outcome: d.outcome, rules: entry.rules, result: entry.result, actor: d.protect.actor, member: ws.member });
+      if (d.outcome === 'allowed') ws.bookings.push({ flightId: entry.result.flightId, fare: entry.result.fare, confirmation: entry.result.confirmationNumber, mode: 'mock', at: entry.at });
+    }
     record(ws, entry);
     res.json({ ...entry, detect: d.detect.steps, protect: d.protect, coarse: d.coarse, fine: d.fine });
   });
@@ -564,6 +623,10 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       result: runTool(hold.tool, hold.args),
     };
     record(ws, entry);
+    if (hold.tool === 'flights.book') {
+      ws.booking = mockBooking({ flightId: entry.result.flightId, quoted: hold.args.quoted, fine: { result: 'allow' }, outcome: 'allowed', result: entry.result, actor: hold.actor, member: ws.member });
+      ws.bookings.push({ flightId: entry.result.flightId, fare: entry.result.fare, confirmation: entry.result.confirmationNumber, mode: 'mock', at: entry.at });
+    }
     res.json(entry);
   });
 

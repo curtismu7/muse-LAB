@@ -19,7 +19,7 @@ export function createWorkspaces({ max = 200, idleMs = IDLE_MS, now = () => Date
     if (store.size >= max) return null;
     const id = randomBytes(16).toString('hex');
     // workspaceId is the public label of this workspace (for traces and the page). It is a hash: the id above is the session cookie and never leaves the server.
-    const ws = { id, workspaceId: createHash('sha256').update(id).digest('hex').slice(0, 12), touched: now(), user: null, gatewayMode: 'mock', discovery: null, calls: [], decisions: [], holds: new Map(), tokens: {}, pending: {} };
+    const ws = { id, workspaceId: createHash('sha256').update(id).digest('hex').slice(0, 12), touched: now(), user: null, gatewayMode: 'mock', discovery: null, calls: [], decisions: [], holds: new Map(), tokens: {}, pending: {}, booking: null, bookings: [], member: 'standard', userToken: null };
     store.set(ws.id, ws);
     return ws;
   }
