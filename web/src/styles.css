@@ -1,80 +1,77 @@
 :root {
-  color-scheme: light dark;
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --panel: #eff0f1;
-  --bubble-muse: #eff0f1;
-  --bubble-user: #16325c;
-  --text: #051727;
-  --muted: #4d5d6c;
-  --line: #dbe2ea;
+  --bg-lt: #f6f7f9;
+  --bg-dk: #111317;
+  --surface-lt: #ffffff;
+  --surface-dk: #181b21;
+  --panel-lt: #eff0f1;
+  --panel-dk: #15181d;
+  --panel: light-dark(var(--panel-lt), var(--panel-dk));
+  --bubble-muse-lt: #eff0f1;
+  --bubble-muse-dk: #1d2128;
+  --bubble-muse: light-dark(var(--bubble-muse-lt), var(--bubble-muse-dk));
+  --bubble-user-lt: #16325c;
+  --bubble-user-dk: #1b3a66;
+  --bubble-user: light-dark(var(--bubble-user-lt), var(--bubble-user-dk));
+  --text-lt: #051727;
+  --text-dk: #e9ebef;
+  --muted-lt: #4d5d6c;
+  --muted-dk: #9aa0ab;
+  --line-lt: #dbe2ea;
+  --line-dk: #2a2f38;
+  --line: light-dark(var(--line-lt), var(--line-dk));
   /* Edge of unselected buttons, tabs, chips, toggles and inputs: 3:1 or more on every surface (STANDALONE-RULES dark mode control contrast). */
-  --control-border: #6f7c8a;
+  --control-border-lt: #6f7c8a;
+  --control-border-dk: #c3c8d0;
+  --control-border: light-dark(var(--control-border-lt), var(--control-border-dk));
   /* Diagram edges and arrowheads: 3:1 or more on the canvas in both themes. */
   --diagram-edge: #6f7c8a;
-  --accent: #16325c;
-  --accent-text: #ffffff;
-  --on-fill: #ffffff;
+  --accent-lt: #16325c;
+  --accent-dk: #6ea8e6;
+  --accent: light-dark(var(--accent-lt), var(--accent-dk));
+  --accent-text-lt: #ffffff;
+  --accent-text-dk: #051727;
+  --accent-text: light-dark(var(--accent-text-lt), var(--accent-text-dk));
+  --on-fill-lt: #ffffff;
+  --on-fill-dk: #ffffff;
+  --on-fill: light-dark(var(--on-fill-lt), var(--on-fill-dk));
   --scrim: rgba(0, 0, 0, 0.45);
   --dialog-shadow: rgba(0, 0, 0, 0.28);
   --on-fill-soft: rgba(255, 255, 255, 0.75);
   --on-fill-faint: rgba(255, 255, 255, 0.14);
   --on-fill-line: rgba(255, 255, 255, 0.55);
-  --ok: #1d6b35;
-  --warn: #8a5a00;
-  --bad: #a1211c;
+  --ok-lt: #1d6b35;
+  --ok-dk: #6fd08c;
+  --ok: light-dark(var(--ok-lt), var(--ok-dk));
+  --warn-lt: #8a5a00;
+  --warn-dk: #f0c060;
+  --warn: light-dark(var(--warn-lt), var(--warn-dk));
+  --bad-lt: #a1211c;
+  --bad-dk: #ff8a80;
+  --bad: light-dark(var(--bad-lt), var(--bad-dk));
   --radius: 14px;
   --band: linear-gradient(90deg, #051727 58%, #12538d);
   --font-primary: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   --detected: #c8102e;
   --undetected: #1f5fbf;
-  --detected-text: #c8102e;
-  --undetected-text: #1f5fbf;
+  --detected-text-lt: #c8102e;
+  --detected-text-dk: #ff7a85;
+  --detected-text: light-dark(var(--detected-text-lt), var(--detected-text-dk));
+  --undetected-text-lt: #1f5fbf;
+  --undetected-text-dk: #7fb0ff;
+  --undetected-text: light-dark(var(--undetected-text-lt), var(--undetected-text-dk));
 }
 
-
-/* System dark (no data-theme attribute): the family stylesheet flips a few tokens, but Muse's own (muted text, accent, bubbles, status colours) only had
-   dark values under an explicit dark theme, which left light-on-light and dark-on-dark text. Same values as the explicit dark theme below. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --on-fill: #ffffff;
-  --bg: #111317;
-  --detected-text: #ff7a85;
-  --undetected-text: #7fb0ff;
-  --surface: #181b21;
-  --panel: #15181d;
-  --bubble-muse: #1d2128;
-  --bubble-user: #1b3a66;
-  --text: #e9ebef;
-  --muted: #9aa0ab;
-  --line: #2a2f38;
-  --control-border: #c3c8d0;
-  --accent: #6ea8e6;
-  --accent-text: #051727;
-  --ok: #6fd08c;
-  --warn: #f0c060;
-  --bad: #ff8a80;  }
+/* Light/dark follows color-scheme, which the family stylesheet sets from the system and data-theme.
+   The family stylesheet also sets these four in its dark blocks (selector weight 0,2,0). This rule has the
+   same weight, matches in every theme, and loads later, so Muse's values win. */
+:root:not([data-theme="light"]),
+:root[data-theme] {
+  --bg: light-dark(var(--bg-lt), var(--bg-dk));
+  --surface: light-dark(var(--surface-lt), var(--surface-dk));
+  --text: light-dark(var(--text-lt), var(--text-dk));
+  --muted: light-dark(var(--muted-lt), var(--muted-dk));
 }
 
-:root[data-theme="dark"] {
-    --on-fill: #ffffff;
-  --bg: #111317;
-  --detected-text: #ff7a85;
-  --undetected-text: #7fb0ff;
-  --surface: #181b21;
-  --panel: #15181d;
-  --bubble-muse: #1d2128;
-  --bubble-user: #1b3a66;
-  --text: #e9ebef;
-  --muted: #9aa0ab;
-  --line: #2a2f38;
-  --control-border: #c3c8d0;
-  --accent: #6ea8e6;
-  --accent-text: #051727;
-  --ok: #6fd08c;
-  --warn: #f0c060;
-  --bad: #ff8a80;
-}
 
 * { box-sizing: border-box; }
 
