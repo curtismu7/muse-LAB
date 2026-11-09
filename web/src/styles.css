@@ -537,6 +537,17 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .bk-rule h3 { font-size: calc(17px * var(--fs, 1)); }
 .bk-rule p { margin: 6px 0 0; }
 .bk-rule--premium_only { border-top-color: var(--warn); }
+.bk-tier { border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 10px; padding: 12px; background: var(--panel); display: grid; gap: 8px; min-width: 0; }
+.bk-tier h3, .bk-tier p, .bk-tier ul { margin: 0; }
+.bk-tier__now { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.bk-tier__btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.bk-tier__btns button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border: 2px solid var(--accent); font-weight: 700; }
+.bk-tier__btns button[aria-pressed="true"]::before { content: "\2713\00a0"; }
+.bk-tier__users { padding-left: 20px; display: grid; gap: 2px; }
+.bk-tier__off { border-left: 4px solid var(--warn); padding-left: 8px; }
+.bk-tier__off code { margin-right: 6px; overflow-wrap: anywhere; }
+.bk-tier__ok { color: var(--ok); font-weight: 600; }
+.bk-tier__bad { color: var(--bad); font-weight: 600; }
 .bk-who { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; min-width: 0; }
 .bk-who .field { min-width: 0; max-width: 100%; }
 .bk-who select { max-width: 100%; width: 100%; }

@@ -7,3 +7,9 @@ services:
       SHELF_URL: ${SHELF_URL:-http://127.0.0.1:4400}
       # Names besides loopback the app answers to (as <name>:5100). The default is the Host the family lab-proxy sends.
       LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-muse.local.ping-devops.com}
+      # Member tier switch (Real only, owner-approved 2026-11-09). Names only; the values come from your shell or the .env beside this file.
+      MUSE_TIER_WORKER_CLIENT_ID: ${MUSE_TIER_WORKER_CLIENT_ID:-}
+      MUSE_TIER_WORKER_CLIENT_SECRET: ${MUSE_TIER_WORKER_CLIENT_SECRET:-}
+      MUSE_TIER_USER_IDS: ${MUSE_TIER_USER_IDS:-}
+      MUSE_TIER_ENV_ID: ${MUSE_TIER_ENV_ID:-}
+      MUSE_TIER_REGION: ${MUSE_TIER_REGION:-}

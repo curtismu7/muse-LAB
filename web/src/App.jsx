@@ -506,7 +506,7 @@ export default function App() {
       </aside>
 
       <div className="flow-row">
-        <BookFlight session={session} api={api} busy={busy} guarded={guarded} signInWith={signInWith} bookMock={bookMock} onReset={reset} />
+        <BookFlight session={session} api={api} busy={busy} guarded={guarded} signInWith={signInWith} bookMock={bookMock} onReset={reset} onTierChanged={refresh} />
       </div>
 
       {session.signedIn && (

@@ -20,6 +20,7 @@ import { PERSONAS, TOOLS, runTool } from './tools.js';
 import { shelfInfo } from './shelfLink.js';
 import { AGENT_LIMIT_DEFAULT, MEMBERS, PREMIUM_THRESHOLD, PREMIUM_TIERS, RULES, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, fareFor, flightId, listFlights, memberFor } from './fares.js';
 import { bookingTool, classifyBooking, mockAuthorize, mockBooking } from './booking.js';
+import { createTierSwitch } from './tier.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const LOOPBACK_BINDS = new Set(['127.0.0.1', '::1', 'localhost']);
@@ -271,6 +272,32 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       ws.user = null;
     }
     res.json(modeView());
+  });
+
+  // The member-tier switch (owner-approved 2026-11-09, see tier.js). One control for both modes: Mock sets the Mock PingOne user; Real writes
+  // airlineMemberTier on the owner's allow-listed demo users through PingOne and reads them back. The user ids and the attribute name never
+  // come from a request: the body names a member key and nothing else.
+  const tier = createTierSwitch({ env, live, fetchImpl });
+  const realNow = (req) => Boolean(live) && liveOn && req.ws.gatewayMode === 'live';
+  app.get('/api/booking/tier', (req, res) => res.set('Cache-Control', 'no-store').json({ mode: realNow(req) ? 'real' : 'mock', member: req.ws.member, ...tier.view() }));
+  const tierGate = (req, res) => {
+    if (!realNow(req)) { res.status(409).json({ error: 'not_real', message: 'Switch to Real first: the PingOne tier is only read or written in Real.' }); return false; }
+    if (!tier.configured) { res.status(409).json({ error: 'tier_not_configured', ...tier.view() }); return false; }
+    if (tier.limited()) { res.status(429).json({ error: 'slow down', detail: 'Too many tier changes. Try again in a minute.' }); return false; }
+    return true;
+  };
+  app.post('/api/booking/tier', async (req, res) => {
+    const m = memberFor(req.body?.member);
+    if (!m) return res.status(400).json({ error: 'member must be "standard", "premium" or "none"' });
+    if (!realNow(req)) { req.ws.member = m.key; return res.json({ mode: 'mock', member: m.key, ...tier.view() }); }
+    if (!tierGate(req, res)) return;
+    const out = await tier.switchTo(m.tier ?? null);
+    res.status(out.ok ? 200 : out.busy ? 409 : 502).json({ mode: 'real', ...out });
+  });
+  app.post('/api/booking/tier/read', async (req, res) => {
+    if (!tierGate(req, res)) return;
+    const out = await tier.read();
+    res.status(out.ok ? 200 : out.busy ? 409 : 502).json({ mode: 'real', ...out });
   });
 
   // Step 1 to 3: the unauthenticated call, then the two metadata reads.

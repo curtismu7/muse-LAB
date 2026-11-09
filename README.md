@@ -29,8 +29,24 @@ Both are strict "over": exactly $500 and exactly $750 pass. When both fail, both
 1. The `airlineMemberTier` attribute exists in your PingOne user schema and the demo user holds `Premier Gold`. There is **no `members` entry** to add for the tier: the gateway's data file no longer carries one, and an unmapped or tier-less user is NOT premium.
 2. In the Authorize console, create the `MemberTier` attribute with the PingOne User resolver (reads `airlineMemberTier`), merge and import the rules, publish, restart the gateway (steps in the AI-DEMO2 import note).
 3. In Muse, switch to Real and run the rows. While the demo user holds `Premier Gold`, a direct $940 booking is allowed (row 8); rows 7, 9 and 10 only show the airline rule after you change the user (step 4).
-4. To demo the airline rule in Real, flip the demo user to `Premier Silver` (the AI-DEMO2 owner script `scripts/set-airline-member-tier.js <username> "Premier Silver" --apply`), run rows 7 and 9, then flip back to `Premier Gold` and run row 8. For row 10, sign in as a test user that has no `airlineMemberTier`.
+4. To demo the airline rule in Real, press **Premier Silver** in the *Member tier* card (needs the switch below), run rows 7 and 9, then press **Premier Gold** and run row 8. For row 10, press **No tier set** (the card clears `airlineMemberTier` on the demo users). Without the switch, flip the demo user in PingOne yourself, for example with the AI-DEMO2 owner script `scripts/set-airline-member-tier.js <username> "Premier Silver" --apply`.
 5. Nothing here has been run against a real tenant by an agent. Real stays unproven until you do.
+
+### Member tier switch (owner-approved 2026-11-09)
+
+The *Member tier* card at the top of Book a flight is one control for both modes: **Premier Gold** (premium), **Premier Silver** (standard) and **No tier set**, with the current value shown.
+
+- **Mock:** the card sets the Mock PingOne user the simulated Authorize reads (the same member the scenario rows use; running a row sets it to the row's tier and the card follows). Nothing leaves the machine.
+- **Real:** the card **writes the PingOne user attribute `airlineMemberTier`** on your demo users through the PingOne Management API (`PATCH /v1/environments/{env}/users/{id}` with exactly `{"airlineMemberTier": value}`; clear sends `null`), then **reads each user back** and shows what PingOne now holds. Both demo users are switched together. PingOne Authorize reads the attribute live, so run the booking again and the decision changes. If a write fails or PingOne still holds another value, the card says which user and why; it never reports a success it did not read back. Clearing with `null` is unverified against a real tenant: if PingOne keeps the old value the read-back shows it.
+- **Off unless configured.** With the settings missing the card is disabled and lists the variable names to set. Never available on a hosted build or in a mock-only build.
+
+**Deviation from the standalone rulebook (owner-approved 2026-11-09).** The rulebook keeps PingOne admin credentials out of standalone apps. The owner asked for this switch inside the app, so this one feature holds a runtime credential under hard limits:
+
+- A **dedicated worker app** that can only update users, supplied in Muse's own `.env` (`MUSE_TIER_WORKER_CLIENT_ID`, `MUSE_TIER_WORKER_CLIENT_SECRET`, `MUSE_TIER_USER_IDS`, optionally `MUSE_TIER_ENV_ID` and `MUSE_TIER_REGION`, which default to `MUSE_P1_ENV_ID` and `MUSE_P1_REGION`). Never `provisioning.json`, never committed. Its token endpoint auth must be client secret basic.
+- The only attribute ever written is `airlineMemberTier`; the only values are exactly `Premier Gold`, `Premier Silver` or clear; the only users are the ids in `MUSE_TIER_USER_IDS` (an id, an attribute name or a value can never come from a request: the body names only `standard`, `premium` or `none`).
+- The secret is write-only: never returned by an endpoint, never logged, never in an error, the page or a trace. The worker token is held in memory for its lifetime. Errors are PingOne's own code and message with ids, URLs and credentials removed.
+- Real only (refuses in Mock and when Real is not configured), same-origin writes, loopback bind and Host checks as the rest of the app, ten changes a minute, an 8 second timeout per request, one change at a time. The only hosts contacted are `auth.pingone.<region>` and `api.pingone.<region>`; the netguard counts them in Real and still refuses every outbound call in Mock (its self-test is unchanged and passes).
+- Tested against stubs only (`server/test/tier.test.js`). Agents never call a real tenant; the first real write is yours.
 
 ## Run from a clone
 

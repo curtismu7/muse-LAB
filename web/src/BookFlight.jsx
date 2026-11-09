@@ -24,6 +24,7 @@ const ROWS = [
 ];
 // Real: what the demo user's airlineMemberTier must be for the row to behave as listed (the owner flips it in the PingOne tenant).
 const REAL_TIER = { premium: 'Premier Gold expected', standard: 'Premier Silver expected', none: 'no airlineMemberTier expected' };
+
 const MOCK_TIER = { premium: 'Premium (Gold)', standard: 'Standard (Silver)', none: 'No tier set' };
 
 const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
@@ -71,11 +72,104 @@ function Trace({ hops }) {
   );
 }
 
-export default function BookFlight({ session, api, busy, guarded, signInWith, bookMock, onReset }) {
+// The Member tier card: one control for both modes. Mock sets the Mock PingOne user (the server's member). Real writes the PingOne user attribute
+// airlineMemberTier on the owner's demo users and shows what PingOne says it holds afterwards (a read-back), never what was asked for.
+const TIER_BUTTONS = [
+  { key: 'premium', label: 'Premier Gold', hint: 'premium' },
+  { key: 'standard', label: 'Premier Silver', hint: 'standard' },
+  { key: 'none', label: 'No tier set', hint: 'not premium' },
+];
+const heldLabel = (v) => (v === null || v === undefined ? 'No tier set' : v);
+const TIER_KEY_OF = { 'Premier Gold': 'premium', 'Premier Silver': 'standard' };
+
+function TierCard({ live, session, info, api, busy, onChanged }) {
+  const [state, setState] = useState(null);     // GET /api/booking/tier
+  const [result, setResult] = useState(null);   // the last switch or read in Real
+  const [working, setWorking] = useState(false);
+  const [problem, setProblem] = useState(null);
+  const attribute = info?.rules?.tierAttribute ?? 'airlineMemberTier';
+  const load = () => api('GET', '/api/booking/tier').then(setState).catch(() => setState(null));
+  useEffect(() => { load(); }, [api, live]);
+  const configured = state?.configured === true;
+  const users = (result ?? state?.last)?.users ?? [];
+  const readAll = users.length > 0 && users.every((u) => u.known);
+  const values = [...new Set(users.map((u) => u.value ?? null))];
+  const heldKey = live ? (readAll && values.length === 1 ? (values[0] === null ? 'none' : TIER_KEY_OF[values[0]] ?? null) : null) : session.member;
+  const mixed = live && readAll && values.length > 1;
+
+  const send = async (path, body) => {
+    setWorking(true); setProblem(null);
+    try {
+      const r = await api('POST', path, body);
+      if (live) setResult(r);
+      await load(); await onChanged?.();
+    } catch (e) {
+      // A refused or failed write still carries the honest per-user answer; show it, never a success.
+      if (e.body?.users) { setResult(e.body); await load(); } else setProblem(e.message);
+    } finally { setWorking(false); }
+  };
+  const read = () => send('/api/booking/tier/read');
+  useEffect(() => { if (live && configured) read(); }, [live, configured]); // eslint-disable-line react-hooks/exhaustive-deps
+  const off = busy || working || (live && !configured);
+
+  const current = live
+    ? (readAll ? (mixed ? 'The demo users differ' : heldLabel(values[0])) : users.length ? 'Could not read every user' : configured ? 'Reading PingOne...' : 'Not available')
+    : heldLabel(info?.members?.find((m) => m.key === session.member)?.tier);
+
+  return (
+    <section className="bk-tier" aria-label="Member tier" data-testid="tier-card" data-mode={live ? 'real' : 'mock'}>
+      <h3>Member tier</h3>
+      <p className="small muted">
+        {live
+          ? <>Real. Writes the PingOne user attribute <code>{attribute}</code> on your demo users, then reads them back. Authorize reads the same attribute, so run the booking again to see the decision change.</>
+          : <>Simulated. Sets the Mock PingOne user the stand-in Authorize reads (mimics <code>{attribute}</code>). Nothing leaves this machine.</>}
+      </p>
+      <p className="bk-tier__now" data-testid="tier-current">
+        <strong>{live ? 'PingOne holds' : 'Mock PingOne user holds'}:</strong> <span className="bk-chip" data-testid="tier-value">{current}</span>
+        {live && configured && state?.last?.at && <span className="small muted"> read {new Date(state.last.at).toLocaleTimeString()}</span>}
+      </p>
+      <div className="bk-tier__btns" role="group" aria-label="Choose the member tier">
+        {TIER_BUTTONS.map((b) => (
+          <button key={b.key} type="button" aria-pressed={heldKey === b.key} disabled={off} onClick={() => send('/api/booking/tier', { member: b.key })} data-testid={`tier-${b.key}`}>
+            {b.label}<span className="small"> ({b.hint})</span>
+          </button>
+        ))}
+        {live && <button type="button" onClick={read} disabled={off} data-testid="tier-read" title="Read what PingOne holds now. Changes nothing.">Check PingOne</button>}
+      </div>
+      {live && !configured && (
+        <p className="small bk-tier__off" role="status" data-testid="tier-unconfigured">
+          {state?.needs?.length > 0
+            ? <>Switching is off until these are set in Muse's own <code>.env</code>, then restart Muse: {state.needs.map((n, i) => <span key={n}>{i > 0 && ', '}<code>{n}</code></span>)}. See <code>.env.example</code>.</>
+            : <>Switching is off. {state?.explanation ?? 'The tier switch is not configured.'}</>}
+          {' '}You can still flip the user in PingOne yourself and run the rows.
+        </p>
+      )}
+      {mixed && <p className="small bk-tier__off" role="status">The demo users hold different tiers. Press a tier to set them all the same.</p>}
+      {problem && <p className="small bk-tier__bad" role="alert" data-testid="tier-error">{problem}</p>}
+      <div aria-live="polite" data-testid="tier-result">
+        {live && result && (
+          <>
+            {result.error && <p className="small bk-tier__bad" role="alert">{result.error}</p>}
+            {result.summary && <p className={`small ${result.ok ? 'bk-tier__ok' : 'bk-tier__bad'}`}>{result.ok ? 'Verified. ' : 'Not verified. '}{result.summary}</p>}
+            {result.users?.length > 0 && (
+              <ul className="small bk-tier__users">
+                {result.users.map((u) => (
+                  <li key={u.label}>{u.label}: {u.known ? heldLabel(u.value) : 'unknown'}{u.verified === true ? ' (verified)' : u.verified === false ? ' (NOT verified)' : ''}{u.writeError ? `. ${u.writeError}` : ''}{u.readError ? `. ${u.readError}` : ''}</li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+        {!live && <p className="small muted">The scenario rows below set their own tier when you run them; the card follows.</p>}
+      </div>
+    </section>
+  );
+}
+
+export default function BookFlight({ session, api, busy, guarded, signInWith, bookMock, onReset, onTierChanged }) {
   const live = session.mode === 'live';
   const [info, setInfo] = useState(null);
   const [caller, setCaller] = useState('agent');
-  const [member, setMember] = useState('standard');
   const [flight, setFlight] = useState('SH106');
   const [diagram, setDiagram] = useState(false);
   useEffect(() => { api('GET', '/api/flights').then(setInfo).catch(() => setInfo(null)); }, [api]);
@@ -83,6 +177,7 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
   const ledger = session.bookings ?? [];
   const fares = Object.fromEntries((info?.flights ?? []).map((f) => [f.id, f.fare]));
   const userOk = !live || session.live?.userLogin;
+  const member = session.member ?? 'standard';
 
   const runReal = async (flightId, who, quoted) => {
     const r = await api('POST', '/api/live/ask', { scenario: 'book', flightId, channel: who === 'human' ? 'user' : 'agent', ...(quoted !== undefined ? { quoted } : {}) });
@@ -114,6 +209,8 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
         ))}
       </div>
 
+      <TierCard live={live} session={session} info={info} api={api} busy={busy} onChanged={onTierChanged} />
+
       <div className="bk-who" role="group" aria-label="Who is booking">
         <label className="field"><span>Who is booking</span>
           <select value={caller} onChange={(e) => setCaller(e.target.value)} disabled={busy} data-testid="who-select">
@@ -128,15 +225,9 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
               : 'not reported yet. Run a row first.'}
             <br />
             <strong>Member tier:</strong> {b?.facts?.memberTier ?? 'not reported to Muse'}. Source: {info?.rules?.tierSourceReal ?? 'PingOne user attribute airlineMemberTier (read by Authorize)'}.
-            {' '}The demo user holds Premier Gold in your tenant; set it to Premier Silver to demo the airline rule.
+            {' '}Use the Member tier card to set Premier Gold or Premier Silver on the demo users.
           </p>
-        ) : (
-          <label className="field"><span>Mock PingOne user (mimics {info?.rules?.tierAttribute ?? 'airlineMemberTier'})</span>
-            <select value={member} onChange={(e) => setMember(e.target.value)} disabled={busy} data-testid="member-select">
-              {(info?.members ?? []).map((m) => <option key={m.key} value={m.key}>{`${m.label}: ${info.rules.tierAttribute} = ${m.tier ?? '(not set)'}`}</option>)}
-            </select>
-          </label>
-        )}
+        ) : null}
       </div>
 
       <h3>Scenarios</h3>
