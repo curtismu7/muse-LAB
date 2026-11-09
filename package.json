@@ -8,7 +8,7 @@
     "web"
   ],
   "scripts": {
-    "test": "npm test -w server",
+    "test": "npm test -w server && npm test -w web",
     "doctor": "node scripts/doctor.mjs",
     "build": "npm run build -w web",
     "start": "node server/src/index.js"

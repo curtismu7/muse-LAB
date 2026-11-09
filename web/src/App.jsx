@@ -10,6 +10,8 @@ import ThemeToggle from './ThemeToggle.jsx';
 import TextSize from './TextSize.jsx';
 import { parseIntent } from './intent.js';
 import ShelfLink from "./components/ShelfLink.jsx";
+// Opened from Customer Agent LAB (UC48, UC-MUSE1 and UC-MUSE2 route here): strip + header Back only, nothing preselected.
+import ReturnLink from "./return-link/ReturnLink.jsx";
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -290,6 +292,7 @@ export default function App() {
         <div className="page-band__copy">
           <p className="page-band__eyebrow">Personal Agent</p>
           <h1>{session.customer?.brandName ?? 'Personal Agent'}</h1>
+        <ReturnLink app="muse" variant="header" />
         <ShelfLink />
           <p className="page-band__summary">{session.customer?.agentName ?? 'Personal Agent'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
           <p className="page-band__links"><a href="/how-agent-connect-works.html">How it works</a><a href="/how-agent-connect-works.html#connect">How customers connect</a><a href="/clients.html">Claude, ChatGPT, Codex</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
@@ -342,6 +345,7 @@ export default function App() {
             {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
           </aside>
         )}
+        <ReturnLink app="muse" />
 
         {presenter && session.signedIn && (
           <p className="say">Say: each reply names the gate that decided, and why. Try a payment over 500, then the burst.</p>
