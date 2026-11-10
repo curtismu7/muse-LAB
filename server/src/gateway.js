@@ -3,7 +3,7 @@
 import { TOOLS } from './tools.js';
 import { runDetectionFlow } from './detect.js';
 import { assessCaller } from './protect.js';
-import { evaluateBooking, fareFor, flightId, memberFor } from './fares.js';
+import { evaluateBooking, fareFor, flightId, mockMember } from './fares.js';
 
 export const PAYMENT_APPROVAL_LIMIT = 500;
 export const EXPORT_ROW_CAP = 100;
@@ -29,14 +29,14 @@ export function fineCheck(tool, args = {}, ctx = {}) {
     return { result: 'allow', rule: `Payments up to ${PAYMENT_APPROVAL_LIMIT} go straight through` };
   }
   if (tool === 'flights.book') {
-    // The fare is the catalogue's, looked up by flight. args.fare, args.amount, args.quoted, args.tier and args.limit are never read:
+    // The fare is the catalogue's, looked up by flight. args.fare, args.amount, args.quoted, args.tier and args.limit are never read (the limit is ctx.limit, the Mock user's own setting):
     // a caller cannot lower the price that is judged, claim a tier, or raise its own limit. Who is calling and which member record
     // applies come from the session (ctx). The Mock member record stands in for the PingOne user (attribute airlineMemberTier), which in Real
     // PingOne Authorize reads itself; the gateway does not send a tier.
     const fare = fareFor(args.flightId);
     if (fare === null) return { result: 'deny', rule: `Unknown flight "${flightId(args.flightId).slice(0, 12)}": no fare in the catalogue` };
     // Mock stands in for two Authorize rules. Both are evaluated and every failure is reported. Over is a deny, never a step-up; exactly the limit passes.
-    const ev = evaluateBooking({ fare, actor: ctx.actor === 'human' ? 'human' : 'agent', member: memberFor(ctx.member) ?? memberFor('standard') });
+    const ev = evaluateBooking({ fare, actor: ctx.actor === 'human' ? 'human' : 'agent', member: mockMember(ctx.member, ctx.limit) });
     if (ev.failed.length) return { result: 'deny', rules: ev.failed, rule: ev.failed.map((r) => `Authorize rule (simulated) "${r.name}": ${r.message}`).join(' | ') };
     return { result: 'allow', rule: `Both booking rules pass (fare $${fare}, agent limit $${ev.limit}, member tier ${ev.tier})` };
   }
@@ -66,7 +66,7 @@ export function decide(ws, { tool, args = {}, now = Date.now(), via = 'muse', pr
   }
 
   const coarse = coarseCheck(ws.user, tool);
-  const fine = coarse.result === 'allow' ? fineCheck(tool, args, { actor: protect.actor, member: ws.member }) : null;
+  const fine = coarse.result === 'allow' ? fineCheck(tool, args, { actor: protect.actor, member: ws.member, limit: ws.agentLimit }) : null;
 
   let outcome = 'allowed';
   if (protect.deny || detect.verdict === 'block' || coarse.result === 'deny' || fine?.result === 'deny') outcome = 'blocked';

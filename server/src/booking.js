@@ -5,7 +5,7 @@
 // Real reads them from what the gateway actually answered, and says "not reported" for anything it did not send.
 // The member tier is not the gateway's to send: PingOne Authorize reads it from the PingOne user (attribute airlineMemberTier). Muse only
 // shows it when the answer happens to carry it, always with that source, and says "not reported to Muse" when it does not.
-import { BOOKING_CONTEXT, BOOKING_TOOL_NAME, MOCK_AGENT_CLIENT, PREMIUM_THRESHOLD, RULES, RULE_BY_CODE, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, evaluateBooking, fareFor, isPremium, memberFor, tierLabel } from './fares.js';
+import { BOOKING_CONTEXT, BOOKING_TOOL_NAME, MOCK_AGENT_CLIENT, PREMIUM_THRESHOLD, RULES, RULE_BY_CODE, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, evaluateBooking, fareFor, isPremium, mockMember, tierLabel } from './fares.js';
 
 export const bookingTool = (env = {}) => String(env.MUSE_BOOKING_TOOL || BOOKING_TOOL_NAME);
 
@@ -118,10 +118,10 @@ const mockAttributes = (fare, actor, member, tool = BOOKING_TOOL_NAME) => ({
 });
 
 // What Authorize would be asked and answer, from the catalogue fare and the member record (never from the claimed amount).
-export function mockAuthorize({ flightId, fine, actor = 'agent', member = 'standard', tool = BOOKING_TOOL_NAME }) {
+export function mockAuthorize({ flightId, fine, actor = 'agent', member = 'standard', limit, tool = BOOKING_TOOL_NAME }) {
   const fare = fareFor(flightId);
   if (!fine || fare === null) return null;
-  const m = memberFor(member) ?? memberFor('standard');
+  const m = mockMember(member, limit);
   const ev = evaluateBooking({ fare, actor, member: m });
   const rulesDenied = ev.failed.map((r) => deniedRule(r, { fare, limit: ev.limit, tier: ev.tier }, r.message));
   const passed = Object.values(RULES).filter((r) => !ev.failed.some((x) => x.id === r.id)).map((r) => ({ id: r.id, name: r.name, code: r.code, owner: r.owner, applies: !(r.id === RULES.agentSpendLimit.id && actor !== 'agent') }));
@@ -136,13 +136,13 @@ export function mockAuthorize({ flightId, fine, actor = 'agent', member = 'stand
   };
 }
 
-export function mockBooking({ flightId, quoted, fine, outcome, rules = [], result = null, actor = 'agent', member = 'standard', tool = BOOKING_TOOL_NAME }) {
+export function mockBooking({ flightId, quoted, fine, outcome, rules = [], result = null, actor = 'agent', member = 'standard', limit, tool = BOOKING_TOOL_NAME }) {
   const fare = fareFor(flightId);
-  const m = memberFor(member) ?? memberFor('standard');
+  const m = mockMember(member, limit);
   const q = Number.isFinite(Number(quoted)) && Number(quoted) > 0 ? Number(quoted) : fare ?? 0;
   const unknown = fare === null;
   const status = outcome === 'allowed' ? 'booked' : outcome === 'held' ? 'held' : 'denied';
-  const az = fine && !unknown ? mockAuthorize({ flightId, fine, actor, member, tool }) : null;
+  const az = fine && !unknown ? mockAuthorize({ flightId, fine, actor, member, limit, tool }) : null;
   const rulesDenied = (fine?.rules ?? []).map((r) => deniedRule(r, { fare, limit: m.agentSpendLimit, tier: tierLabel(m) }, r.message));
   const reason = fine?.result === 'deny' ? fine.rule : (rules.find(Boolean) ?? 'Blocked');
   const confirmation = result?.confirmationNumber;
