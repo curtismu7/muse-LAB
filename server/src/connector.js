@@ -9,7 +9,7 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { callGateway, delegate, exchangeCode, piflowFor, startSignIn } from './liveauth.js';
 import { SELF_MARK, simKeyOf } from './platforms.js';
 import { bookingTool, classifyBooking } from './booking.js';
-import { RULES, PREMIUM_THRESHOLD, fareFor, flightId as flightIdOf, listFlights } from './fares.js';
+import { DESTINATION_MAX, OPEN_FARE_FLIGHT, OPEN_FARE_MAX, PREMIUM_THRESHOLD, RULES, fareFor, flightById, flightForDestination, flightId as flightIdOf, listFlights, validAmount } from './fares.js';
 
 const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
@@ -25,14 +25,23 @@ export const toolsFor = (airline) => [
   },
   {
     name: 'book_flight',
-    description: airline ? `Books one ${airline} flight for the signed-in member, by flight id from list_flights. The fare comes from the airline's own catalogue, never from the caller. Authorization rules may deny or hold the booking; the result says which and nothing is booked unless it says Booked.` : 'Books one flight for the signed-in member, by flight id from list_flights. The fare comes from the airline\'s own catalogue, never from the caller. Authorization rules may deny or hold the booking; the result says which and nothing is booked unless it says Booked.',
-    inputSchema: { type: 'object', properties: { flightId: { type: 'string', maxLength: FLIGHT_ID_MAX, description: 'A flight id from list_flights, for example SH101.' } }, required: ['flightId'], additionalProperties: false },
+    description: `Books one ${airline ? `${airline} ` : ''}flight for the signed-in member. Say where to (destination), the price in US dollars the member wants to pay or is paying (amount), or a flight id from list_flights (flightId); give at least one. When amount is given, that price is what is booked and judged, and it takes precedence over the airline's listed fare. With only a destination or a flightId, the airline's listed fare is used. Authorization rules (the member's spending limit for AI agents, premium-only fares) may deny or hold the booking; the result says which, and nothing is booked unless it says Booked. You do NOT need a route, origin, travel date, passenger name or payment details: this demo books at once from just a price or a destination, so do not ask the member for them. Call this tool as soon as the member gives a price or a destination.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        destination: { type: 'string', maxLength: DESTINATION_MAX, description: 'Where the member wants to fly to: a city (for example London), a 3-letter airport code (LHR) or a route (AUS-LHR). list_flights shows the destinations the airline lists.' },
+        amount: { type: 'number', exclusiveMinimum: 0, maximum: OPEN_FARE_MAX, description: "The price in US dollars that the member wants to pay or is paying, for example 450 or 620.50 (at most 2 decimal places). Use it whenever the member names a price: it takes precedence over the airline's listed fare." },
+        flightId: { type: 'string', maxLength: FLIGHT_ID_MAX, description: 'A flight id from list_flights, for example SH101. Only needed when the member names a flight id.' },
+      },
+      anyOf: [{ required: ['destination'] }, { required: ['amount'] }, { required: ['flightId'] }],
+      additionalProperties: false,
+    },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
 ];
 
 // list_flights: the fixed, invented catalogue. No gateway call.
-export const flightsResult = () => ({ content: [{ type: 'text', text: JSON.stringify({ currency: 'USD', flights: listFlights().map((f) => ({ flightId: f.id, route: f.route, fare: f.fare })) }) }], isError: false });
+export const flightsResult = () => ({ content: [{ type: 'text', text: JSON.stringify({ currency: 'USD', flights: listFlights().map((f) => ({ flightId: f.id, route: f.route, city: f.city, fare: f.fare })) }) }], isError: false });
 
 const toolError = (text) => ({ content: [{ type: 'text', text }], isError: true });
 // Gateway-supplied words (a rule code, a tier, a reference) reach the agent only after they are cut down to plain, short text.
@@ -43,6 +52,54 @@ export const validFlight = (args) => {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > FLIGHT_ID_MAX) return null;
   const id = flightIdOf(raw);
   return fareFor(id) === null ? null : id;
+};
+
+const usd = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+const destinationList = () => listFlights().map((f) => `${f.city} (${f.route.split('-')[1]}) $${usd(f.fare)}`).join(', ');
+const HOW_TO = () => `Give a destination or a price in US dollars (for example amount 450), or both. Destinations: ${destinationList()}. Nothing was booked.`;
+// What a book_flight call asks for, from its arguments, or { error } (no gateway call). The price judged is either one the caller STATED (then the open-fare flight is booked at that price) or the airline's
+// catalogue fare for the flight a destination or flightId names. A stated price takes precedence; a destination or flightId that also names a catalogue flight then only supplies the wording and the "airline lists" note.
+export function resolveBooking(args) {
+  const a = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
+  const { destination, amount, flightId: fid } = a;
+  if (destination !== undefined && (typeof destination !== 'string' || destination.length > DESTINATION_MAX)) return { error: `destination must be a city, airport code or route of at most ${DESTINATION_MAX} characters. ${HOW_TO()}` };
+  if (fid !== undefined && (typeof fid !== 'string' || fid.length > FLIGHT_ID_MAX)) return { error: `flightId must be a flight id from list_flights, for example SH101. ${HOW_TO()}` };
+  if (amount !== undefined && !validAmount(amount)) return { error: `amount must be a price in US dollars: a number above 0, at most ${OPEN_FARE_MAX}, with at most 2 decimals. Nothing was booked.` };
+  const byId = typeof fid === 'string' && fid.trim() ? flightById(fid) : null;
+  const byDest = flightForDestination(destination);
+  if (byId && byDest && byId.id !== byDest.id) return { error: `destination ${plain(destination)} and flightId ${byId.id} name different flights. Give one of them. Nothing was booked.` };
+  const named = byId ?? byDest;
+  if (amount !== undefined) {
+    const unlisted = !named && typeof destination === 'string' && destination.trim() ? plain(destination) : undefined;
+    return { plan: { flight: OPEN_FARE_FLIGHT, amount, source: 'stated', city: named?.city, listed: named?.fare, unlisted: unlisted || undefined } };
+  }
+  if (named) return { plan: { flight: named.id, amount: named.fare, source: 'catalogue', city: named.city, listed: named.fare } };
+  const given = typeof destination === 'string' && destination.trim() ? `"${plain(destination)}" is not a destination this airline lists. ` : typeof fid === 'string' && fid.trim() ? `${plain(fid, 16)} is not a flight id this airline lists. ` : '';
+  return { error: `${given}${HOW_TO()}` };
+}
+// The plain-words description of what was booked: "a flight to London for $620 (price as you stated it)".
+const planWords = (plan, fare) => `a flight${plan.city ? ` to ${plan.city}` : ''} for $${usd(fare)} (${plan.source === 'stated' ? 'price as you stated it' : 'airline price'})`;
+// The sentence for a stated price that differs from what the airline lists for the named destination, and for a destination the airline does not list.
+export function planNote(plan) {
+  if (plan?.source !== 'stated') return '';
+  const parts = [];
+  if (plan.listed !== undefined && plan.listed !== plan.amount) parts.push(`You asked for $${usd(plan.amount)}; the airline lists ${plan.city} at $${usd(plan.listed)}`);
+  if (plan.unlisted) parts.push(`The airline does not list "${plan.unlisted}", so only your price was used`);
+  return parts.join('. ');
+}
+export const withNote = (result, plan) => {
+  const note = planNote(plan);
+  if (!note) return result;
+  const [first, ...rest] = result.content;
+  const booked = !result.isError && /^Booked /.test(first.text);
+  return { ...result, content: [{ type: 'text', text: booked ? `${first.text} ${note}${plan.listed !== undefined && plan.listed !== plan.amount ? '; booked at your price' : ''}.` : `${note}. ${first.text}` }, ...rest] };
+};
+// The gateway's own refusals of a stated price (the open-fare rule), in words an agent can act on. Authorize was not asked.
+const OPEN_FARE_REFUSALS = {
+  open_fare_untrusted: "The gateway would not take a stated price from this connector: it only does so for its trusted caller, and the connector's trusted-caller setting for the gateway is missing or wrong (see the README). Nothing was booked.",
+  open_fare_bad_amount: 'The gateway did not accept the stated price (it must be above 0, at most 100000, with at most 2 decimals). Nothing was booked.',
+  unknown_flight_fare: 'The gateway does not yet support booking at a stated price (the open fare is not in its data). Nothing was booked.',
+  unknown_flight: 'The airline server does not support booking at a stated price yet. Nothing was booked.',
 };
 
 // The two Authorize statement codes for a missing or mismatched user consent (the signed-in user's may_act).
@@ -81,19 +138,22 @@ export function statementLimit(statements) {
 }
 
 // What muse.ai is told, from what the gateway answered. Booked only for HTTP 200 with booked true; every other path says nothing was booked or that no booking was confirmed.
-export function bookingToolResult(bk, flight, { bridge = false, limit = null } = {}) {
-  const fare = typeof bk.fare === 'number' ? bk.fare : fareFor(flight);
+export function bookingToolResult(bk, flight, { bridge = false, limit = null, plan = null } = {}) {
+  const fare = typeof bk.fare === 'number' ? bk.fare : plan ? plan.amount : fareFor(flight);
+  const stated = plan?.source === 'stated';
+  const costs = stated ? `your stated price is $${usd(fare)}` : `${flight} costs $${fare}`;
+  const what = stated ? 'the flight at your stated price' : flight;
   if (bk.status === 'booked') {
     const ref = plain(bk.confirmation, 60);
-    return { content: [{ type: 'text', text: `Booked ${flight} for $${fare}.${ref ? ` Booking reference: ${ref}.` : ''}` }], isError: false };
+    return { content: [{ type: 'text', text: `Booked ${plan ? planWords(plan, fare) : `${flight} for $${fare}`}.${ref ? ` Booking reference: ${ref}.` : ''}` }], isError: false };
   }
   if (bk.status === 'denied') {
     const codes = (bk.evidence?.statements ?? []).map((s) => plain(s.code, 80)).filter(Boolean);
     const parts = [];
     // The number comes from the deny statement itself, else from what PingOne holds for this user (read in this call); never from the audit trail's AgentSpendLimit parameter. No source, no number.
     const shownLimit = statementLimit(bk.evidence?.statements) ?? (Number.isSafeInteger(limit) && limit > 0 ? limit : undefined);
-    if (codes.includes(RULES.agentSpendLimit.code)) parts.push(`an AI agent cannot buy a ticket over your limit (${flight} costs $${fare}; ${shownLimit !== undefined ? `your limit is $${shownLimit}` : 'your limit was not reported'})`);
-    if (codes.includes(RULES.premiumOnly.code)) parts.push(`fares over $${PREMIUM_THRESHOLD} are for premium members only (${flight} costs $${fare}; ${bk.facts?.memberTier ? `your member tier is ${plain(bk.facts.memberTier)}` : 'your member tier was not reported'})`);
+    if (codes.includes(RULES.agentSpendLimit.code)) parts.push(`an AI agent cannot buy a ticket over your limit (${costs}; ${shownLimit !== undefined ? `your limit is $${shownLimit}` : 'your limit was not reported'})`);
+    if (codes.includes(RULES.premiumOnly.code)) parts.push(`fares over $${PREMIUM_THRESHOLD} are for premium members only (${costs}; ${bk.facts?.memberTier ? `your member tier is ${plain(bk.facts.memberTier)}` : 'your member tier was not reported'})`);
     const consent = codes.some((c) => CONSENT_CODES.includes(c));
     const other = codes.filter((c) => c !== RULES.agentSpendLimit.code && c !== RULES.premiumOnly.code && !CONSENT_CODES.includes(c));
     if (consent) {
@@ -103,7 +163,7 @@ export function bookingToolResult(bk, flight, { bridge = false, limit = null } =
     return toolError(`The gateway did not allow this booking${other.length ? ` (${other.join(', ')})` : ''}. Nothing was booked.`);
   }
   if (bk.status === 'consent_pending') return toolError(`This booking is held for the member's approval. Nothing was booked yet. Do not book it again until the member has approved it.${bridge ? '' : " To let a booking within the member's limit skip this hold, the connector's trusted-caller setting for the gateway must be configured (see the README)."}`);
-  if (bk.status === 'not_booked') return toolError(`The airline server did not book ${flight}. Nothing was booked.`);
+  if (bk.status === 'not_booked') return toolError(`The airline server did not book ${what}. Nothing was booked.`);
   const http = bk.evidence?.httpStatus;
   if (http === 401) return toolError('The gateway did not accept the connector\'s sign-in (HTTP 401). Nothing was booked. Reconnect the connector and try again.');
   return toolError(`The gateway's answer${Number.isInteger(http) ? ` (HTTP ${http})` : ''} could not be read as a booking. No booking was confirmed.`);
@@ -124,11 +184,11 @@ export function answerItems(body) {
   return items.length ? items : null;
 }
 // Returns null when the gateway's 200 has no readable content (the caller then falls back to bookingToolResult). booked true is the only thing that is ever called booked, and not when the server also flagged isError.
-export function passThroughResult(bk, flight, body, redact = (x) => x) {
+export function passThroughResult(bk, flight, body, redact = (x) => x, plan = null) {
   const items = answerItems(body);
   if (!items) return null;
   const isError = body.result.isError === true;
-  const head = bk.status === 'booked' && !isError ? bookingToolResult(bk, flight).content[0].text : NOT_CONFIRMED;
+  const head = bk.status === 'booked' && !isError ? bookingToolResult(bk, flight, { plan }).content[0].text : NOT_CONFIRMED;
   return { content: [head, ...items.map((t) => scrubAnswer(redact(t)).slice(0, PASS_CHARS))].map((text) => ({ type: 'text', text })), isError };
 }
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -406,12 +466,13 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
       return cache.get(userId);
     };
   };
-  // book_flight: the caller supplies only the flight id. Muse sends flight_number plus amount = the catalogue fare for that flight (never a caller value): the airline MCP server needs an amount to book
-  // (it answers 'A positive ticket price is required' without one), and the gateway still sets the amount Authorize decides on from its own catalogue.
+  // book_flight: the caller names a destination, a flight id, a price, or some of them (resolveBooking). With a stated price Muse books the open-fare flight at that price (the gateway accepts it only from this trusted
+  // connector); otherwise it sends the catalogue flight plus the catalogue fare (never a caller value), which the gateway also sets from its own catalogue. The airline MCP server needs an amount to book.
   async function bookFlight(args, session) {
     const facts = factsFor();
-    const flight = validFlight(args);
-    if (!flight) return toolError('flightId must be a flight id from list_flights, for example SH101. Nothing was booked.');
+    const { plan, error } = resolveBooking(args);
+    if (error) return toolError(error);
+    const flight = plan.flight;
     try {
       const tool = bookingTool(env);
       // The consent bridge (owner-approved 2026-11-09): the user accepted the "act for you" screen at sign-in, and a session holding a delegated token means they did. Only here, only with
@@ -425,7 +486,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
         limit = limitHeaderValue((await facts(session.userId)).limit);
         if (limit) bridge[LIMIT_HEADER] = limit;
       }
-      const steps = await askGateway(session, tool, { flight_number: flight, amount: fareFor(flight) }, bridge);
+      const steps = await askGateway(session, tool, { flight_number: flight, amount: plan.amount }, bridge);
       const step9 = steps.find((x) => x.n === 9);
       if (!step9) {
         const last = steps.at(-1);
@@ -436,14 +497,17 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
         console.log(`[connector] book_flight ${flight} -> no answer (${plain(step9.error, 40)})`);
         return toolError('The gateway did not answer the booking call in time. No booking was confirmed, so do not assume it was booked; check before trying again.');
       }
-      const bk = classifyBooking(step9, { flightId: flight, tool });
-      console.log(`[connector] book_flight ${flight} -> ${bk.status} (HTTP ${bk.evidence?.httpStatus ?? 'none'})`);
+      const bk = classifyBooking(step9, { flightId: flight, quoted: plan.source === 'stated' ? plan.amount : undefined, tool });
+      console.log(`[connector] book_flight ${flight} (${plan.source}) -> ${bk.status} (HTTP ${bk.evidence?.httpStatus ?? 'none'})`);
       const safe = scrub(bk);
+      // The open-fare rule's own refusals (HTTP 403 with an error name, Authorize not asked) get their own plain message.
+      const refusal = step9.response?.status === 403 && plan.source === 'stated' ? OPEN_FARE_REFUSALS[step9.response.body?.error] : undefined;
+      if (refusal) return withNote(toolError(refusal), plan);
       // A 200 carrying content is the MCP server's own answer: muse.ai gets it (and only booked true is ever called booked).
-      if (step9.response?.status === 200) { const through = passThroughResult(safe, flight, step9.response.body, redact); if (through) return through; }
+      if (step9.response?.status === 200) { const through = passThroughResult(safe, flight, step9.response.body, redact, plan); if (through) return withNote(through, plan); }
       // The limit in a spend-limit denial: the deny statement's own number if it has one, else what PingOne holds for this user (read once per call, never waited on twice).
       const wantsLimit = safe.status === 'denied' && (safe.evidence?.statements ?? []).some((x) => x.code === RULES.agentSpendLimit.code) && statementLimit(safe.evidence.statements) === undefined;
-      return bookingToolResult(safe, flight, { bridge: Boolean(bridgeSecret), limit: wantsLimit ? (await facts(session.userId)).limit : null });
+      return withNote(bookingToolResult(safe, flight, { bridge: Boolean(bridgeSecret), limit: wantsLimit ? (await facts(session.userId)).limit : null, plan }), plan);
     } catch (e) { console.log(redact(`[connector] book_flight failed: ${e?.name}: ${e?.cause?.code ?? e?.message}`)); return toolError('The gateway could not be reached. No booking was confirmed, so do not assume it was booked.'); }
   }
   async function handle(msg, session) {

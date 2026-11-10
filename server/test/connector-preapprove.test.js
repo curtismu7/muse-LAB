@@ -123,7 +123,7 @@ test('a PingOne read that fails (429, 500, refused worker credential, dropped co
   for (const mode of ['429', '500', 'tokenfail', 'throw']) {
     await withApp(FULL, { state: newState({ limit: '1000', mode }) }, async (a) => {
       const r = await a.call('book_flight', { flightId: 'SH101' });
-      assert.equal(r.result.isError, false, mode); assert.match(text(r), /^Booked SH101/, mode);
+      assert.equal(r.result.isError, false, mode); assert.match(text(r), /^Booked a flight to Denver/, mode);
       const h = callHeaders(a)[0];
       assert.equal(hdr(h, LIM), undefined, mode); assert.equal(hdr(h, PRE), 'user-limit', mode);
       assert.equal(a.gwCall().length, 1, `${mode}: the booking was sent once`);
@@ -148,7 +148,7 @@ test('a user-facts read that throws, rejects, returns garbage or is slow never b
   for (const userFacts of reads) {
     await withApp(WITH_BRIDGE, { userFacts }, async (a) => {
       const r = await a.call('book_flight', { flightId: 'SH101' });
-      assert.equal(r.result.isError, false); assert.match(text(r), /^Booked SH101/);
+      assert.equal(r.result.isError, false); assert.match(text(r), /^Booked a flight to Denver/);
       assert.equal(hdr(callHeaders(a)[0], LIM), undefined); assert.equal(hdr(callHeaders(a)[0], PRE), 'user-limit');
       assert.equal(a.gwCall().length, 1);
     });
@@ -192,7 +192,7 @@ test('200 with booked true: the one-line summary first, then the MCP server\'s o
     const r = await a.call('book_flight', { flightId: 'SH101' });
     assert.equal(r.result.isError, false);
     assert.equal(r.result.content.length, 2);
-    assert.equal(r.result.content[0].text, 'Booked SH101 for $180. Booking reference: CONF-STUB-9.');
+    assert.equal(r.result.content[0].text, 'Booked a flight to Denver for $180 (airline price). Booking reference: CONF-STUB-9.');
     assert.deepEqual(JSON.parse(r.result.content[1].text), { booked: true, confirmationNumber: 'CONF-STUB-9', fare: 180, passenger: 'Stub Passenger' });
   });
 });
@@ -213,7 +213,7 @@ test('200 where the server did not say booked true (false, absent, plain text, a
       assert.equal(r.result.content[0].text, NOT_CONFIRMED, why);
       assert.match(r.result.content[1].text, re, why);
       assert.doesNotMatch(r.result.content[0].text, /^Booked/, why);
-      assert.ok(!r.result.content.some((c) => /^Booked SH101/.test(c.text)), `${why}: nothing says Booked SH101`);
+      assert.ok(!r.result.content.some((c) => /^Booked a flight to Denver/.test(c.text)), `${why}: nothing says Booked SH101`);
     });
   }
 });
@@ -225,7 +225,7 @@ test('200 with isError true: isError comes from the MCP result, and even booked 
     assert.equal(r.result.isError, true); assert.equal(r.result.content[0].text, NOT_CONFIRMED); assert.match(r.result.content[1].text, /airline system down/);
     a.script.book = answer([T(JSON.stringify({ booked: true, confirmationNumber: 'C1' }))], { isError: true });
     const r2 = await a.call('book_flight', { flightId: 'SH101' });
-    assert.equal(r2.result.isError, true); assert.equal(r2.result.content[0].text, NOT_CONFIRMED); assert.ok(!r2.result.content.some((c) => /^Booked SH101/.test(c.text)));
+    assert.equal(r2.result.isError, true); assert.equal(r2.result.content[0].text, NOT_CONFIRMED); assert.ok(!r2.result.content.some((c) => /^Booked a flight to Denver/.test(c.text)));
     // isError that is not the boolean true counts as false.
     a.script.book = answer([T('ok')], { isError: 'yes' });
     assert.equal((await a.call('book_flight', { flightId: 'SH101' })).result.isError, false);
@@ -287,7 +287,7 @@ test('booked true with a second text item: the summary comes first and both of t
   await withApp(WITH_BRIDGE, {}, async (a) => {
     a.script.book = answer([T(JSON.stringify({ booked: true, confirmationNumber: 'C2', fare: 320 })), T('Check in opens 24 hours before departure.')]);
     const r = await a.call('book_flight', { flightId: 'SH102' });
-    assert.deepEqual(r.result.content.map((c) => c.text.slice(0, 22)), ['Booked SH102 for $320.', '{"booked":true,"confir', 'Check in opens 24 hour']);
+    assert.deepEqual(r.result.content.map((c) => c.text.slice(0, 22)), ['Booked a flight to Sea', '{"booked":true,"confir', 'Check in opens 24 hour']);
   });
 });
 
@@ -406,13 +406,13 @@ test('end to end against the rule-applying stub stack: within the limit the MCP 
     const book = async (flightId) => a.call('book_flight', { flightId });
     // No limit held: Authorize's default of 500 applies.
     let r = await book('SH103');
-    assert.equal(r.result.isError, false); assert.match(r.result.content[0].text, /^Booked SH103 for \$480\. Booking reference: CONF-STUB-SH103\.$/); assert.match(r.result.content[1].text, /"passenger":"Stub Passenger"/);
+    assert.equal(r.result.isError, false); assert.match(r.result.content[0].text, /^Booked a flight to Boston for \$480 \(airline price\)\. Booking reference: CONF-STUB-SH103\.$/); assert.match(r.result.content[1].text, /"passenger":"Stub Passenger"/);
     r = await book('SH106');
     assert.equal(r.result.isError, true); assert.match(text(r), /over your limit \(SH106 costs \$620; your limit was not reported\)/); assert.doesNotMatch(text(r), /^Booked/);
     // The owner raises the limit in PingOne: the fare between the old default and the new limit now goes straight through, with no hold.
     state.limit = '1000';
     r = await book('SH106');
-    assert.equal(r.result.isError, false); assert.match(r.result.content[0].text, /^Booked SH106 for \$620\./);
+    assert.equal(r.result.isError, false); assert.match(r.result.content[0].text, /^Booked a flight to London for \$620 \(airline price\)\./);
     assert.equal(hdr(callHeaders(a).at(-1), LIM), '1000');
     // A fare over the raised limit is still blocked; the premium-only rule is judged on its own (SH107 is 940, Premier Silver).
     state.limit = '900';
@@ -430,7 +430,7 @@ test('degraded: tier switch not configured and a raised PingOne limit: a fare ab
   await withApp(WITH_BRIDGE, { state }, async (a) => {
     a.script.book = realStackGateway({ state });
     const within = await a.call('book_flight', { flightId: 'SH103' });
-    assert.match(text(within), /^Booked SH103/, 'within the gateway default of 500 it passes');
+    assert.match(text(within), /^Booked a flight to Boston/, 'within the gateway default of 500 it passes');
     const held = await a.call('book_flight', { flightId: 'SH106' });
     assert.equal(held.result.isError, true); assert.match(text(held), /held for the member's approval/); assert.doesNotMatch(text(held), /^Booked/);
     assert.equal(hdr(callHeaders(a).at(-1), LIM), undefined);
@@ -455,4 +455,169 @@ test('the gateway URL is the only place the headers go (the PingOne reads carry 
       assert.ok(!lowerKeys(x.init.headers).includes('x-evil'));
     }
   });
+});
+
+// ---------------------------------------------------------------- book_flight by price or destination, against the rule-applying stub stack
+// The stub gateway implements the open-fare rule (helpers/preapprove-stack.js): SH000 takes the STATED amount only from the trusted caller, with a valid amount; every other flight uses the catalogue fare.
+
+const stackBook = async (a, args) => a.call('book_flight', args);
+const gwArgs = (a) => a.gwCall().at(-1).args;
+
+test('stated price vs the rule stack: over the limit is blocked with the numbers, within it books and says the price was stated', async () => {
+  const state = newState({ limit: null });
+  await withApp(FULL, { state }, async (a) => {
+    a.script.book = realStackGateway({ state });
+    // "Book me a flight for $620", limit 500 (Authorize's default).
+    let r = await stackBook(a, { amount: 620 });
+    assert.equal(r.result.isError, true); assert.deepEqual(gwArgs(a), { flight_number: 'SH000', amount: 620 });
+    assert.match(text(r), /an AI agent cannot buy a ticket over your limit \(your stated price is \$620; your limit was not reported\)/); assert.doesNotMatch(text(r), /^Booked|SH000/);
+    // "Book me a flight for $450".
+    r = await stackBook(a, { amount: 450 });
+    assert.equal(r.result.isError, false); assert.deepEqual(gwArgs(a), { flight_number: 'SH000', amount: 450 });
+    assert.equal(r.result.content[0].text, 'Booked a flight for $450 (price as you stated it). Booking reference: CONF-STUB-SH000.'); assert.match(r.result.content[1].text, /"fare":450/);
+    // Exactly the limit passes (strictly over is denied).
+    r = await stackBook(a, { amount: 500 }); assert.equal(r.result.isError, false);
+    r = await stackBook(a, { amount: 500.01 }); assert.equal(r.result.isError, true);
+    // The owner raises the limit in PingOne: "for $620" now books.
+    state.limit = '1000';
+    r = await stackBook(a, { amount: 620 });
+    assert.equal(r.result.isError, false); assert.match(text(r), /^Booked a flight for \$620 \(price as you stated it\)\./); assert.equal(hdr(callHeaders(a).at(-1), LIM), '1000');
+  });
+});
+
+test('destination vs the rule stack: the airline price is judged; a stated price replaces it and the answer says both', async () => {
+  const state = newState({ limit: null });
+  await withApp(FULL, { state }, async (a) => {
+    a.script.book = realStackGateway({ state });
+    // "to London": the airline lists $620, over the limit of 500.
+    let r = await stackBook(a, { destination: 'London' });
+    assert.equal(r.result.isError, true); assert.deepEqual(gwArgs(a), { flight_number: 'SH106', amount: 620 });
+    assert.match(text(r), /over your limit \(SH106 costs \$620; your limit was not reported\)/); assert.doesNotMatch(text(r), /^Booked/);
+    // "to Denver": $180.
+    r = await stackBook(a, { destination: 'Denver' });
+    assert.equal(r.result.isError, false); assert.deepEqual(gwArgs(a), { flight_number: 'SH101', amount: 180 });
+    assert.match(r.result.content[0].text, /^Booked a flight to Denver for \$180 \(airline price\)\. Booking reference: CONF-STUB-SH101\.$/);
+    // "to Denver for $450": booked at $450 with the note.
+    r = await stackBook(a, { destination: 'Denver', amount: 450 });
+    assert.equal(r.result.isError, false); assert.deepEqual(gwArgs(a), { flight_number: 'SH000', amount: 450 });
+    assert.match(r.result.content[0].text, /^Booked a flight to Denver for \$450 \(price as you stated it\)\. Booking reference: CONF-STUB-SH000\. You asked for \$450; the airline lists Denver at \$180; booked at your price\.$/);
+    // "to London for $620" is the same price: no note, and the limit still blocks it.
+    r = await stackBook(a, { destination: 'London', amount: 620 });
+    assert.equal(r.result.isError, true); assert.match(text(r), /your stated price is \$620/); assert.doesNotMatch(text(r), /airline lists/);
+    // "to London for $450": a stated price under the limit books, whatever London lists.
+    r = await stackBook(a, { destination: 'London', amount: 450 });
+    assert.equal(r.result.isError, false); assert.match(r.result.content[0].text, /^Booked a flight to London for \$450 \(price as you stated it\)\..*the airline lists London at \$620; booked at your price\.$/);
+  });
+});
+
+test('premium-only judges a stated price too: $940 with a non-premium tier is blocked, with a premium tier and a high limit it books', async () => {
+  const state = newState({ limit: '2000', tier: 'Premier Silver' });
+  await withApp(FULL, { state }, async (a) => {
+    a.script.book = realStackGateway({ state });
+    let r = await stackBook(a, { amount: 940 });
+    assert.equal(r.result.isError, true); assert.match(text(r), /fares over \$750 are for premium members only \(your stated price is \$940; your member tier is Premier Silver\)/); assert.doesNotMatch(text(r), /AI agent cannot|^Booked/);
+    r = await stackBook(a, { amount: 750 }); assert.equal(r.result.isError, false, 'exactly 750 is not over 750');
+    state.tier = 'Premier Gold';
+    r = await stackBook(a, { amount: 940 });
+    assert.equal(r.result.isError, false); assert.match(text(r), /^Booked a flight for \$940 \(price as you stated it\)\./);
+    // Both rules at once: a low limit and a stated premium price.
+    state.limit = '500'; state.tier = 'Premier Silver';
+    r = await stackBook(a, { amount: 940 });
+    assert.match(text(r), /over your limit \(your stated price is \$940; your limit is \$500\)|over your limit \(your stated price is \$940; your limit was not reported\)/); assert.match(text(r), /premium members only/);
+  });
+});
+
+test('held 428: a stated price over the gateway default with no pre-approval limit is held, not booked', async () => {
+  const state = newState({ limit: '1000' });
+  await withApp(WITH_BRIDGE, { state }, async (a) => {
+    a.script.book = realStackGateway({ state });
+    assert.match(text(await stackBook(a, { amount: 450 })), /^Booked a flight for \$450/);
+    const held = await stackBook(a, { amount: 620 });
+    assert.equal(held.result.isError, true); assert.match(text(held), /held for the member's approval/); assert.match(text(held), /Nothing was booked yet/); assert.doesNotMatch(text(held), /Booked/);
+    const heldNote = await stackBook(a, { destination: 'Denver', amount: 620 });
+    assert.match(text(heldNote), /^You asked for \$620; the airline lists Denver at \$180\. This booking is held/); assert.doesNotMatch(text(heldNote), /Booked/);
+  });
+});
+
+test('open-fare fails closed at the gateway for an untrusted connector: a clear message, nothing booked; catalogue flights are unaffected', async () => {
+  const state = newState({ limit: '1000' });
+  // No bridge secret: the connector is not a trusted caller.
+  await withApp(TIER_ON, { state }, async (a) => {
+    a.script.book = realStackGateway({ state });
+    const r = await stackBook(a, { amount: 450 });
+    assert.equal(r.result.isError, true); assert.match(text(r), /would not take a stated price from this connector/); assert.match(text(r), /trusted-caller setting/); assert.match(text(r), /Nothing was booked/); assert.doesNotMatch(text(r), /^Booked|open_fare|SH000/);
+    assert.deepEqual(gwArgs(a), { flight_number: 'SH000', amount: 450 });
+    for (const h of [PRE, LIM, 'x-internal-gateway-secret']) assert.equal(hdr(callHeaders(a)[0], h), undefined, `no ${h} without the secret`);
+    const cat = await stackBook(a, { destination: 'Denver' });
+    assert.match(text(cat), /^Booking denied: you have not authorized this agent/, 'a catalogue flight gets today\'s consent message');
+  });
+  // A wrong secret is the same.
+  await withApp({ MUSE_GATEWAY_INTERNAL_SECRET: 'some-other-secret-not-real-0099', ...TIER_ON }, { state }, async (a) => {
+    a.script.book = realStackGateway({ state });
+    assert.match(text(await stackBook(a, { amount: 450 })), /would not take a stated price/);
+  });
+});
+
+test('headers are unchanged: the consent bridge and pre-approval ride only on the book_flight tools/call, for a stated price too', async () => {
+  const state = newState({ limit: '1000' });
+  await withApp(FULL, { state }, async (a) => {
+    a.script.book = realStackGateway({ state });
+    for (const args of [{ amount: 450 }, { destination: 'Denver' }, { destination: 'Denver', amount: 450 }, { flightId: 'SH103' }, { destination: 'Nowhere', amount: 450 }]) {
+      const before = a.gwCall().length;
+      assert.equal((await stackBook(a, args)).result.isError, false, JSON.stringify(args));
+      const h = a.gwCall()[before].init.headers;
+      assert.equal(hdr(h, PRE), 'user-limit'); assert.equal(hdr(h, LIM), '1000'); assert.equal(hdr(h, 'x-internal-gateway-secret'), BRIDGE_SECRET); assert.equal(hdr(h, 'X-May-Act-Sub'), ACTOR);
+    }
+    for (const x of a.gw().filter((y) => y.method !== 'tools/call')) for (const k of [PRE, LIM, 'x-internal-gateway-secret', 'x-may-act-sub']) assert.equal(hdr(x.init.headers, k), undefined, `${x.method} has no ${k}`);
+    // Bad input sends nothing at all, so no header can leave either.
+    const n = a.gw().length;
+    await stackBook(a, { amount: -1 }); await stackBook(a, {}); await a.call('list_flights', {});
+    assert.equal(a.gw().length, n);
+    // The other tool never carries them.
+    await a.call('get_loyalty_status', {});
+    assert.equal(hdr(a.gwCall().at(-1).init.headers, PRE), undefined);
+  });
+});
+
+test('no secret, token or raw body reaches the agent for a stated price, whatever the stub gateway echoes', async () => {
+  const state = newState({ limit: '1000' });
+  await withApp(FULL, { state }, async (a) => {
+    const leak = `${BRIDGE_SECRET} Bearer abcdefghijklmnop eyJhbGciOiJub25lIn0.eyJhYmNkZWZnaA.c2lnbmF0dXJl https://gw.example/muse-ig/mcp`;
+    const runs = [
+      () => json(200, stub.mcp({ confirmationNumber: BRIDGE_SECRET, fare: 450, note: leak })),
+      () => json(403, { error: 'open_fare_untrusted', message: leak }),
+      () => json(403, { error: 'access_denied' }, audit({ parameters: { Amount: '620' }, statements: [{ code: 'mcp-airline-agent-spend-limit', payload: { message: leak } }] }, { note: leak })),
+      () => json(428, { error: 'consent_pending', detail: leak }),
+    ];
+    for (const [i, fn] of runs.entries()) {
+      a.script.book = fn;
+      const t = text(await stackBook(a, { destination: 'Denver', amount: 450 }));
+      // A plain URL inside the airline server's own 200 answer is its content (only id-bearing URLs and tokens are scrubbed there); the error paths never carry the gateway URL.
+      for (const bad of [BRIDGE_SECRET, 'abcdefghijklmnop', 'eyJhYmNkZWZnaA', ...(i === 0 ? [] : ['gw.example'])]) assert.ok(!t.includes(bad), `leaked ${bad} (run ${i})`);
+    }
+  });
+});
+
+test('a stated booking the airline server itself refuses (booked false, bad_open_fare_amount) is passed on as NOT confirmed, never as booked', async () => {
+  const state = newState({ limit: '1000' });
+  await withApp(FULL, { state }, async (a) => {
+    a.script.book = () => json(200, { result: { content: [{ type: 'text', text: JSON.stringify({ booked: false, reason: 'bad_open_fare_amount', note: 'The quoted amount for an open-fare flight must be a positive number up to 100000 with at most 2 decimals.' }) }] } });
+    const r = await stackBook(a, { amount: 450 });
+    assert.equal(r.result.isError, false, 'the server answered; it is the content that says not booked');
+    assert.equal(r.result.content[0].text, NOT_CONFIRMED); assert.doesNotMatch(r.result.content[0].text, /^Booked/); assert.match(text(r), /bad_open_fare_amount/);
+    assert.ok(!r.result.content.some((c) => /^Booked/.test(c.text)));
+  });
+});
+
+test('bookingToolResult with a plan: booked wording by source, denial wording by source; no plan keeps the flight-id wording', () => {
+  const booked = { status: 'booked', fare: 450, confirmation: 'C-1' };
+  assert.equal(bookingToolResult(booked, 'SH000', { plan: { flight: 'SH000', amount: 450, source: 'stated' } }).content[0].text, 'Booked a flight for $450 (price as you stated it). Booking reference: C-1.');
+  assert.equal(bookingToolResult({ ...booked, fare: 620 }, 'SH106', { plan: { flight: 'SH106', amount: 620, source: 'catalogue', city: 'London' } }).content[0].text, 'Booked a flight to London for $620 (airline price). Booking reference: C-1.');
+  assert.equal(bookingToolResult({ ...booked, fare: 180 }, 'SH101').content[0].text, 'Booked SH101 for $180. Booking reference: C-1.');
+  for (const status of ['denied', 'consent_pending', 'not_booked', 'error', 'held', undefined]) {
+    for (const plan of [null, { flight: 'SH000', amount: 450, source: 'stated', city: 'Denver' }, { flight: 'SH101', amount: 180, source: 'catalogue', city: 'Denver' }]) {
+      const r = bookingToolResult({ status, fare: 450, evidence: null, facts: {} }, plan?.flight ?? 'SH101', { plan });
+      assert.equal(r.isError, true); assert.doesNotMatch(r.content[0].text, /^Booked/);
+    }
+  }
 });

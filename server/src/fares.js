@@ -57,6 +57,24 @@ export function fareFor(id) {
 
 export const listFlights = () => CATALOGUE.flights.map((f) => ({ ...f }));
 
+// ---- Booking by destination or by price (the Airline Connector's book_flight) ----------------------------------------------------
+// The open-fare flight: not in the catalogue. Its price is whatever is quoted, and only the trusted connector may quote it (the gateway enforces that).
+export const OPEN_FARE_FLIGHT = 'SH000';
+export const OPEN_FARE_MAX = 100000;
+export const DESTINATION_MAX = 40;
+// A stated price: a finite number above zero, at most 100000, at most two decimals. A string, an object, NaN or Infinity is never a price.
+export const validAmount = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= OPEN_FARE_MAX && Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;
+const norm = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+// The catalogue flight a destination names: by city, by 3-letter airport code, or by route string, case-insensitive. Nothing fuzzier. null when it names none.
+// Only a string of at most 40 characters can name a destination.
+export function flightForDestination(dest) {
+  if (typeof dest !== 'string' || dest.length > DESTINATION_MAX) return null;
+  const d = norm(dest);
+  if (!d) return null;
+  return CATALOGUE.flights.find((f) => norm(f.city) === d || norm(f.route) === d || f.route.split('-')[1].toLowerCase() === d) ?? null;
+}
+export const flightById = (id) => { const f = BY_ID.get(flightId(id)); return f ? { ...f } : null; };
+
 export const isPremium = (tier) => PREMIUM_TIERS.includes(tier);
 
 // Both rules, both always evaluated, strictly "over" (exactly the limit passes). actor: 'agent' | 'human'.
