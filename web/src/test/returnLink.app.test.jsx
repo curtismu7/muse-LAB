@@ -34,13 +34,13 @@ describe("return link", () => {
     for (const [h, f] of pins) expect(createHash("sha256").update(fs.readFileSync(path.join(dir, f))).digest("hex"), f).toBe(h);
   });
 
-  it("?from=customer-agent: banner first, strip right below, header Back in the page band", async () => {
+  it("?from=customer-agent: banner first, strip right below, header Back in the shell bar", async () => {
     window.history.replaceState(null, "", "/?from=customer-agent&uc=UC48&vertical=banking");
     render(<App />);
     const note = await screen.findByRole("note", NOTE);
     expect(note.textContent).toContain("UC48");
     expect(document.querySelector("section.chat > aside.banner").nextElementSibling).toBe(note);
-    expect(document.querySelector("header.page-band button.return-link--header")).not.toBeNull();
+    expect(document.querySelector("header.shell-bar button.return-link--header")).not.toBeNull();
     expect(screen.getAllByRole("button", { name: /Back to Customer Agent LAB/ })).toHaveLength(2);
   });
 

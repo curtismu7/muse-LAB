@@ -301,14 +301,18 @@ export default function App() {
   return (
     <main className={session.mode === 'live' ? 'app app--live' : 'app'}>
       {consentAsk && <ConsentModal ask={consentAsk} />}
-      <header className="page-band">
-        <div className="page-band__copy">
-          <p className="page-band__eyebrow">Personal Agent</p>
-          <h1>{session.customer?.brandName ?? 'Personal Agent'}</h1>
-        <ReturnLink app="muse" variant="header" />
-        <ShelfLink />
-          <p className="page-band__summary">{session.customer?.agentName ?? 'Personal Agent'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
-          <p className="page-band__links"><a href="/how-agent-connect-works.html">How it works</a><a href="/how-agent-connect-works.html#connect">How customers connect</a><a href="/clients.html">Claude, ChatGPT, Codex</a><a href="/diagram">Diagram</a><ThemeToggle className="on-band" /><TextSize className="on-band" /></p>
+      <header className="shell-bar">
+        <span className="shell-brand"><span className="shell-logo" aria-hidden="true">M</span> {session.customer?.brandName ?? 'Personal Agent'} <span className="shell-badge">{session.mode === 'live' ? 'Real' : 'Mock'}</span></span>
+        <nav className="shell-nav" aria-label="Site">
+          <a href="./" aria-current="page">Agent</a>
+          <a href="/how-agent-connect-works.html">How it works</a>
+          <a href="/how-agent-connect-works.html#connect">How customers connect</a>
+          <a href="/clients.html">Claude, ChatGPT, Codex</a>
+          <a href="/diagram">Diagram</a>
+        </nav>
+        <span className="shell-right">
+          <ShelfLink />
+          <ReturnLink app="muse" variant="header" />
           <div className="mode-toggle" role="group" aria-label="Mock or real PingOne">
             <span className="mode-toggle__label">PingOne</span>
             {[
@@ -325,17 +329,19 @@ export default function App() {
               );
             })}
           </div>
-        </div>
-        {session.signedIn && (
-          <div className="top-actions">
-            <label className="presenter">
-              <input type="checkbox" checked={presenter} onChange={(e) => setPresenter(e.target.checked)} />
-              Presenter
-            </label>
-            <button type="button" onClick={reset} disabled={busy}>Reset</button>
-            <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
-          </div>
-        )}
+          <ThemeToggle className="on-band" />
+          <TextSize className="on-band" />
+          {session.signedIn && (
+            <span className="top-actions">
+              <label className="presenter">
+                <input type="checkbox" checked={presenter} onChange={(e) => setPresenter(e.target.checked)} />
+                Presenter
+              </label>
+              <button type="button" onClick={reset} disabled={busy}>Reset</button>
+              <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
+            </span>
+          )}
+        </span>
       </header>
 
       <nav className="rail" aria-label="Sections">
@@ -359,6 +365,8 @@ export default function App() {
           </aside>
         )}
         <ReturnLink app="muse" />
+        <h1>{session.customer?.brandName ?? 'Personal Agent'}</h1>
+        <p className="muted">{session.customer?.agentName ?? 'Personal Agent'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
 
         {presenter && session.signedIn && (
           <p className="say">Say: each reply names the gate that decided, and why. Try a payment over 500, then the burst.</p>
