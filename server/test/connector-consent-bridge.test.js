@@ -147,7 +147,7 @@ test('a caller-supplied argument cannot change the headers', async () => {
     assert.equal(r.result.isError, false);
     const c = a.gw().find((x) => x.method === 'tools/call');
     assert.equal(hdr(c.init.headers, 'X-May-Act-Sub'), ACTOR); assert.equal(hdr(c.init.headers, 'x-internal-gateway-secret'), SECRET);
-    assert.deepEqual(JSON.parse(c.init.body).params.arguments, { flight_number: 'SH101' });
+    assert.deepEqual(JSON.parse(c.init.body).params.arguments, { flight_number: 'SH101', amount: 180 });
     assert.ok(!JSON.stringify(c.init).includes('evil'));
     // Request headers of the agent's own /mcp call are not forwarded either.
     const raw = await fetch(`${a.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-May-Act-Sub': 'evil', 'x-internal-gateway-secret': 'evil' }, body: '{}' });

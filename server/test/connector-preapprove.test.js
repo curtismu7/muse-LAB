@@ -26,7 +26,7 @@ test('with the bridge secret and a limit held in PingOne: the booking call (and 
     for (const x of calls.filter((y) => y.method !== 'tools/call')) for (const k of [PRE, LIM]) assert.equal(hdr(x.init.headers, k), undefined, `${x.method} has no ${k}`);
     for (const x of a.seen.filter((y) => y.url !== GW)) for (const k of [PRE, LIM]) assert.equal(hdr(x.init.headers, k), undefined, `${x.method} (PingOne) has no ${k}`);
     assert.deepEqual(a.state.reads, [USER], 'one PingOne read, of the signed-in user');
-    assert.deepEqual(a.gwCall()[0].args, { flight_number: 'SH101' });
+    assert.deepEqual(a.gwCall()[0].args, { flight_number: 'SH101', amount: 180 });
   });
 });
 

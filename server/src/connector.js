@@ -406,7 +406,8 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
       return cache.get(userId);
     };
   };
-  // book_flight: only the flight id goes to the gateway (flight_number); the gateway sets the fare from its own catalogue.
+  // book_flight: the caller supplies only the flight id. Muse sends flight_number plus amount = the catalogue fare for that flight (never a caller value): the airline MCP server needs an amount to book
+  // (it answers 'A positive ticket price is required' without one), and the gateway still sets the amount Authorize decides on from its own catalogue.
   async function bookFlight(args, session) {
     const facts = factsFor();
     const flight = validFlight(args);
@@ -424,7 +425,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
         limit = limitHeaderValue((await facts(session.userId)).limit);
         if (limit) bridge[LIMIT_HEADER] = limit;
       }
-      const steps = await askGateway(session, tool, { flight_number: flight }, bridge);
+      const steps = await askGateway(session, tool, { flight_number: flight, amount: fareFor(flight) }, bridge);
       const step9 = steps.find((x) => x.n === 9);
       if (!step9) {
         const last = steps.at(-1);

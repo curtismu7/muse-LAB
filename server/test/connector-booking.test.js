@@ -124,7 +124,7 @@ test('book_flight: a missing, wrong-type, unknown or oversized flightId is a too
   } finally { await a.close(); }
 });
 
-test('book_flight sends the flight id and nothing else; a caller-supplied fare, amount or flight_number is never forwarded', async () => {
+test('book_flight sends the flight id and the CATALOGUE fare, never a caller-supplied fare, amount or flight_number', async () => {
   const a = await boot();
   try {
     const r = await a.call('book_flight', { flightId: ' sh101 ', fare: 1, amount: 1, price: 1, quoted: 1, flight_number: 'SH109', tier: 'Premier Gold', agentSpendLimit: 99999 });
@@ -132,7 +132,7 @@ test('book_flight sends the flight id and nothing else; a caller-supplied fare, 
     const calls = a.gwCalls();
     assert.equal(calls.length, 1);
     assert.equal(calls[0].params.name, 'book_airline_flight');
-    assert.deepEqual(calls[0].params.arguments, { flight_number: 'SH101' });
+    assert.deepEqual(calls[0].params.arguments, { flight_number: 'SH101', amount: 180 });
     const sent = a.seen.filter((x) => x.url === GW).map((x) => x.init.headers.authorization);
     assert.ok(sent.length >= 3 && sent.every((h) => h === `Bearer ${DELEGATED}`), 'the delegated token goes to the gateway, not the agent\'s');
     const t = a.seen.find((x) => x.url === GW && JSON.parse(x.init.body).method === 'tools/call');
