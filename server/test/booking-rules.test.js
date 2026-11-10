@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../src/index.js';
 import { fineCheck } from '../src/gateway.js';
-import { AGENT_LIMIT_DEFAULT, MEMBERS, PREMIUM_THRESHOLD, PREMIUM_TIERS, RULES, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, evaluateBooking, fareFor, listFlights } from '../src/fares.js';
+import { AGENT_LIMIT_DEFAULT, MEMBERS, PREMIUM_THRESHOLD, PREMIUM_TIERS, RULES, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, evaluateBooking, fareFor, listFlights, mockMember } from '../src/fares.js';
 import { AUDIT_CAP, auditEvidence, classifyBooking, parseAuditTrail } from '../src/booking.js';
 
 const A = RULES.agentSpendLimit.id;
@@ -88,6 +88,23 @@ test('unknown or malformed flights are denied as unknown, and a garbage member o
   for (const member of ['gold', '__proto__', 'constructor', undefined, 7]) assert.deepEqual(fineCheck('flights.book', { flightId: 'SH107' }, { actor: 'human', member }).rules.map((x) => x.id), [B]);
   // an unknown actor is judged as an agent (rule A applies)
   assert.deepEqual(fineCheck('flights.book', { flightId: 'SH106' }, { actor: 'robot', member: 'premium' }).rules.map((x) => x.id), [A]);
+});
+
+test('the Mock agent limit: mockMember applies a whole-dollar limit, anything else keeps the default, and the gateway judges with it', () => {
+  assert.equal(mockMember('standard').agentSpendLimit, 500);
+  assert.equal(mockMember('premium', 1000).agentSpendLimit, 1000);
+  for (const bad of [null, undefined, 0, -5, 12.5, '800', NaN, Infinity, {}]) assert.equal(mockMember('standard', bad).agentSpendLimit, 500, String(bad));
+  assert.equal(MEMBERS.standard.agentSpendLimit, 500, 'the shared record is never mutated');
+  assert.equal(mockMember('nope', 250).tier, 'Premier Silver', 'an unknown member falls back to standard, with the limit');
+  const book = (flight, actor, member, limit, args = {}) => fineCheck('flights.book', { flightId: flight, ...args }, { actor, member, limit });
+  assert.equal(book('SH106', 'agent', 'standard', 1000).result, 'allow', '$620 under a $1000 limit');
+  assert.equal(book('SH106', 'agent', 'standard', undefined).result, 'deny', 'no limit means 500');
+  assert.equal(book('SH103', 'agent', 'standard', 250).result, 'deny', '$480 over a $250 limit');
+  assert.equal(book('SH103', 'agent', 'standard', 480).result, 'allow', 'exactly the limit passes');
+  assert.equal(book('SH107', 'agent', 'premium', 1000).result, 'allow', '$940 under $1000 and premium');
+  assert.deepEqual(book('SH107', 'agent', 'standard', 1000).rules.map((r) => r.id), [B], 'under the limit, only the airline rule fires');
+  assert.equal(book('SH107', 'human', 'premium', 250).result, 'allow', 'the limit only binds an agent');
+  assert.equal(book('SH106', 'agent', 'standard', 500, { limit: 99999, agentSpendLimit: 99999 }).result, 'deny', 'a caller cannot raise its own limit');
 });
 
 // ---- the app, end to end in Mock --------------------------------------------------------------------------------------
@@ -265,7 +282,7 @@ test('/api/flights gives the page its numbers and rule cards; nothing is hard-co
   const app = await boot();
   try {
     const j = (await visitor(app.base).get('/api/flights')).json;
-    assert.deepEqual(j.rules, { agentLimit: 500, premiumThreshold: 750, premiumTiers: ['Premier Gold'], tierAttribute: 'airlineMemberTier', tierSourceReal: TIER_SOURCE_REAL, tierSourceMock: TIER_SOURCE_MOCK });
+    assert.deepEqual(j.rules, { agentLimit: 500, premiumThreshold: 750, premiumTiers: ['Premier Gold'], tierAttribute: 'airlineMemberTier', limitAttribute: 'agentSpendLimit', limitMin: 1, limitMax: 100000, tierSourceReal: TIER_SOURCE_REAL, tierSourceMock: TIER_SOURCE_MOCK });
     assert.equal(TIER_SOURCE_REAL, 'PingOne user attribute airlineMemberTier (read by Authorize)');
     assert.equal(j.flights.length, 9);
     assert.deepEqual(j.members.map((m) => [m.key, m.tier]), [['standard', 'Premier Silver'], ['premium', 'Premier Gold'], ['none', undefined]]);
@@ -567,5 +584,82 @@ test('Real booking needs Real: in Mock the ask is refused (409)', async () => {
   const app = await boot();
   try {
     assert.equal((await visitor(app.base).post('/api/live/ask', { scenario: 'book', flightId: 'SH106' })).status, 409);
+  } finally { await app.close(); }
+});
+
+test('Mock end to end: the card sets the limit and the same booking changes decision; the message, the Authorize attributes and the facts all follow', async () => {
+  const app = await boot();
+  try {
+    const v = await mockSession(app.base);
+    const agent = async (flight) => {
+      const a = await v.post('/api/authorize', { client: 'muse' });
+      if (a.json.status === 'consent_required') await v.post('/api/consent', { client: 'muse', approve: true });
+      return v.post('/api/request', { tool: 'flights.book', args: { flightId: flight }, via: 'muse' });
+    };
+    assert.equal((await v.post('/api/booking/tier', { member: 'standard' })).status, 200);
+    const base = await agent('SH103');
+    assert.equal(base.json.outcome, 'allowed', '$480 under the default $500');
+    // the card: limit 250 -> the same $480 is now over
+    assert.equal((await v.post('/api/booking/tier', { limit: 250 })).json.limit, 250);
+    const over = await agent('SH103');
+    assert.equal(over.json.outcome, 'blocked');
+    assert.deepEqual(over.json.fine.rules.map((r) => r.id), [A]);
+    let s = (await v.get('/api/session')).json;
+    assert.deepEqual([s.agentLimit, s.agentLimitIsDefault], [250, false]);
+    assert.equal(s.booking.status, 'denied');
+    assert.match(s.booking.lines.join(' '), /fare \$480 is over your \$250 limit/);
+    assert.equal(s.booking.facts.agentSpendLimit, 250);
+    assert.equal(s.booking.attributes.AgentSpendLimit, 250);
+    assert.equal(over.json.authorize.attributes.AgentSpendLimit, 250);
+    assert.match(s.booking.hops[1].summary, /agent spend limit \$250/);
+    // 1000 lets the $940 flight through for a premium member, and only the airline rule stops a standard one
+    await v.post('/api/booking/tier', { member: 'premium', limit: 1000 });
+    assert.equal((await agent('SH107')).json.outcome, 'allowed');
+    await v.post('/api/booking/tier', { member: 'standard' });
+    const std = await agent('SH107');
+    assert.deepEqual(std.json.fine.rules.map((r) => r.id), [B]);
+    // exactly the limit passes; default goes back to 500 and leaves the tier alone
+    await v.post('/api/booking/tier', { limit: 620 });
+    assert.equal((await agent('SH106')).json.outcome, 'allowed');
+    await v.post('/api/booking/tier', { limit: 'default' });
+    s = (await v.get('/api/session')).json;
+    assert.deepEqual([s.agentLimit, s.agentLimitIsDefault, s.member], [500, true, 'standard']);
+    assert.equal((await agent('SH106')).json.outcome, 'blocked');
+    // a direct booking is not limited
+    await v.post('/api/booking/tier', { limit: 1 });
+    const a = await v.post('/api/authorize', { client: 'browser' });
+    if (a.json.status === 'consent_required') await v.post('/api/consent', { client: 'browser', approve: true });
+    const human = await v.post('/api/request', { tool: 'flights.book', args: { flightId: 'SH106' }, via: 'browser' });
+    assert.equal(human.json.outcome, 'allowed');
+    // the limit cannot be set through the older /api/member route or by the booking arguments
+    await v.post('/api/member', { member: 'standard', limit: 99999 });
+    assert.equal((await v.get('/api/session')).json.agentLimit, 1);
+    await v.post('/api/booking/tier', { limit: 'default' });
+    const lie = await agent('SH106').then(() => v.post('/api/request', { tool: 'flights.book', args: { flightId: 'SH106', limit: 99999, agentSpendLimit: 99999 }, via: 'muse' }));
+    assert.equal(lie.json.outcome, 'blocked');
+  } finally { await app.close(); }
+});
+
+test('Mock: Reset, sign-out and a mode switch put the agent limit back to the default, like the member', async () => {
+  const app = await boot();
+  try {
+    const v = await mockSession(app.base);
+    const limit = async () => (await v.get('/api/session')).json.agentLimit;
+    await v.post('/api/booking/tier', { limit: 2000 });
+    assert.equal(await limit(), 2000);
+    await v.post('/api/reset');
+    assert.equal(await limit(), 500);
+    await v.post('/api/signin');
+    await v.post('/api/booking/tier', { limit: 2000 });
+    await v.post('/api/signout');
+    assert.equal(await limit(), 500);
+    await v.post('/api/signin');
+    await v.post('/api/booking/tier', { limit: 2000 });
+    await v.post('/api/mode', { source: 'mock' });
+    assert.equal(await limit(), 500);
+    // one visitor's limit is not another's
+    const w = await mockSession(app.base);
+    await v.post('/api/booking/tier', { limit: 3000 });
+    assert.equal((await w.get('/api/session')).json.agentLimit, 500);
   } finally { await app.close(); }
 });

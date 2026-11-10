@@ -20,7 +20,7 @@ import { PERSONAS, TOOLS, runTool } from './tools.js';
 import { shelfInfo } from './shelfLink.js';
 import { AGENT_LIMIT_DEFAULT, MEMBERS, PREMIUM_THRESHOLD, PREMIUM_TIERS, RULES, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, fareFor, flightId, listFlights, memberFor } from './fares.js';
 import { bookingTool, classifyBooking, mockAuthorize, mockBooking } from './booking.js';
-import { createTierSwitch } from './tier.js';
+import { LIMIT_ATTRIBUTE, LIMIT_MAX, LIMIT_MIN, LIMIT_RULE, createTierSwitch, parseLimit } from './tier.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const LOOPBACK_BINDS = new Set(['127.0.0.1', '::1', 'localhost']);
@@ -218,6 +218,8 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       tools: Object.entries(TOOLS).map(([id, t]) => ({ id, label: t.label, fields: t.fields, personas: t.personas })),
       decisions: ws.decisions,
       member: ws.member,
+      agentLimit: ws.agentLimit ?? AGENT_LIMIT_DEFAULT,
+      agentLimitIsDefault: ws.agentLimit == null,
       booking: ws.booking ?? null,
       bookings: ws.bookings ?? [],
       held: [...ws.holds.keys()],
@@ -237,7 +239,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
 
   // The fare list for the "Book a flight" panel and the limit it shows. Display data, the same in both modes.
   app.get('/api/flights', (req, res) => res.set('Cache-Control', 'no-store').json({
-    rules: { agentLimit: AGENT_LIMIT_DEFAULT, premiumThreshold: PREMIUM_THRESHOLD, premiumTiers: PREMIUM_TIERS, tierAttribute: TIER_ATTRIBUTE, tierSourceReal: TIER_SOURCE_REAL, tierSourceMock: TIER_SOURCE_MOCK },
+    rules: { agentLimit: AGENT_LIMIT_DEFAULT, premiumThreshold: PREMIUM_THRESHOLD, premiumTiers: PREMIUM_TIERS, tierAttribute: TIER_ATTRIBUTE, limitAttribute: LIMIT_ATTRIBUTE, limitMin: LIMIT_MIN, limitMax: LIMIT_MAX, tierSourceReal: TIER_SOURCE_REAL, tierSourceMock: TIER_SOURCE_MOCK },
     ruleCards: Object.values(RULES).map((r) => ({ id: r.id, name: r.name, code: r.code, owner: r.owner, short: r.short, line: r.line(r.id === RULES.agentSpendLimit.id ? AGENT_LIMIT_DEFAULT : undefined) })),
     members: Object.values(MEMBERS),
     flights: listFlights(),
@@ -274,24 +276,36 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     res.json(modeView());
   });
 
-  // The member-tier switch (owner-approved 2026-11-09, see tier.js). One control for both modes: Mock sets the Mock PingOne user; Real writes
-  // airlineMemberTier on the owner's allow-listed demo users through PingOne and reads them back. The user ids and the attribute name never
-  // come from a request: the body names a member key and nothing else.
+  // The test controls (owner-approved 2026-11-09, opt-in MUSE_TIER_ENABLE=1, see tier.js): the member tier AND the user's agent spend limit.
+  // One control for both modes: Mock sets the Mock PingOne user and the Mock agent limit; Real writes airlineMemberTier and agentSpendLimit on
+  // the owner's allow-listed demo users through PingOne (one PATCH per user) and reads them back. The user ids and the attribute names never
+  // come from a request: the body names a member key and/or a limit and nothing else (other fields are ignored).
   const tier = createTierSwitch({ env, live, fetchImpl });
   const realNow = (req) => Boolean(live) && liveOn && req.ws.gatewayMode === 'live';
-  app.get('/api/booking/tier', (req, res) => res.set('Cache-Control', 'no-store').json({ mode: realNow(req) ? 'real' : 'mock', member: req.ws.member, ...tier.view() }));
+  const mockFacts = (ws) => ({ member: ws.member, tier: MEMBERS[ws.member]?.tier ?? null, limit: ws.agentLimit ?? AGENT_LIMIT_DEFAULT, limitIsDefault: ws.agentLimit == null });
+  app.get('/api/booking/tier', (req, res) => res.set('Cache-Control', 'no-store').json({ mode: realNow(req) ? 'real' : 'mock', member: req.ws.member, ...(realNow(req) ? {} : mockFacts(req.ws)), ...tier.view() }));
   const tierGate = (req, res) => {
-    if (!realNow(req)) { res.status(409).json({ error: 'not_real', message: 'Switch to Real first: the PingOne tier is only read or written in Real.' }); return false; }
+    if (!realNow(req)) { res.status(409).json({ error: 'not_real', message: 'Switch to Real first: the PingOne values are only read or written in Real.' }); return false; }
     if (!tier.configured) { res.status(409).json({ error: 'tier_not_configured', ...tier.view() }); return false; }
-    if (tier.limited()) { res.status(429).json({ error: 'slow down', detail: 'Too many tier changes. Try again in a minute.' }); return false; }
+    if (tier.limited()) { res.status(429).json({ error: 'slow down', detail: 'Too many changes. Try again in a minute.' }); return false; }
     return true;
   };
   app.post('/api/booking/tier', async (req, res) => {
-    const m = memberFor(req.body?.member);
-    if (!m) return res.status(400).json({ error: 'member must be "standard", "premium" or "none"' });
-    if (!realNow(req)) { req.ws.member = m.key; return res.json({ mode: 'mock', member: m.key, ...tier.view() }); }
+    const b = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const hasMember = Object.hasOwn(b, 'member');
+    const hasLimit = Object.hasOwn(b, 'limit');
+    const m = hasMember ? memberFor(b.member) : null;
+    const l = hasLimit ? parseLimit(b.limit) : null;
+    if (!hasMember && !hasLimit) return res.status(400).json({ error: 'send member ("standard", "premium" or "none"), limit, or both' });
+    if (hasMember && !m) return res.status(400).json({ error: 'member must be "standard", "premium" or "none"' });
+    if (hasLimit && !l.ok) return res.status(400).json({ error: `limit must be ${LIMIT_RULE}` });
+    if (!realNow(req)) {
+      if (m) req.ws.member = m.key;
+      if (l) req.ws.agentLimit = l.value === null ? null : Number(l.value);
+      return res.json({ mode: 'mock', ...mockFacts(req.ws), ...tier.view() });
+    }
     if (!tierGate(req, res)) return;
-    const out = await tier.switchTo(m.tier ?? null);
+    const out = await tier.apply({ ...(m ? { tier: m.tier ?? null } : {}), ...(l ? { limit: l.value } : {}) });
     res.status(out.ok ? 200 : out.busy ? 409 : 502).json({ mode: 'real', ...out });
   });
   app.post('/api/booking/tier/read', async (req, res) => {
@@ -311,7 +325,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     res.json(ws.discovery);
   });
 
-  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; ws.booking = null; ws.bookings = []; ws.member = 'standard'; ws.userToken = null; };
+  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; ws.booking = null; ws.bookings = []; ws.member = 'standard'; ws.agentLimit = null; ws.userToken = null; };
   // The tool result comes back as MCP text content holding JSON; Personal Agent reads the points out of it.
   const answerFrom = (steps) => {
     const r = steps.find((x) => x.n === 9)?.response;
@@ -582,8 +596,8 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     if (d.outcome === 'allowed') entry.result = runTool(tool, args);
     if (tool === 'flights.book') {
       // The Authorize rule's stand-in: it saw the catalogue fare, not the quote. A stopped booking never reaches runTool, so the ledger stays empty.
-      entry.authorize = mockAuthorize({ flightId: flightId(args.flightId), fine: d.fine, actor: d.protect.actor, member: ws.member });
-      ws.booking = mockBooking({ flightId: flightId(args.flightId), quoted: args.quoted, fine: d.fine, outcome: d.outcome, rules: entry.rules, result: entry.result, actor: d.protect.actor, member: ws.member });
+      entry.authorize = mockAuthorize({ flightId: flightId(args.flightId), fine: d.fine, actor: d.protect.actor, member: ws.member, limit: ws.agentLimit });
+      ws.booking = mockBooking({ flightId: flightId(args.flightId), quoted: args.quoted, fine: d.fine, outcome: d.outcome, rules: entry.rules, result: entry.result, actor: d.protect.actor, member: ws.member, limit: ws.agentLimit });
       if (d.outcome === 'allowed') ws.bookings.push({ flightId: entry.result.flightId, fare: entry.result.fare, confirmation: entry.result.confirmationNumber, mode: 'mock', at: entry.at });
     }
     record(ws, entry);
@@ -651,7 +665,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     };
     record(ws, entry);
     if (hold.tool === 'flights.book') {
-      ws.booking = mockBooking({ flightId: entry.result.flightId, quoted: hold.args.quoted, fine: { result: 'allow' }, outcome: 'allowed', result: entry.result, actor: hold.actor, member: ws.member });
+      ws.booking = mockBooking({ flightId: entry.result.flightId, quoted: hold.args.quoted, fine: { result: 'allow' }, outcome: 'allowed', result: entry.result, actor: hold.actor, member: ws.member, limit: ws.agentLimit });
       ws.bookings.push({ flightId: entry.result.flightId, fare: entry.result.fare, confirmation: entry.result.confirmationNumber, mode: 'mock', at: entry.at });
     }
     res.json(entry);

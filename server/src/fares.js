@@ -40,6 +40,12 @@ export const MEMBERS = {
 };
 export const tierLabel = (member) => (typeof member?.tier === 'string' && member.tier !== '' ? member.tier : TIER_NOT_SET);
 export const memberFor = (key) => (typeof key === 'string' && Object.hasOwn(MEMBERS, key) ? MEMBERS[key] : null);
+// The Mock member with the Mock agent limit applied (the card's "agent limit" control). limit: whole dollars, or null/undefined for the default.
+// Falls back to the standard member for an unknown key. A limit that is not a positive integer is ignored (the default applies).
+export const mockMember = (key, limit) => {
+  const m = memberFor(key) ?? MEMBERS.standard;
+  return Number.isSafeInteger(limit) && limit > 0 ? { ...m, agentSpendLimit: limit } : m;
+};
 
 // Only a string names a flight: an array or object that happens to print like one does not.
 export const flightId = (id) => (typeof id === 'string' ? id.trim().toUpperCase() : '');

@@ -520,7 +520,16 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .bk-rule--premium_only { border-top-color: var(--warn); }
 .bk-tier { border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 10px; padding: 12px; background: var(--panel); display: grid; gap: 8px; min-width: 0; }
 .bk-tier h3, .bk-tier p, .bk-tier ul { margin: 0; }
-.bk-tier__now { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.bk-tier h4 { margin: 0; font-size: calc(16px * var(--fs, 1)); }
+.bk-tier__now { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; }
+.bk-tier__group { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
+.bk-tier__group p { margin: 0; }
+.bk-tier__custom { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.bk-tier__custom .field { min-width: 0; }
+.bk-tier__custom input { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--control-border); border-radius: 8px; padding: 6px 8px; width: 14ch; max-width: 100%; }
+.bk-tier__custom input::placeholder { color: var(--muted); opacity: 1; }
+.bk-tier__custom input[aria-invalid="true"] { border: 2px solid var(--bad); }
+.bk-tier__custom input:disabled { opacity: 0.5; }
 .bk-tier__btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .bk-tier__btns button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border: 2px solid var(--accent); font-weight: 700; }
 .bk-tier__btns button[aria-pressed="true"]::before { content: "\2713\00a0"; }

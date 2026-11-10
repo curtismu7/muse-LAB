@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import MuseFlow from './MuseFlow.jsx';
+import { expectFor, parseDollars } from './bookingExpect.js';
 
 // "Book a flight": Muse -> Agent Gateway -> PingOne Authorize, under two rules from two owners. Both modes use this panel.
 // Mock runs the existing local gateway and a simulated Authorize (labelled so everywhere). Real sends the same call to the owner's gateway.
@@ -9,18 +10,19 @@ const CALLERS = [
   { id: 'human', label: 'Sam directly, no agent' },
 ];
 
-// The nine scenarios of the contract in talk-track order, then row 10: a user with no airlineMemberTier (not premium). `expect` is what the rules say should happen.
+// The nine scenarios of the contract in talk-track order, then row 10: a user with no airlineMemberTier (not premium). What the rules say should
+// happen is worded by expectFor() from the fare, the limit in force and the row's tier, so it follows the Test controls card.
 const ROWS = [
-  { n: 1, caller: 'agent', flight: 'SH103', member: 'standard', expect: 'Allowed past both rules' },
-  { n: 2, caller: 'agent', flight: 'SH104', member: 'standard', expect: 'Allowed: exactly the limit passes' },
-  { n: 3, caller: 'agent', flight: 'SH106', member: 'standard', expect: 'Denied by your rule' },
-  { n: 4, caller: 'agent', flight: 'SH107', member: 'premium', expect: 'Denied by your rule, even for a premium member' },
-  { n: 5, caller: 'human', flight: 'SH106', member: 'standard', expect: 'Allowed: your rule only limits agents' },
-  { n: 6, caller: 'human', flight: 'SH108', member: 'standard', expect: 'Allowed: exactly $750 passes' },
-  { n: 7, caller: 'human', flight: 'SH107', member: 'standard', expect: 'Denied by the airline rule' },
-  { n: 8, caller: 'human', flight: 'SH107', member: 'premium', expect: 'Allowed: premium members can book over $750' },
-  { n: 9, caller: 'agent', flight: 'SH107', member: 'standard', expect: 'Denied by both rules' },
-  { n: 10, caller: 'human', flight: 'SH107', member: 'none', expect: 'Denied by the airline rule: no tier set is not premium' },
+  { n: 1, caller: 'agent', flight: 'SH103', member: 'standard' },
+  { n: 2, caller: 'agent', flight: 'SH104', member: 'standard' },
+  { n: 3, caller: 'agent', flight: 'SH106', member: 'standard' },
+  { n: 4, caller: 'agent', flight: 'SH107', member: 'premium' },
+  { n: 5, caller: 'human', flight: 'SH106', member: 'standard' },
+  { n: 6, caller: 'human', flight: 'SH108', member: 'standard' },
+  { n: 7, caller: 'human', flight: 'SH107', member: 'standard' },
+  { n: 8, caller: 'human', flight: 'SH107', member: 'premium' },
+  { n: 9, caller: 'agent', flight: 'SH107', member: 'standard' },
+  { n: 10, caller: 'human', flight: 'SH107', member: 'none' },
 ];
 // Real: what the demo user's airlineMemberTier must be for the row to behave as listed (the owner flips it in the PingOne tenant).
 const REAL_TIER = { premium: 'Premier Gold expected', standard: 'Premier Silver expected', none: 'no airlineMemberTier expected' };
@@ -72,30 +74,46 @@ function Trace({ hops }) {
   );
 }
 
-// The Member tier card: one control for both modes. Mock sets the Mock PingOne user (the server's member). Real writes the PingOne user attribute
-// airlineMemberTier on the owner's demo users and shows what PingOne says it holds afterwards (a read-back), never what was asked for.
+// The Test controls card: one control for both modes, for the two PingOne fields that decide a booking. Mock sets the Mock PingOne user (the
+// server's member) and the Mock agent limit. Real writes the PingOne user attributes airlineMemberTier and agentSpendLimit on the owner's demo
+// users (one write per user) and shows what PingOne says it holds afterwards (a read-back), never what was asked for.
 const TIER_BUTTONS = [
   { key: 'premium', label: 'Premier Gold', hint: 'premium' },
   { key: 'standard', label: 'Premier Silver', hint: 'standard' },
   { key: 'none', label: 'No tier set', hint: 'not premium' },
 ];
+const LIMIT_PRESETS = [250, 500, 1000];
 const heldLabel = (v) => (v === null || v === undefined ? 'No tier set' : v);
 const TIER_KEY_OF = { 'Premier Gold': 'premium', 'Premier Silver': 'standard' };
+const limitLabel = (n, dflt) => (n === null || n === undefined ? `default ($${dflt})` : `$${n}`);
 
-function TierCard({ live, session, info, api, busy, onChanged }) {
+export function TierCard({ live, session, info, api, busy, onChanged, onHeldLimit }) {
   const [state, setState] = useState(null);     // GET /api/booking/tier
-  const [result, setResult] = useState(null);   // the last switch or read in Real
+  const [result, setResult] = useState(null);   // the last change or read in Real
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState(null);
+  const [custom, setCustom] = useState('');
+  const [customProblem, setCustomProblem] = useState(null);
+  const inputRef = useRef(null);
+  const refocus = useRef(false);
   const attribute = info?.rules?.tierAttribute ?? 'airlineMemberTier';
+  const limitAttribute = info?.rules?.limitAttribute ?? 'agentSpendLimit';
+  const dflt = info?.rules?.agentLimit ?? 500;
+  const threshold = info?.rules?.premiumThreshold ?? 750;
   const load = () => api('GET', '/api/booking/tier').then(setState).catch(() => setState(null));
-  useEffect(() => { load(); }, [api, live]);
+  useEffect(() => { load(); }, [api, live]); // eslint-disable-line react-hooks/exhaustive-deps
   const configured = state?.configured === true;
   const users = (result ?? state?.last)?.users ?? [];
   const readAll = users.length > 0 && users.every((u) => u.known);
-  const values = [...new Set(users.map((u) => u.value ?? null))];
-  const heldKey = live ? (readAll && values.length === 1 ? (values[0] === null ? 'none' : TIER_KEY_OF[values[0]] ?? null) : null) : session.member;
-  const mixed = live && readAll && values.length > 1;
+  const tiers = [...new Set(users.map((u) => u.value ?? null))];
+  const limits = [...new Set(users.map((u) => u.limit ?? null))];
+  const tierMixed = live && readAll && tiers.length > 1;
+  const limitMixed = live && readAll && limits.length > 1;
+  const heldKey = live ? (readAll && tiers.length === 1 ? (tiers[0] === null ? 'none' : TIER_KEY_OF[tiers[0]] ?? null) : null) : session.member;
+  // The limit in force: a number, or null for "the default" (empty field in Real, not set in Mock); undefined when Real has not read it.
+  const heldLimit = live ? (readAll && limits.length === 1 ? limits[0] : undefined) : (session.agentLimitIsDefault ? null : session.agentLimit);
+  const effective = heldLimit === undefined ? undefined : heldLimit === null ? dflt : heldLimit;
+  useEffect(() => { onHeldLimit?.(effective); }, [effective]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = async (path, body) => {
     setWorking(true); setProblem(null);
@@ -103,48 +121,93 @@ function TierCard({ live, session, info, api, busy, onChanged }) {
       const r = await api('POST', path, body);
       if (live) setResult(r);
       await load(); await onChanged?.();
+      return true;
     } catch (e) {
       // A refused or failed write still carries the honest per-user answer; show it, never a success.
       if (e.body?.users) { setResult(e.body); await load(); } else setProblem(e.message);
+      return false;
     } finally { setWorking(false); }
   };
   const read = () => send('/api/booking/tier/read');
   useEffect(() => { if (live && configured) read(); }, [live, configured]); // eslint-disable-line react-hooks/exhaustive-deps
   const off = busy || working || (live && !configured);
+  // The controls are disabled while a change runs, which drops keyboard focus; put it back on the amount box after Apply.
+  useEffect(() => { if (!working && refocus.current) { refocus.current = false; inputRef.current?.focus(); } }, [working]);
 
-  const current = live
-    ? (readAll ? (mixed ? 'The demo users differ' : heldLabel(values[0])) : users.length ? 'Could not read every user' : configured ? 'Reading PingOne...' : 'Not available')
+  const applyCustom = async (e) => {
+    e.preventDefault();
+    const p = parseDollars(custom, info?.rules?.limitMin, info?.rules?.limitMax);
+    if (!p.ok) { setCustomProblem(p.message); return; }
+    setCustomProblem(null);
+    refocus.current = true;
+    if (await send('/api/booking/tier', { limit: p.n })) setCustom('');
+  };
+
+  const currentTier = live
+    ? (readAll ? (tierMixed ? 'The demo users differ' : heldLabel(tiers[0])) : users.length ? 'Could not read every user' : configured ? 'Reading PingOne...' : 'Not available')
     : heldLabel(info?.members?.find((m) => m.key === session.member)?.tier);
+  const currentLimit = live
+    ? (readAll ? (limitMixed ? 'The demo users differ' : limitLabel(limits[0], dflt)) : users.length ? 'Could not read every user' : configured ? 'Reading PingOne...' : 'Not available')
+    : limitLabel(heldLimit, dflt);
 
   return (
-    <section className="bk-tier" aria-label="Member tier" data-testid="tier-card" data-mode={live ? 'real' : 'mock'}>
-      <h3>Member tier</h3>
+    <section className="bk-tier" aria-label="Test controls" data-testid="tier-card" data-mode={live ? 'real' : 'mock'}>
+      <h3>Test controls</h3>
       <p className="small muted">
         {live
-          ? <>Real. Writes the PingOne user attribute <code>{attribute}</code> on your demo users, then reads them back. Authorize reads the same attribute, so run the booking again to see the decision change.</>
-          : <>Simulated. Sets the Mock PingOne user the stand-in Authorize reads (mimics <code>{attribute}</code>). Nothing leaves this machine.</>}
+          ? <>Real. Writes two fields on your PingOne demo users, <code>{attribute}</code> and <code>{limitAttribute}</code>, then reads them back. Authorize reads both live, so run the booking again to see the decision change.</>
+          : <>Simulated. Sets the Mock PingOne user and the Mock agent limit that the stand-in Authorize reads (they mimic <code>{attribute}</code> and <code>{limitAttribute}</code>). Nothing leaves this machine.</>}
       </p>
       <p className="bk-tier__now" data-testid="tier-current">
-        <strong>{live ? 'PingOne holds' : 'Mock PingOne user holds'}:</strong> <span className="bk-chip" data-testid="tier-value">{current}</span>
+        <strong>{live ? 'PingOne holds' : 'Mock PingOne user holds'}:</strong>
+        <span>Tier <span className="bk-chip" data-testid="tier-value">{currentTier}</span></span>
+        <span>Agent limit <span className="bk-chip" data-testid="limit-value">{currentLimit}</span></span>
         {live && configured && state?.last?.at && <span className="small muted"> read {new Date(state.last.at).toLocaleTimeString()}</span>}
       </p>
-      <div className="bk-tier__btns" role="group" aria-label="Choose the member tier">
-        {TIER_BUTTONS.map((b) => (
-          <button key={b.key} type="button" aria-pressed={heldKey === b.key} disabled={off} onClick={() => send('/api/booking/tier', { member: b.key })} data-testid={`tier-${b.key}`}>
-            {b.label}<span className="small"> ({b.hint})</span>
-          </button>
-        ))}
-        {live && <button type="button" onClick={read} disabled={off} data-testid="tier-read" title="Read what PingOne holds now. Changes nothing.">Check PingOne</button>}
+
+      <div className="bk-tier__group" role="group" aria-labelledby="bk-tier-legend">
+        <h4 id="bk-tier-legend">Member tier</h4>
+        <p className="small muted">The airline's rule: only premium members (Premier Gold) can book over ${threshold}.</p>
+        <div className="bk-tier__btns">
+          {TIER_BUTTONS.map((b) => (
+            <button key={b.key} type="button" aria-pressed={heldKey === b.key} disabled={off} onClick={() => send('/api/booking/tier', { member: b.key })} data-testid={`tier-${b.key}`}>
+              {b.label}<span className="small"> ({b.hint})</span>
+            </button>
+          ))}
+          {live && <button type="button" onClick={read} disabled={off} data-testid="tier-read" title="Read what PingOne holds now. Changes nothing.">Check PingOne</button>}
+        </div>
       </div>
+
+      <div className="bk-tier__group" role="group" aria-labelledby="bk-limit-legend">
+        <h4 id="bk-limit-legend">Agent spend limit</h4>
+        <p className="small muted">This is the user's own cap, in dollars, for tickets bought by an AI agent. A booking the person makes directly is not limited by it.</p>
+        <div className="bk-tier__btns">
+          {LIMIT_PRESETS.map((n) => (
+            <button key={n} type="button" aria-pressed={heldLimit === n} disabled={off} onClick={() => send('/api/booking/tier', { limit: n })} data-testid={`limit-${n}`}>${n}</button>
+          ))}
+          <button type="button" aria-pressed={heldLimit === null} disabled={off} onClick={() => send('/api/booking/tier', { limit: 'default' })} data-testid="limit-default" title={`Clear the field: Authorize then uses its default of $${dflt}`}>Default (${dflt})</button>
+        </div>
+        <form className="bk-tier__custom" onSubmit={applyCustom} noValidate>
+          <label className="field"><span>Custom amount, whole dollars</span>
+            <input ref={inputRef} type="text" inputMode="numeric" autoComplete="off" value={custom} disabled={off} maxLength={12} placeholder="for example 750"
+              onChange={(e) => { setCustom(e.target.value); setCustomProblem(null); }}
+              aria-invalid={customProblem ? 'true' : undefined} aria-describedby={customProblem ? 'bk-limit-problem' : undefined} data-testid="limit-input" />
+          </label>
+          <button type="submit" className="primary" disabled={off} data-testid="limit-apply">Apply</button>
+        </form>
+        {customProblem && <p id="bk-limit-problem" className="small bk-tier__bad" role="alert" data-testid="limit-error">{customProblem}</p>}
+      </div>
+
       {live && !configured && (
         <p className="small bk-tier__off" role="status" data-testid="tier-unconfigured">
           {state?.needs?.length > 0
-            ? <>Switching is off until these are set in Muse's own <code>.env</code>, then restart Muse: {state.needs.map((n, i) => <span key={n}>{i > 0 && ', '}<code>{n}</code></span>)}. See <code>.env.example</code>.</>
-            : <>Switching is off. {state?.explanation ?? 'The tier switch is not configured.'}</>}
-          {' '}You can still flip the user in PingOne yourself and run the rows.
+            ? <>Switching is off until these are set in Muse's own <code>.env</code>, then restart Muse: {state.needs.map((n, i) => <span key={n}>{i > 0 && ', '}<code>{n}</code></span>)}. See <code>.env.example</code>.{state.explanation && !state.explanation.startsWith('Not configured') ? ` ${state.explanation}` : ''}</>
+            : <>Switching is off. {state?.explanation ?? 'The test controls are not configured.'}</>}
+          {' '}You can still change the fields in PingOne yourself and run the rows.
         </p>
       )}
-      {mixed && <p className="small bk-tier__off" role="status">The demo users hold different tiers. Press a tier to set them all the same.</p>}
+      {tierMixed && <p className="small bk-tier__off" role="status">The demo users hold different tiers. Press a tier to set them all the same.</p>}
+      {limitMixed && <p className="small bk-tier__off" role="status">The demo users hold different agent limits. Press a limit to set them all the same.</p>}
       {problem && <p className="small bk-tier__bad" role="alert" data-testid="tier-error">{problem}</p>}
       <div aria-live="polite" data-testid="tier-result">
         {live && result && (
@@ -154,13 +217,13 @@ function TierCard({ live, session, info, api, busy, onChanged }) {
             {result.users?.length > 0 && (
               <ul className="small bk-tier__users">
                 {result.users.map((u) => (
-                  <li key={u.label}>{u.label}: {u.known ? heldLabel(u.value) : 'unknown'}{u.verified === true ? ' (verified)' : u.verified === false ? ' (NOT verified)' : ''}{u.writeError ? `. ${u.writeError}` : ''}{u.readError ? `. ${u.readError}` : ''}</li>
+                  <li key={u.label}>{u.label}: {u.known ? `${heldLabel(u.value)}, agent limit ${limitLabel(u.limit, dflt)}` : 'unknown'}{u.verified === true ? ' (verified)' : u.verified === false ? ' (NOT verified)' : ''}{u.writeError ? `. ${u.writeError}` : ''}{u.readError ? `. ${u.readError}` : ''}</li>
                 ))}
               </ul>
             )}
           </>
         )}
-        {!live && <p className="small muted">The scenario rows below set their own tier when you run them; the card follows.</p>}
+        {!live && <p className="small muted">The scenario rows below set their own tier when you run them and use the limit above; the card follows.</p>}
       </div>
     </section>
   );
@@ -172,12 +235,14 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
   const [caller, setCaller] = useState('agent');
   const [flight, setFlight] = useState('SH106');
   const [diagram, setDiagram] = useState(false);
+  const [heldLimit, setHeldLimit] = useState(undefined); // Real: the limit PingOne holds (the card reports it); Mock: the Mock limit
   useEffect(() => { api('GET', '/api/flights').then(setInfo).catch(() => setInfo(null)); }, [api]);
   const b = session.booking ?? null;
   const ledger = session.bookings ?? [];
   const fares = Object.fromEntries((info?.flights ?? []).map((f) => [f.id, f.fare]));
   const userOk = !live || session.live?.userLogin;
   const member = session.member ?? 'standard';
+  const limitNow = heldLimit ?? info?.rules?.agentLimit; // until Real has been read, Authorize's default
 
   const runReal = async (flightId, who, quoted) => {
     const r = await api('POST', '/api/live/ask', { scenario: 'book', flightId, channel: who === 'human' ? 'user' : 'agent', ...(quoted !== undefined ? { quoted } : {}) });
@@ -202,14 +267,14 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
       <div className="bk-rules" aria-label="The two rules">
         {(info?.ruleCards ?? []).map((c) => (
           <article key={c.id} className={`bk-rule bk-rule--${c.id}`} data-testid={`rule-card-${c.id}`}>
-            <h3>{c.short}: {c.line}</h3>
+            <h3 data-testid={`rule-line-${c.id}`}>{c.short}: {c.id === 'agent_spend_limit' && limitNow !== undefined ? `No tickets bought by an AI agent over ${money(limitNow)}` : c.line}</h3>
             <p className="small muted">Owner: {c.owner}. Authorize rule <code>{c.code}</code>.</p>
             <p className="small">{c.id === 'agent_spend_limit' ? `Applies only when an AI agent is acting. The limit is your own setting (default $${info.rules.agentLimit}). Exactly the limit passes.` : `Applies to every caller. Authorize reads the member tier from the PingOne user attribute ${info.rules.tierAttribute}. Premium means: ${info.rules.premiumTiers.join(', ')}. Any other value, an empty value or no attribute is not premium. Exactly $${info.rules.premiumThreshold} passes.`}</p>
           </article>
         ))}
       </div>
 
-      <TierCard live={live} session={session} info={info} api={api} busy={busy} onChanged={onTierChanged} />
+      <TierCard live={live} session={session} info={info} api={api} busy={busy} onChanged={onTierChanged} onHeldLimit={setHeldLimit} />
 
       <div className="bk-who" role="group" aria-label="Who is booking">
         <label className="field"><span>Who is booking</span>
@@ -225,7 +290,7 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
               : 'not reported yet. Run a row first.'}
             <br />
             <strong>Member tier:</strong> {b?.facts?.memberTier ?? 'not reported to Muse'}. Source: {info?.rules?.tierSourceReal ?? 'PingOne user attribute airlineMemberTier (read by Authorize)'}.
-            {' '}Use the Member tier card to set Premier Gold or Premier Silver on the demo users.
+            {' '}Use the Test controls card to set the member tier and the agent limit on the demo users.
           </p>
         ) : null}
       </div>
@@ -241,7 +306,7 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
                 <td>{r.caller === 'agent' ? 'AI agent' : 'Sam, direct'}</td>
                 <td>{r.flight} {fares[r.flight] !== undefined && <b>{money(fares[r.flight])}</b>}</td>
                 <td>{live ? <span className="small muted" title="Set on the PingOne user, read by Authorize">{REAL_TIER[r.member]}</span> : MOCK_TIER[r.member]}</td>
-                <td className="small">{r.expect}</td>
+                <td className="small" data-testid={`expect-${r.n}`}>{expectFor(r, { fare: fares[r.flight], limit: limitNow, threshold: info?.rules?.premiumThreshold })}</td>
                 <td><button type="button" className="primary" onClick={() => run(r.flight, r.caller, r.member)} disabled={busy || (r.caller === 'human' && !userOk)} data-testid={`run-${r.n}`}>Run</button></td>
               </tr>
             ))}
