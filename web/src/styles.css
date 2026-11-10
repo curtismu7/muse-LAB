@@ -434,24 +434,10 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
 .mflow .seg { flex-wrap: wrap; border-radius: 14px; }
 
-/* AI-DEMO2 look: Core Dark gradient band, navy emphasis, pill controls. */
-.page-band { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; padding: 28px 32px; background: var(--band); color: var(--on-fill); }
-.page-band h1 { font-size: calc(31px * var(--fs, 1)); font-weight: 700; color: var(--on-fill); }
-.page-band__eyebrow { margin: 0 0 4px; font-size: calc(15px * var(--fs, 1)); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--on-fill-soft); }
-.page-band__summary { margin-top: 6px; max-width: 70ch; color: var(--on-fill-soft); }
-.page-band__links { display: flex; gap: 10px; margin-top: 12px; }
-.page-band__links a { color: var(--on-fill); text-decoration: none; font-size: calc(16px * var(--fs, 1)); font-weight: 600; border: 1px solid var(--on-fill-line); border-radius: 999px; padding: 4px 14px; }
-.page-band__links a:hover, .page-band__links a:focus-visible { background: var(--on-fill-faint); outline: none; }
-.page-band .top-actions { display: flex; gap: 8px; align-items: center; color: var(--on-fill); }
-.page-band .top-actions button { background: transparent; color: var(--on-fill); border-color: var(--on-fill-line); border-radius: 999px; }
-.page-band .top-actions button:hover:not(:disabled) { background: var(--on-fill-faint); }
 .bubble.user { color: var(--on-fill); }
 .chip, .seg button, button.primary { border-radius: 999px; }
 .chat-top { display: none; }
 
-.page-band { padding: 22px 32px; }
-.page-band__summary { max-width: none; }
-.page-band__links { margin-top: 10px; }
 /* Real mode is one column, like the AI-DEMO2 Personal Agent page: no rail, no empty side panel. */
 .app--live { grid-template-columns: 1fr; }
 .app--live .rail, .app--live .side { display: none; }
@@ -479,8 +465,6 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .text-size.on-band button:hover:not(:disabled) { background: var(--on-fill-faint); }
 .diagram-nav__tools { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-.page-band__links { flex-wrap: wrap; }
-.page-band, .page-band__copy, .chat, .banner { min-width: 0; }
 .app--live { grid-template-columns: minmax(0, 1fr); }
 
 .signin { grid-template-columns: minmax(0, 1fr); }
@@ -594,3 +578,19 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
   .bk-table td:first-child { font-weight: 700; }
   .bk-table td:last-child { grid-column: 2; grid-row: 1 / span 5; align-self: center; }
 }
+
+/* ===== App shell (standalone UI patterns P1): Core Dark bar, Ping Red gradient rule, pill nav ===== */
+.shell-bar { grid-column: 1 / -1; margin: 0 -16px; display: flex; align-items: center; gap: 0.5rem 1.25rem; flex-wrap: wrap; padding: 0.6rem 1rem; background: var(--box-dark); color: var(--on-box); border-bottom: 3px solid transparent; border-image: var(--accent-gradient) 1; }
+.shell-brand { display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 700; letter-spacing: 0.02em; flex-wrap: wrap; }
+.shell-logo { width: 1.9rem; height: 1.9rem; border-radius: 4px; background: var(--accent-gradient); color: var(--on-accent); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; }
+.shell-badge { padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--accent-gradient); color: var(--on-accent); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.shell-nav { display: flex; gap: 0.25rem; flex: 1; flex-wrap: wrap; }
+.shell-nav a { padding: 0.3rem 0.75rem; border-radius: 999px; color: var(--on-fill-soft); text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+.shell-nav a:hover { color: var(--on-box); background: var(--on-fill-faint); }
+.shell-nav a[aria-current="page"] { color: var(--on-accent); background: var(--accent-gradient); font-weight: 600; }
+.shell-nav a:focus-visible, .shell-bar button:focus-visible, .shell-bar select:focus-visible { outline: 3px solid var(--on-box); outline-offset: 2px; }
+.shell-right { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem; }
+.shell-right .mode-toggle { margin-top: 0; }
+.shell-bar .top-actions { display: inline-flex; gap: 8px; align-items: center; color: var(--on-box); }
+.shell-bar button, .shell-bar select { min-height: 32px; padding: 4px 10px; font-size: 0.8rem; }
+@media (max-width: 600px) { .shell-bar { padding: 0.5rem 1rem; } .shell-nav { order: 3; flex-basis: 100%; } }
