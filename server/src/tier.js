@@ -1,7 +1,10 @@
 // The Real test controls (owner-approved 2026-11-09, opt-in flag required): writes two PingOne user attributes on the owner's demo users, so the
 // owner can flip Premier Gold / Premier Silver and the user's agent spend limit (dollars) from the Book a flight panel instead of a terminal.
 // This is the ONE place Muse holds a PingOne credential that can edit users. It is deliberately narrow:
-//   - off unless MUSE_TIER_ENABLE=1 (a hosted build, which the Docker image always is, also needs that opt-in; the SE deployment never sets it);
+//   - off unless MUSE_TIER_ENABLE=1 (a hosted build, which the Docker image always is, also needs that opt-in; the SE deployment never sets it).
+//     MUSE_TIER_ENABLE=read is the READ-ONLY mode for a PUBLIC hosted URL: readUserFacts and read() work (same allow-list, token, scrubbing,
+//     timeouts and limiter) but every write is refused here, before any PingOne call, so nobody on the internet can change a user. Exactly "1" and
+//     exactly "read" turn anything on; unset, "0", "true", "READ" and every other value are off;
 //   - a dedicated worker app (MUSE_TIER_WORKER_CLIENT_ID / _SECRET), supplied in Muse's own .env, never provisioning.json, never committed;
 //   - the only attributes ever written are airlineMemberTier ("Premier Gold", "Premier Silver" or clear) and agentSpendLimit (whole dollars
 //     1 to 100000 as text, or clear); both in ONE PATCH when both change, so a user is never half-updated;
@@ -42,6 +45,10 @@ export function parseLimit(v) {
   return { ok: true, value: String(n) };
 }
 export const LIMIT_RULE = `a whole number of dollars from ${LIMIT_MIN} to ${LIMIT_MAX}, or "default"`;
+// The three states of MUSE_TIER_ENABLE: 'write' (exactly "1"), 'read' (exactly "read": reads only), 'off' (anything else).
+export const TIER_MODES = Object.freeze({ write: 'write', read: 'read', off: 'off' });
+export const READ_ONLY_MESSAGE = 'Read-only here: change the tier and limit on the local Muse page.';
+const modeOf = (v) => (v === '1' ? TIER_MODES.write : v === 'read' ? TIER_MODES.read : TIER_MODES.off);
 const REGIONS = new Set(['com', 'eu', 'ca', 'asia', 'com.au', 'sg']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_USERS = 5;
@@ -54,10 +61,11 @@ function readConfig(env, live) {
   const needs = [];
   // Opt-in. The Docker image always runs with MUSE_HOSTED=1 (it must bind a non-loopback address), so the opt-in is what lets the owner's
   // container use the switch; the SE deployment never sets it.
-  const enabled = env.MUSE_TIER_ENABLE === '1';
+  const mode = modeOf(env.MUSE_TIER_ENABLE);
+  const enabled = mode !== TIER_MODES.off;
   if (!enabled) needs.push(TIER_ENV.enable);
   const blocked = !enabled && env.MUSE_HOSTED === '1'
-    ? `The test controls are off on this build (MUSE_HOSTED=1, which the Docker container always sets). Set ${TIER_ENV.enable}=1 in Muse's own .env to opt in, then restart Muse. The SE deployment never sets it.`
+    ? `The test controls are off on this build (MUSE_HOSTED=1, which the Docker container always sets). Set ${TIER_ENV.enable}=1 in Muse's own .env to opt in, then restart Muse. The SE deployment never sets it. On a public URL use ${TIER_ENV.enable}=read, which only reads.`
     : null;
   if (!live) needs.push('Real mode (ALLOW_LIVE=1 and MUSE_LIVE_GATEWAY_URL)');
   const clientId = String(env.MUSE_TIER_WORKER_CLIENT_ID ?? '').trim();
@@ -71,12 +79,13 @@ function readConfig(env, live) {
   if (!UUID.test(envId)) needs.push(`${TIER_ENV.envId} (or MUSE_P1_ENV_ID)`);
   const region = String(env.MUSE_TIER_REGION || env.MUSE_P1_REGION || 'com').trim();
   if (!REGIONS.has(region)) needs.push(`${TIER_ENV.region} (or MUSE_P1_REGION): com, eu, ca, asia, com.au or sg`);
-  return { needs, blocked, clientId, clientSecret, ids, envId, region };
+  return { needs, blocked, mode, clientId, clientSecret, ids, envId, region };
 }
 
 export function createTierSwitch({ env = process.env, live = null, fetchImpl = fetch, now = Date.now } = {}) {
   const cfg = readConfig(env, live);
   const configured = cfg.needs.length === 0;
+  const readOnly = configured && cfg.mode === TIER_MODES.read;
   const auth = configured ? `https://auth.pingone.${cfg.region}` : null;
   const api = configured ? `https://api.pingone.${cfg.region}` : null;
   const origins = new Set(configured ? [auth, api] : []);
@@ -191,6 +200,9 @@ export function createTierSwitch({ env = process.env, live = null, fetchImpl = f
     configured,
     needs: configured ? [] : cfg.needs,
     explanation: configured ? null : cfg.blocked ?? `Not configured. Set ${cfg.needs.join(', ')} in Muse's own .env (see .env.example), then restart Muse.`,
+    tierMode: configured ? cfg.mode : TIER_MODES.off,
+    readOnly,
+    ...(readOnly ? { readOnlyMessage: READ_ONLY_MESSAGE } : {}),
     attribute: TIER_ATTRIBUTE,
     limitAttribute: LIMIT_ATTRIBUTE,
     users: labels.length,
@@ -211,6 +223,8 @@ export function createTierSwitch({ env = process.env, live = null, fetchImpl = f
 
   // want: { tier?: string|null, limit?: string|null } (limit as the canonical text to write). Only the keys present are written, in ONE PATCH per user.
   async function run(want, write) {
+    // The last line of defence: whatever called us, a write never leaves this function unless MUSE_TIER_ENABLE is exactly "1".
+    if (write && cfg.mode !== TIER_MODES.write) return { ok: false, readOnly: true, error: READ_ONLY_MESSAGE, users: [] };
     const wantTier = write && Object.hasOwn(want, 'tier');
     const wantLimit = write && Object.hasOwn(want, 'limit');
     const body = { ...(wantTier ? { [TIER_ATTRIBUTE]: want.tier } : {}), ...(wantLimit ? { [LIMIT_ATTRIBUTE]: want.limit } : {}) };
@@ -261,6 +275,7 @@ export function createTierSwitch({ env = process.env, live = null, fetchImpl = f
   // limit is the canonical text from parseLimit (or null to clear); anything else is refused here too, whatever the caller did.
   async function apply(change = {}) {
     if (!configured) return { ok: false, error: 'The test controls are not configured.', users: [] };
+    if (readOnly) return { ok: false, readOnly: true, error: READ_ONLY_MESSAGE, users: [] };
     const { tier, limit } = change ?? {};
     const want = {};
     if (change && Object.hasOwn(change, 'tier')) {
@@ -298,5 +313,5 @@ export function createTierSwitch({ env = process.env, live = null, fetchImpl = f
     } catch { return none; }
   }
 
-  return { configured, view, apply, switchTo, read, limited, readUserFacts };
+  return { configured, readOnly, view, apply, switchTo, read, limited, readUserFacts };
 }

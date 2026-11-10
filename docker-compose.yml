@@ -8,7 +8,7 @@ services:
       # Names besides loopback the app answers to (as <name>:5100). The default is the Host the family lab-proxy sends.
       LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-muse.local.ping-devops.com}
       # Test controls: member tier and agent limit (Real only, opt-in, owner-approved 2026-11-09). Names only; the values come from your shell or
-      # the .env beside this file. MUSE_TIER_ENABLE must be 1 to turn them on (this container always runs with MUSE_HOSTED=1); empty by default.
+      # the .env beside this file. MUSE_TIER_ENABLE must be 1 to turn them on (this container always runs with MUSE_HOSTED=1), or read for a read-only public URL; empty by default.
       MUSE_TIER_ENABLE: ${MUSE_TIER_ENABLE:-}
       MUSE_TIER_WORKER_CLIENT_ID: ${MUSE_TIER_WORKER_CLIENT_ID:-}
       MUSE_TIER_WORKER_CLIENT_SECRET: ${MUSE_TIER_WORKER_CLIENT_SECRET:-}

@@ -10,6 +10,7 @@ import { liveConfig, liveDiscovery, mockDiscovery } from './discovery.js';
 import { agentConfig, agentTools, normaliseResult, plan, reply } from './agent.js';
 import { assistantsFor, mountConnector } from './connector.js';
 import { createNetguard } from './netguard.js';
+import { connectorInfo } from './connectorInfo.js';
 import { loadStories, renderStory } from './stories.js';
 import { loadCustomer } from './customer.js';
 import { PLATFORMS, createPlatformEngine } from './platforms.js';
@@ -20,7 +21,7 @@ import { PERSONAS, TOOLS, runTool } from './tools.js';
 import { shelfInfo } from './shelfLink.js';
 import { AGENT_LIMIT_DEFAULT, MEMBERS, PREMIUM_THRESHOLD, PREMIUM_TIERS, RULES, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, fareFor, flightId, listFlights, memberFor } from './fares.js';
 import { bookingTool, classifyBooking, mockAuthorize, mockBooking } from './booking.js';
-import { LIMIT_ATTRIBUTE, LIMIT_MAX, LIMIT_MIN, LIMIT_RULE, createTierSwitch, parseLimit } from './tier.js';
+import { LIMIT_ATTRIBUTE, LIMIT_MAX, LIMIT_MIN, LIMIT_RULE, READ_ONLY_MESSAGE, createTierSwitch, parseLimit } from './tier.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const LOOPBACK_BINDS = new Set(['127.0.0.1', '::1', 'localhost']);
@@ -191,6 +192,13 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     res.set('Cache-Control', 'no-store').json(story);
   });
 
+  // The public facts for the "Connect muse.ai" card: what to type or paste into the assistant. A fixed field list (connectorInfo.js): no secret, token or internal setting.
+  app.get('/api/connector/info', (req, res) => {
+    const info = connectorInfo(connector, env, live);
+    if (!info) return res.status(404).json({ error: 'connector_not_enabled' });
+    res.set('Cache-Control', 'no-store').json(info);
+  });
+
   // The netguard's counters and its self-test. Counts and a mode only: no addresses.
   app.get('/api/netguard', async (req, res) => {
     const { origins, last, ...s } = guard.stats();
@@ -284,7 +292,8 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   // come from a request: the body names a member key and/or a limit and nothing else (other fields are ignored).
   const realNow = (req) => Boolean(live) && liveOn && req.ws.gatewayMode === 'live';
   const mockFacts = (ws) => ({ member: ws.member, tier: MEMBERS[ws.member]?.tier ?? null, limit: ws.agentLimit ?? AGENT_LIMIT_DEFAULT, limitIsDefault: ws.agentLimit == null });
-  app.get('/api/booking/tier', (req, res) => res.set('Cache-Control', 'no-store').json({ mode: realNow(req) ? 'real' : 'mock', member: req.ws.member, ...(realNow(req) ? {} : mockFacts(req.ws)), ...tier.view() }));
+  // MUSE_TIER_ENABLE=read (a public hosted URL): in Real the mode reads 'read-only' and `source` keeps saying 'real'. Reads work; writes are refused below.
+  app.get('/api/booking/tier', (req, res) => res.set('Cache-Control', 'no-store').json({ mode: realNow(req) ? (tier.readOnly ? 'read-only' : 'real') : 'mock', source: realNow(req) ? 'real' : 'mock', member: req.ws.member, ...(realNow(req) ? {} : mockFacts(req.ws)), ...tier.view() }));
   const tierGate = (req, res) => {
     if (!realNow(req)) { res.status(409).json({ error: 'not_real', message: 'Switch to Real first: the PingOne values are only read or written in Real.' }); return false; }
     if (!tier.configured) { res.status(409).json({ error: 'tier_not_configured', ...tier.view() }); return false; }
@@ -305,6 +314,8 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       if (l) req.ws.agentLimit = l.value === null ? null : Number(l.value);
       return res.json({ mode: 'mock', ...mockFacts(req.ws), ...tier.view() });
     }
+    // Read-only mode: refused before the gate, the limiter and any PingOne call. (tier.apply refuses too; this is the plain answer.)
+    if (tier.readOnly) return res.status(403).json({ error: 'read_only', message: READ_ONLY_MESSAGE, mode: 'read-only', ...tier.view() });
     if (!tierGate(req, res)) return;
     const out = await tier.apply({ ...(m ? { tier: m.tier ?? null } : {}), ...(l ? { limit: l.value } : {}) });
     res.status(out.ok ? 200 : out.busy ? 409 : 502).json({ mode: 'real', ...out });

@@ -103,6 +103,8 @@ export function TierCard({ live, session, info, api, busy, onChanged, onHeldLimi
   const load = () => api('GET', '/api/booking/tier').then(setState).catch(() => setState(null));
   useEffect(() => { load(); }, [api, live]); // eslint-disable-line react-hooks/exhaustive-deps
   const configured = state?.configured === true;
+  // MUSE_TIER_ENABLE=read on a public URL: in Real the card shows what PingOne holds and nothing here writes. Mock controls (this visitor only) still work.
+  const readOnly = live && state?.readOnly === true;
   const users = (result ?? state?.last)?.users ?? [];
   const readAll = users.length > 0 && users.every((u) => u.known);
   const tiers = [...new Set(users.map((u) => u.value ?? null))];
@@ -131,6 +133,7 @@ export function TierCard({ live, session, info, api, busy, onChanged, onHeldLimi
   const read = () => send('/api/booking/tier/read');
   useEffect(() => { if (live && configured) read(); }, [live, configured]); // eslint-disable-line react-hooks/exhaustive-deps
   const off = busy || working || (live && !configured);
+  const noWrite = off || readOnly;
   // The controls are disabled while a change runs, which drops keyboard focus; put it back on the amount box after Apply.
   useEffect(() => { if (!working && refocus.current) { refocus.current = false; inputRef.current?.focus(); } }, [working]);
 
@@ -170,7 +173,7 @@ export function TierCard({ live, session, info, api, busy, onChanged, onHeldLimi
         <p className="small muted">The airline's rule: only premium members (Premier Gold) can book over ${threshold}.</p>
         <div className="bk-tier__btns">
           {TIER_BUTTONS.map((b) => (
-            <button key={b.key} type="button" aria-pressed={heldKey === b.key} disabled={off} onClick={() => send('/api/booking/tier', { member: b.key })} data-testid={`tier-${b.key}`}>
+            <button key={b.key} type="button" aria-pressed={heldKey === b.key} disabled={noWrite} onClick={() => send('/api/booking/tier', { member: b.key })} data-testid={`tier-${b.key}`}>
               {b.label}<span className="small"> ({b.hint})</span>
             </button>
           ))}
@@ -183,21 +186,22 @@ export function TierCard({ live, session, info, api, busy, onChanged, onHeldLimi
         <p className="small muted">This is the user's own cap, in dollars, for tickets bought by an AI agent. A booking the person makes directly is not limited by it.</p>
         <div className="bk-tier__btns">
           {LIMIT_PRESETS.map((n) => (
-            <button key={n} type="button" aria-pressed={heldLimit === n} disabled={off} onClick={() => send('/api/booking/tier', { limit: n })} data-testid={`limit-${n}`}>${n}</button>
+            <button key={n} type="button" aria-pressed={heldLimit === n} disabled={noWrite} onClick={() => send('/api/booking/tier', { limit: n })} data-testid={`limit-${n}`}>${n}</button>
           ))}
-          <button type="button" aria-pressed={heldLimit === null} disabled={off} onClick={() => send('/api/booking/tier', { limit: 'default' })} data-testid="limit-default" title={`Clear the field: Authorize then uses its default of $${dflt}`}>Default (${dflt})</button>
+          <button type="button" aria-pressed={heldLimit === null} disabled={noWrite} onClick={() => send('/api/booking/tier', { limit: 'default' })} data-testid="limit-default" title={`Clear the field: Authorize then uses its default of $${dflt}`}>Default (${dflt})</button>
         </div>
         <form className="bk-tier__custom" onSubmit={applyCustom} noValidate>
           <label className="field"><span>Custom amount, whole dollars</span>
-            <input ref={inputRef} type="text" inputMode="numeric" autoComplete="off" value={custom} disabled={off} maxLength={12} placeholder="for example 750"
+            <input ref={inputRef} type="text" inputMode="numeric" autoComplete="off" value={custom} disabled={noWrite} maxLength={12} placeholder="for example 750"
               onChange={(e) => { setCustom(e.target.value); setCustomProblem(null); }}
               aria-invalid={customProblem ? 'true' : undefined} aria-describedby={customProblem ? 'bk-limit-problem' : undefined} data-testid="limit-input" />
           </label>
-          <button type="submit" className="primary" disabled={off} data-testid="limit-apply">Apply</button>
+          <button type="submit" className="primary" disabled={noWrite} data-testid="limit-apply">Apply</button>
         </form>
         {customProblem && <p id="bk-limit-problem" className="small bk-tier__bad" role="alert" data-testid="limit-error">{customProblem}</p>}
       </div>
 
+      {readOnly && <p className="small bk-tier__off" role="status" data-testid="tier-readonly">{state.readOnlyMessage ?? 'Read-only here: change the tier and limit on the local Muse page.'}</p>}
       {live && !configured && (
         <p className="small bk-tier__off" role="status" data-testid="tier-unconfigured">
           {state?.needs?.length > 0
@@ -240,6 +244,9 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
   const b = session.booking ?? null;
   const ledger = session.bookings ?? [];
   const fares = Object.fromEntries((info?.flights ?? []).map((f) => [f.id, f.fare]));
+  const cities = Object.fromEntries((info?.flights ?? []).filter((f) => f.city).map((f) => [f.id, f.city]));
+  // People pick a place and a price, not a flight id: the id is small secondary text. A flight with no city (older data) falls back to its id.
+  const placeOf = (id) => cities[id] ?? id;
   const userOk = !live || session.live?.userLogin;
   const member = session.member ?? 'standard';
   const limitNow = heldLimit ?? info?.rules?.agentLimit; // until Real has been read, Authorize's default
@@ -298,16 +305,16 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
       <h3>Scenarios</h3>
       <div className="bk-table-wrap">
         <table className="bk-table" data-testid="scenario-table">
-          <thead><tr><th>#</th><th>Caller</th><th>Flight</th><th>Member tier</th><th>Rules say</th><th /></tr></thead>
+          <thead><tr><th>#</th><th>Caller</th><th>Destination and price</th><th>Member tier</th><th>Rules say</th><th /></tr></thead>
           <tbody>
             {ROWS.map((r) => (
               <tr key={r.n} data-testid={`row-${r.n}`}>
                 <td>{r.n}</td>
                 <td>{r.caller === 'agent' ? 'AI agent' : 'Sam, direct'}</td>
-                <td>{r.flight} {fares[r.flight] !== undefined && <b>{money(fares[r.flight])}</b>}</td>
+                <td data-testid={`row-label-${r.n}`}>{placeOf(r.flight)} {fares[r.flight] !== undefined && <b>{money(fares[r.flight])}</b>} {cities[r.flight] && <small className="muted" data-testid={`row-id-${r.n}`}>{r.flight}</small>}</td>
                 <td>{live ? <span className="small muted" title="Set on the PingOne user, read by Authorize">{REAL_TIER[r.member]}</span> : MOCK_TIER[r.member]}</td>
                 <td className="small" data-testid={`expect-${r.n}`}>{expectFor(r, { fare: fares[r.flight], limit: limitNow, threshold: info?.rules?.premiumThreshold })}</td>
-                <td><button type="button" className="primary" onClick={() => run(r.flight, r.caller, r.member)} disabled={busy || (r.caller === 'human' && !userOk)} data-testid={`run-${r.n}`}>Run</button></td>
+                <td><button type="button" className="primary" onClick={() => run(r.flight, r.caller, r.member)} disabled={busy || (r.caller === 'human' && !userOk)} data-testid={`run-${r.n}`} aria-label={`Run: ${r.caller === 'agent' ? 'Agent' : 'Sam'}, ${placeOf(r.flight)}${fares[r.flight] !== undefined ? `, ${money(fares[r.flight])}` : ''}`}>Run</button></td>
               </tr>
             ))}
           </tbody>
@@ -320,15 +327,15 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
           : 'In Mock a booking that passes both rules books: the agent asks Sam\'s consent once (the existing consent dialog), a direct call has no consent step. In Real the consent gate stops these at HTTP 428.'}
       </p>
 
-      <div className="bk-picker" role="group" aria-label="Pick any flight">
-        <label className="field"><span>Any flight</span>
+      <div className="bk-picker" role="group" aria-label="Pick any destination">
+        <label className="field"><span>Any destination</span>
           <select value={flight} onChange={(e) => setFlight(e.target.value)} disabled={busy} data-testid="flight-select">
-            {(info?.flights ?? []).map((f) => <option key={f.id} value={f.id}>{f.id} {f.route} {money(f.fare)}</option>)}
+            {(info?.flights ?? []).map((f) => <option key={f.id} value={f.id}>{f.city ? `${f.city}, ${money(f.fare)} (${f.id}, ${f.route})` : `${f.id} ${f.route} ${money(f.fare)}`}</option>)}
           </select>
         </label>
         <button type="button" onClick={() => run(flight, caller, member)} disabled={busy || (caller === 'human' && !userOk)} data-testid="run-picked">Book it</button>
         <button type="button" onClick={onReset} disabled={busy} data-testid="book-reset" title="Clear this session: the trace, the ledger and the sign-in">Reset</button>
-        <button type="button" onClick={() => run('SH107', 'agent', 'standard', 100)} disabled={busy} data-testid="run-lie" title="Muse sends amount 100. The fare that is judged is still the catalogue's.">Book SH107 but claim $100 (try to lie)</button>
+        <button type="button" onClick={() => run('SH107', 'agent', 'standard', 100)} disabled={busy} data-testid="run-lie" title="Muse sends amount 100. The fare that is judged is still the catalogue's.">Book {placeOf('SH107')} but claim $100 (try to lie)</button>
       </div>
 
       <Banner b={b} />
@@ -337,7 +344,7 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
       <section className="bk-ledger" aria-label="Bookings made this session" data-testid="ledger">
         <h3>Bookings made this session</h3>
         {ledger.length === 0 ? <p data-testid="ledger-empty">Nothing booked.</p> : (
-          <ul>{ledger.map((l) => <li key={l.confirmation ?? l.at}>{l.flightId} {money(l.fare)} <code>{l.confirmation}</code> <span className="small muted">{l.mode === 'live' ? 'Real' : 'simulated'}</span></li>)}</ul>
+          <ul>{ledger.map((l) => <li key={l.confirmation ?? l.at}>{placeOf(l.flightId)} {money(l.fare)} {cities[l.flightId] && <small className="muted">{l.flightId}</small>} <code>{l.confirmation}</code> <span className="small muted">{l.mode === 'live' ? 'Real' : 'simulated'}</span></li>)}</ul>
         )}
       </section>
 

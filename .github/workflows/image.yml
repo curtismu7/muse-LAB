@@ -1,0 +1,55 @@
+name: Image
+
+# The hosted build's image: the same Dockerfile as local Docker, built for linux/arm64 (the cluster's nodes are arm64, see docs/handoff-deployment.md) on a
+# GitHub-hosted arm64 runner. A push to main (or a manual run) builds it, smoke-tests it the way the cluster runs it (non-root, read-only root filesystem,
+# a writable /data), then pushes ghcr.io/<owner>/muse-lab:sha-<full commit> with the workflow's own GITHUB_TOKEN (write access to packages only, no other secret).
+# The tag is immutable (the full commit sha) and it is the only tag.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image name (lower case)
+        id: name
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/muse-lab" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          push: false
+          tags: |
+            muse-smoke
+            ${{ steps.name.outputs.repo }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Smoke the built image as the cluster runs it, before any push
+        run: |
+          test "$(docker run --rm --entrypoint id muse-smoke -u)" != 0
+          docker run -d --name muse -p 127.0.0.1:5100:5100 --read-only --tmpfs /tmp --tmpfs /data:uid=1000,gid=1000 muse-smoke
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5100/api/health >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS http://127.0.0.1:5100/api/health | grep -q '"schema":"demo-health/1"'
+          docker exec muse sh -c 'touch /data/ok'
+          if docker exec muse sh -c 'touch /app/not-writable' 2>/dev/null; then echo "the root filesystem is writable"; exit 1; fi
+          docker logs muse
+      - name: Push (after the smoke passed)
+        run: docker push "${{ steps.name.outputs.repo }}:sha-${{ github.sha }}"
