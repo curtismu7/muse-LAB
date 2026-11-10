@@ -6,7 +6,8 @@
 import express from 'express';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { callGateway, delegate, exchangeCode, piflowFor, startSignIn } from './liveauth.js';
+import { callGateway, delegate, exchangeCode, piflowFor, refreshWithPingOne, startSignIn } from './liveauth.js';
+import { createRefreshStore, newRefreshToken, REFRESH_FAMILY_CAP } from './refreshStore.js';
 import { SELF_MARK, simKeyOf } from './platforms.js';
 import { bookingTool, classifyBooking } from './booking.js';
 import { DESTINATION_MAX, OPEN_FARE_FLIGHT, OPEN_FARE_MAX, PREMIUM_THRESHOLD, RULES, fareFor, flightById, flightForDestination, flightId as flightIdOf, listFlights, validAmount } from './fares.js';
@@ -174,6 +175,7 @@ const PASS_CHARS = 4000;
 export const NOT_CONFIRMED = 'The airline system answered (not a confirmed booking):';
 export const scrubAnswer = (t) => String(t)
   .replace(/\bBearer\s+[\w~+/.=-]{8,}/gi, 'Bearer [redacted]')
+  .replace(/\b((?:refresh|access)_token["']?\s*[:=]\s*["']?)[\w~+/.=-]{8,}/gi, '$1[redacted]')
   .replace(/\b[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,}\b/g, '[token]')
   .replace(/https?:\/\/[^\s"'<>)]*/gi, (u) => (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[?#]|\/[\w-]{20,}/i.test(u) ? '<url>' : u));
 // The text items of a gateway 200 (JSON-RPC result.content), or null when there is nothing readable to pass on.
@@ -269,7 +271,7 @@ function saveClients(file, clients) {
 
 function capped(map) { while (map.size >= CAP) map.delete(map.keys().next().value); }
 
-export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = null, factsTimeoutMs = FACTS_TIMEOUT_MS }) {
+export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = null, factsTimeoutMs = FACTS_TIMEOUT_MS, refreshCap = REFRESH_FAMILY_CAP }) {
   const cfg = connectorConfig(env, live);
   if (!cfg) return false;
   const PUBLIC = cfg.publicUrl;
@@ -283,12 +285,18 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
   const scrub = (v) => (typeof v === 'string' ? redact(v) : Array.isArray(v) ? v.map(scrub) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrub(x)])) : v);
   if (env.MUSE_GATEWAY_INTERNAL_SECRET && !bridgeSecret) console.log('[connector] MUSE_GATEWAY_INTERNAL_SECRET ignored: it is not a plain header value');
   // Dynamic registrations. With MUSE_CLIENTS_FILE set they survive a restart: loaded here, and written after each registration.
-  const clients = loadClients(env.MUSE_CLIENTS_FILE);   // client_id -> { redirectUris, name }
+  // Refresh tokens (opt-in): off means no refresh_token anywhere, in the metadata, a registration or a token answer, and a refresh_token grant is unsupported.
+  const refreshOn = env.MUSE_CONNECTOR_REFRESH === '1';
+  const refresh = refreshOn ? createRefreshStore({ maxHours: env.MUSE_CONNECTOR_REFRESH_MAX_HOURS, cap: refreshCap, onDrop: (f) => { for (const [k, v] of tokens) if (v.family === f.id) tokens.delete(k); } }) : null;
+  const GRANTS = refreshOn ? ['authorization_code', 'refresh_token'] : ['authorization_code'];
+  // A client may refresh unless its registration said it will not (a client saved before this setting existed has no grant list and is allowed).
+  const mayRefresh = (client) => !client?.grants || client.grants.includes('refresh_token');
+  const clients = loadClients(env.MUSE_CLIENTS_FILE);   // client_id -> { redirectUris, name, grants }
   const pending = new Map();   // our state -> { client, redirectUri, state, challenge, verifier, at }
   const codes = new Map();     // our code -> { token, client, redirectUri, challenge, at }
-  const tokens = new Map();    // access token -> { delegated, exp }
+  const tokens = new Map();    // access token -> { delegated, actor, userId, exp, family }
   const hits = new Map();
-  if (cfg.staticClient) clients.set(cfg.staticClient.id, { redirectUris: cfg.staticClient.redirectUris, name: cfg.staticClient.name });
+  if (cfg.staticClient) clients.set(cfg.staticClient.id, { redirectUris: cfg.staticClient.redirectUris, name: cfg.staticClient.name, ...(refreshOn ? { grants: GRANTS } : {}) });
 
   // Public endpoints take no cookie, so they get their own small limiter (per address, and across everyone).
   const limit = (req, res, next) => {
@@ -329,7 +337,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
   app.get(['/.well-known/oauth-authorization-server', '/.well-known/openid-configuration'], open, (req, res) => res.json({
     issuer: PUBLIC, authorization_endpoint: `${PUBLIC}/connector/authorize`, token_endpoint: `${PUBLIC}/connector/token`,
     registration_endpoint: `${PUBLIC}/connector/register`,
-    response_types_supported: ['code'], grant_types_supported: ['authorization_code'], code_challenge_methods_supported: ['S256'],
+    response_types_supported: ['code'], grant_types_supported: GRANTS, code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'], scopes_supported: ['mcp'],
   }));
 
@@ -341,9 +349,13 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
     if (!uris.length || uris.length > 5 || !uris.every((u) => okRedirect(u, cfg.hosts, PUBLIC))) { console.warn(`[connector] registration refused, redirect host not allowed: ${hostsAsked.join(', ')}`); return oauthErr(res, 400, 'invalid_redirect_uri', 'Every redirect URI must be https on an allowed host.'); }
     capped(clients);
     const id = `muse-${rand(12)}`;
-    clients.set(id, { redirectUris: uris, name: String(req.body?.client_name ?? 'Agent').slice(0, 60) });
+    // refresh_token is granted only when the connector offers it and the client did not list grant types without it (a client that lists none is offered it).
+    const asked = Array.isArray(req.body?.grant_types) ? req.body.grant_types.map(String) : null;
+    const grants = refreshOn && (!asked || asked.includes('refresh_token')) ? GRANTS : ['authorization_code'];
+    // With refresh off the grant list is not stored (only echoed below), so the saved file is as before and a later switch-on still lets this client refresh.
+    clients.set(id, { redirectUris: uris, name: String(req.body?.client_name ?? 'Agent').slice(0, 60), ...(refreshOn ? { grants } : {}) });
     saveClients(env.MUSE_CLIENTS_FILE, clients);
-    res.status(201).set('Cache-Control', 'no-store').json({ client_id: id, redirect_uris: uris, token_endpoint_auth_method: 'none', grant_types: ['authorization_code'], response_types: ['code'], client_name: clients.get(id).name });
+    res.status(201).set('Cache-Control', 'no-store').json({ client_id: id, redirect_uris: uris, token_endpoint_auth_method: 'none', grant_types: grants, response_types: ['code'], client_name: clients.get(id).name });
   });
 
   // The agent's browser lands here. Personal Agent validates the request, then sends the user to PingOne.
@@ -362,7 +374,8 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
     // '.conn' on the login hint tells the PingOne flow this sign-in came through the Airline Connector, so its screens name it.
     const learned = { authorizeEndpoint: live.idp.authorizeEndpoint, tokenEndpoint: live.idp.tokenEndpoint, scopes: ['openid'] };
     const idp = idpFor(cfg, live, String(q.redirect_uri));
-    const r = startSignIn(learned, { clientId: idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: idp.loginHint ? `${idp.loginHint}.conn` : null });
+    // offline_access asks PingOne for a refresh token; only when refresh is on (PingOne issues one only if the app has the refresh grant).
+    const r = startSignIn(learned, { clientId: idp.clientId, redirectUri: `${PUBLIC}/connector/callback` }, null, { forceLogin: true, loginHint: idp.loginHint ? `${idp.loginHint}.conn` : null, scope: refreshOn ? 'openid offline_access' : null });
     capped(pending);
     // The user signs in on Personal Agent's own page, in the Sign in dialog (pi.flow): no redirect to a PingOne login page.
     const signin = `${PUBLIC}/connector/signin?flow=${r.state}`;
@@ -398,7 +411,8 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
       if (!d.token) return back({ error: 'server_error' });
       capped(codes);
       const code = rand(24);
-      codes.set(code, { token: d.token, actor: plainId(p.idp.clientId), userId: plainId(d.claims?.sub), exp: d.claims?.exp ?? null, client: p.client, redirectUri: p.redirectUri, challenge: p.challenge, at: Date.now() });
+      // PingOne's refresh token (if it issued one) stays here, server side: it rides in the code record to the token step and is never sent to any client.
+      codes.set(code, { token: d.token, actor: plainId(p.idp.clientId), userId: plainId(d.claims?.sub), exp: d.claims?.exp ?? null, client: p.client, redirectUri: p.redirectUri, challenge: p.challenge, at: Date.now(), ...(refreshOn ? { p1Refresh: r.refreshToken ?? null, idp: p.idp, learned: p.learned } : {}) });
       return back({ code });
     } catch { return back({ error: 'server_error' }); }
   };
@@ -420,21 +434,80 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
     res.set('Cache-Control', 'no-store').json({ redirectTo: await finish(p, q) });
   });
 
-  // The agent trades our code for an access token. PKCE S256, one use, bound to the client and redirect.
-  app.post('/connector/token', limit, express.urlencoded({ extended: false, limit: '8kb' }), (req, res) => {
+  // How long an access token lasts: at most an hour, and never past the delegated token's own expiry.
+  const ttlFor = (exp) => Math.max(60, Math.min(TOKEN_MAX_S, exp ? exp - Math.floor(Date.now() / 1000) : TOKEN_MAX_S));
+  const transient = (status) => Number.isInteger(status) && (status >= 500 || status === 429 || status === 408);
+
+  // The refresh_token grant. Public client: client_id must be sent and must be the client the token was issued to. Each token is used once and replaced; presenting a spent one
+  // revokes the family (a retry within a few seconds gets the same answer again). The refresh itself is done against PingOne here, then the delegation is redone.
+  // Nothing in a log line or an error below is ever a token: only fixed words.
+  async function refreshGrant(b, res) {
+    const clientId = String(b.client_id ?? ''); const presented = String(b.refresh_token ?? '');
+    const refuse = (reason) => { console.log(`[connector] refresh refused: ${reason}`); return oauthErr(res, 400, 'invalid_grant', 'The refresh token is invalid, expired or revoked. Sign in again.'); };
+    const unavailable = (reason) => { console.log(`[connector] refresh unavailable: ${reason}`); return oauthErr(res, 503, 'temporarily_unavailable', 'The sign-in service could not be reached. Try again shortly.'); };
+    if (!clientId || !presented) { console.log('[connector] refresh refused: client_id and refresh_token are required'); return oauthErr(res, 400, 'invalid_request', 'client_id and refresh_token are required.'); }
+    const first = refresh.classify(presented);
+    if (first.kind === 'unknown') return refuse('unknown, expired or revoked');
+    if (first.family.client !== clientId) return refuse('issued to another client');
+    const fam = first.family;
+    try {
+      return await refresh.withLock(fam, async () => {
+        // Looked at again inside the lock: a refresh that was ahead of this one has rotated the token by now.
+        const st = refresh.classify(presented);
+        if (st.kind === 'grace') { console.log('[connector] refresh ok (repeat answer within the grace time)'); return res.set('Cache-Control', 'no-store').json(st.response); }
+        if (st.kind === 'reuse') { refresh.revoke(fam); return refuse('spent token presented again, sign-in revoked'); }
+        if (st.kind !== 'current') return refuse('unknown, expired or revoked');
+        const p1 = await refreshWithPingOne(live, fam.learned, { refreshToken: fam.p1Refresh, clientId: fam.idp.clientId, clientSecret: fam.idp.clientSecret }, fetchImpl);
+        if (p1.kind === 'unavailable') return unavailable('PingOne did not answer');
+        if (p1.kind === 'refused') { refresh.revoke(fam); return refuse('PingOne refused the refresh, sign-in revoked'); }
+        // PingOne may have rotated its token: keep the new one now, before anything else can fail, or the next try would present a dead one.
+        if (p1.refreshToken) fam.p1Refresh = p1.refreshToken;
+        let d;
+        try { d = await delegate(live, fam.idp, p1.token, fetchImpl); } catch { return unavailable('PingOne did not answer the token exchange'); }
+        if (!d.token) {
+          if (transient(d.steps.at(-1)?.response?.status)) return unavailable('PingOne could not do the token exchange');
+          refresh.revoke(fam); return refuse('PingOne refused the token exchange, sign-in revoked');
+        }
+        const sub = plainId(d.claims?.sub);
+        if (fam.userId && sub !== fam.userId) { refresh.revoke(fam); return refuse('the refreshed token is for another user, sign-in revoked'); }
+        if (!refresh.alive(fam)) return refuse('revoked or expired while refreshing');
+        const ttl = ttlFor(d.claims?.exp);
+        capped(tokens);
+        const access = rand(32);
+        tokens.set(access, { delegated: d.token, actor: fam.actor, userId: fam.userId, exp: Date.now() + ttl * 1000, family: fam.id });
+        const next = newRefreshToken();
+        const answer = { access_token: access, token_type: 'Bearer', expires_in: ttl, scope: 'mcp', refresh_token: next };
+        refresh.rotate(fam, presented, next, answer);
+        console.log('[connector] refresh ok');
+        return res.set('Cache-Control', 'no-store').json(answer);
+      });
+    } catch { return oauthErr(res, 500, 'server_error', 'The refresh could not be completed.'); }
+  }
+
+  // The agent trades our code for an access token. PKCE S256, one use, bound to the client and redirect. With refresh on it also trades a refresh token for a new access token.
+  app.post('/connector/token', limit, express.urlencoded({ extended: false, limit: '8kb' }), async (req, res) => {
     const b = req.body ?? {};
-    if (b.grant_type !== 'authorization_code') return oauthErr(res, 400, 'unsupported_grant_type', 'Only authorization_code is supported.');
+    if (refreshOn && b.grant_type === 'refresh_token') return refreshGrant(b, res);
+    if (b.grant_type !== 'authorization_code') return oauthErr(res, 400, 'unsupported_grant_type', refreshOn ? 'Only authorization_code and refresh_token are supported.' : 'Only authorization_code is supported.');
     const c = codes.get(String(b.code ?? ''));
     codes.delete(String(b.code ?? ''));
     if (!c || Date.now() - c.at > CODE_MS) return oauthErr(res, 400, 'invalid_grant', 'The code is unknown or expired.');
     if (c.client !== String(b.client_id ?? '') || c.redirectUri !== String(b.redirect_uri ?? '')) return oauthErr(res, 400, 'invalid_grant', 'The client or redirect address does not match.');
     const verifierHash = createHash('sha256').update(String(b.code_verifier ?? '')).digest('base64url');
     if (!b.code_verifier || verifierHash !== c.challenge) return oauthErr(res, 400, 'invalid_grant', 'The code verifier does not match.');
-    const ttl = Math.max(60, Math.min(TOKEN_MAX_S, c.exp ? c.exp - Math.floor(Date.now() / 1000) : TOKEN_MAX_S));
+    const ttl = ttlFor(c.exp);
+    // A refresh token only when PingOne gave one for this sign-in (otherwise it is exactly the behaviour without refresh) and the client may have one.
+    let family = null; let refreshToken;
+    if (refreshOn) {
+      if (c.p1Refresh && mayRefresh(clients.get(c.client))) {
+        const f = refresh.issue({ client: c.client, userId: c.userId, actor: c.actor, idp: c.idp, learned: c.learned, p1Refresh: c.p1Refresh });
+        family = f.family; refreshToken = f.token;
+      } else console.log(`[connector] sign-in done without a refresh token (${c.p1Refresh ? 'the client did not ask for the refresh grant' : 'PingOne issued none: does the app have the refresh grant?'})`);
+    }
     capped(tokens);
     const access = rand(32);
-    tokens.set(access, { delegated: c.token, actor: c.actor, userId: c.userId, exp: Date.now() + ttl * 1000 });
-    res.set('Cache-Control', 'no-store').json({ access_token: access, token_type: 'Bearer', expires_in: ttl, scope: 'mcp' });
+    tokens.set(access, { delegated: c.token, actor: c.actor, userId: c.userId, exp: Date.now() + ttl * 1000, ...(family ? { family: family.id } : {}) });
+    res.set('Cache-Control', 'no-store').json({ access_token: access, token_type: 'Bearer', expires_in: ttl, scope: 'mcp', ...(refreshToken ? { refresh_token: refreshToken } : {}) });
   });
 
   // MCP over streamable HTTP, JSON responses only.
