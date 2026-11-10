@@ -40,6 +40,17 @@ export function mockDiscovery() {
   };
 }
 
+// In-cluster gateway address (hosted build only): plain http is allowed for the gateway URL when ALL of these hold: MUSE_ALLOW_LIVE_INCLUSTER is exactly '1',
+// MUSE_HOSTED is exactly '1', the protocol is http:, there is no username or password, and the host is ONE DNS label (no dot). A single label is a name that only
+// resolves inside the cluster (a Service name such as ping-gateway), so it cannot be a public host. A dotted name, an IPv4 address in any form (WHATWG URL parsing turns
+// http://10/ into 0.0.0.10, which has dots) and an IPv6 literal (brackets) all fail the label test. A purely numeric label is refused as well.
+const DNS_LABEL = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+export function inClusterGatewayOk(u, env) {
+  return env.MUSE_ALLOW_LIVE_INCLUSTER === '1' && env.MUSE_HOSTED === '1'
+    && u.protocol === 'http:' && !u.username && !u.password
+    && DNS_LABEL.test(u.hostname) && !/^[0-9]+$/.test(u.hostname);
+}
+
 // Live mode needs ALLOW_LIVE=1 and MUSE_LIVE_GATEWAY_URL, and is never available on the hosted build.
 export function liveConfig(env) {
   // MODE=mock is the mock-only build (rule 18): no live mode, whatever else is set.
@@ -61,7 +72,7 @@ export function liveConfig(env) {
   let u;
   try { u = new URL(env.MUSE_LIVE_GATEWAY_URL); } catch { return null; }
   const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname);
-  if (u.protocol !== 'https:' && !(loopback && u.protocol === 'http:')) return null;
+  if (u.protocol !== 'https:' && !(loopback && u.protocol === 'http:') && !inClusterGatewayOk(u, env)) return null;
   const allow = new Set([u.origin]);
   for (const o of (env.MUSE_LIVE_ALLOW_ORIGINS ?? '').split(',').map((x) => x.trim()).filter(Boolean)) {
     try { const ou = new URL(o); if (ou.protocol === 'https:') allow.add(ou.origin); } catch { /* ignore */ }
