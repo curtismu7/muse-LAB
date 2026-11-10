@@ -119,10 +119,13 @@ describe('Connect muse.ai card', () => {
     expect(screen.getByTestId('cm-tools-note')).toHaveTextContent('only two');
     expect(screen.getByTestId('cm-tools-note')).toHaveTextContent('Remove it and add it again');
     expect(screen.getByRole('heading', { name: 'Step 4: try these prompts' })).toBeInTheDocument();
-    expect(EXAMPLE_PROMPTS).toEqual(['Book me a flight for $620', 'Book me a flight to London', 'Book me a flight to Denver for $450', 'List the flights I can book', 'How many points do I have?']);
+    expect(EXAMPLE_PROMPTS).toEqual(['Book me a flight to London for $620 tomorrow', 'Book me a flight to Denver for $450 tomorrow', 'Book me a flight to Denver tomorrow', 'Book me a flight to Seattle for $500 tomorrow', 'List the flights I can book', 'How many points do I have?']);
+    EXAMPLE_PROMPTS.slice(0, 4).forEach((p) => { expect(p).toMatch(/ to \w+/); expect(p).toMatch(/ tomorrow$/); });
     EXAMPLE_PROMPTS.forEach((p, i) => expect(screen.getByTestId(`cm-example-${i}`)).toHaveTextContent(p));
-    fireEvent.click(screen.getByTestId('cm-example-copy-2'));
-    await waitFor(() => expect(write).toHaveBeenCalledWith('Book me a flight to Denver for $450'));
+    const outcomes = ['Blocked: over the $500 limit.', 'Booked at your $450, noting the airline lists $180.', "Booked at the airline's $180.", 'Booked: exactly at the limit.', 'Lists the flights and their prices.', 'Shows your points balance.'];
+    outcomes.forEach((o, i) => expect(screen.getByTestId(`cm-example-outcome-${i}`)).toHaveTextContent(o));
+    fireEvent.click(screen.getByTestId('cm-example-copy-1'));
+    await waitFor(() => expect(write).toHaveBeenCalledWith('Book me a flight to Denver for $450 tomorrow'));
   });
 
   it('"How the prompts work": the seven points in plain words, with the limit and threshold from the server', async () => {
@@ -139,7 +142,9 @@ describe('Connect muse.ai card', () => {
     expect(items[4]).toHaveTextContent('Booked, with a confirmation number');
     expect(items[4]).toHaveTextContent('held for approval');
     expect(items[5]).toHaveTextContent("the rules judge the price the agent states. A real airline would price the ticket itself");
-    expect(items[6]).toHaveTextContent('A price or a destination is enough');
+    expect(items[6]).toHaveTextContent("muse.ai's assistant asks for a destination and a day first, so include them");
+    expect(items[6]).toHaveTextContent('The connector ignores the day and only needs a price or a destination');
+    expect(items[6]).toHaveTextContent('using the SkyHigh connector');
   });
 
   it('no static client or redirect URI: says muse.ai registers itself, with no empty Copy buttons', async () => {
