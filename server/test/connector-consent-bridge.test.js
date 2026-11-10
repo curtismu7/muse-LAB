@@ -182,7 +182,7 @@ test('the secret appears in no result, log line, error text, trace or page, even
   });
   try {
     for (const where of [out.join('\n'), logs]) { assert.ok(!where.includes(SECRET), 'secret leaked'); assert.doesNotMatch(where, /x-internal-gateway-secret/i); }
-    assert.match(logs, /book_flight SH103 -> booked \(HTTP 200\)/);
+    assert.match(logs, /book_flight SH103 \(catalogue\) -> booked \(HTTP 200\)/);
     assert.match(logs, /\[redacted\]/, 'the echoed value was redacted in the log');
     for (const p of ['/', '/api/info', '/api/session', '/api/flights', '/api/health', '/api/netguard']) {
       const r = await fetch(a.base + p);
@@ -199,7 +199,7 @@ test('a gateway that reflects the secret in an audit code or a confirmation numb
     assert.ok(!denied.includes(SECRET), 'reflected audit code'); assert.match(denied, /Nothing was booked\./);
     a.script.book = (args, headers) => json(200, { result: { content: [{ type: 'text', text: JSON.stringify({ booked: true, confirmationNumber: hdr(headers, 'x-internal-gateway-secret'), fare: 180 }) }] } });
     const booked = text(await a.call('book_flight', { flightId: 'SH101' }));
-    assert.ok(!booked.includes(SECRET), 'reflected confirmation number'); assert.match(booked, /^Booked SH101 for \$180\./);
+    assert.ok(!booked.includes(SECRET), 'reflected confirmation number'); assert.match(booked, /^Booked a flight to Denver for \$180 \(airline price\)\./);
     // A secret with characters that plain() would strip is also kept out (the raw value is scrubbed before it is worded).
     const odd = await boot({ MUSE_GATEWAY_INTERNAL_SECRET: 'ab!cd@ef#gh-not-real' });
     try {

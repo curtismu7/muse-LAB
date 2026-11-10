@@ -68,6 +68,7 @@ export function stubNet(seen, script, state) {
   };
 }
 
+export const OPEN_FARE = 'SH000';
 export const audit = (authorize, extra = {}) => ({ 'x-gw-audit-trail': JSON.stringify({ authorize: { decision: 'DENY', tool: 'book_airline_flight', ...authorize }, ...extra }) });
 export const stub = { mcp: (o = {}) => ({ result: { content: [{ type: 'text', text: JSON.stringify({ booked: true, confirmationNumber: 'CONF-STUB-1', fare: 180, ...o }) }] } }) };
 
@@ -77,18 +78,28 @@ export function realStackGateway({ secret = BRIDGE_SECRET, actor = ACTOR, state,
   const same = (a, b) => { const x = Buffer.from(String(a)); const y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
   const num = (v) => { const s = String(v ?? ''); return s.length <= 7 && /^\d+(\.\d+)?$/.test(s) && Number(s) > 0 ? Number(s) : null; };
   return (args, headers) => {
-    const fare = fareFor(args.flight_number);
-    if (fare === null) return json(403, { error: 'unknown_flight' });
     const trusted = same(hdr(headers, 'x-internal-gateway-secret') ?? '', secret);
+    // The open-fare rule: SH000 takes the STATED amount as the price, but only from the trusted caller and only when it is a positive number up to 100000 with at most 2 decimals. Anything else
+    // fails closed before Authorize. Every other flight uses the catalogue fare and ignores whatever amount the caller sent.
+    let fare; let fareAudit = {};
+    if (args.flight_number === OPEN_FARE) {
+      if (!trusted) return json(403, { error: 'open_fare_untrusted' });
+      const a = args.amount;
+      if (!(typeof a === 'number' && Number.isFinite(a) && a > 0 && a <= 100000 && Math.abs(a * 100 - Math.round(a * 100)) < 1e-6)) return json(403, { error: 'open_fare_bad_amount' });
+      fare = a; fareAudit = { fareSource: 'stated', statedAmount: a };
+    } else {
+      fare = fareFor(args.flight_number);
+      if (fare === null) return json(403, { error: 'unknown_flight' });
+    }
     const mayActSub = trusted ? String(hdr(headers, 'X-May-Act-Sub') ?? '') : '';
-    if (!mayActSub) return json(403, { error: 'access_denied' }, audit({ parameters: { Amount: String(fare) }, statements: [{ code: 'no_user_consent', payload: { message: 'no consent' } }] }));
-    if (mayActSub !== actor) return json(403, { error: 'access_denied' }, audit({ parameters: { Amount: String(fare) }, statements: [{ code: 'may_act_mismatch', payload: { message: 'mismatch' } }] }));
+    if (!mayActSub) return json(403, { error: 'access_denied' }, audit({ parameters: { Amount: String(fare) }, statements: [{ code: 'no_user_consent', payload: { message: 'no consent' } }] }, fareAudit));
+    if (mayActSub !== actor) return json(403, { error: 'access_denied' }, audit({ parameters: { Amount: String(fare) }, statements: [{ code: 'may_act_mismatch', payload: { message: 'mismatch' } }] }, fareAudit));
     const gatewayLimit = trusted ? (num(hdr(headers, 'X-Agent-Spend-Limit')) ?? 500) : 500;
     const authorizeLimit = state.limit === null || state.limit === undefined || state.limit === '' ? 500 : Number(state.limit);
     const statements = [];
     if (fare > authorizeLimit) statements.push({ code: RULES.agentSpendLimit.code, payload: { message: `fare $${fare} is over the limit`, ...(payloadLimit ? { limit: authorizeLimit } : {}) } });
     if (fare > 750 && state.tier !== 'Premier Gold') statements.push({ code: RULES.premiumOnly.code, payload: { message: 'premium only' } });
-    if (statements.length) return json(403, { error: 'access_denied' }, audit({ parameters: { Amount: String(fare), AgentSpendLimit: String(gatewayLimit), ...(state.tier ? { MemberTier: state.tier } : {}) }, statements }));
+    if (statements.length) return json(403, { error: 'access_denied' }, audit({ parameters: { Amount: String(fare), AgentSpendLimit: String(gatewayLimit), ...(state.tier ? { MemberTier: state.tier } : {}) }, statements }, fareAudit));
     const pre = trusted && hdr(headers, 'X-Hitl-Preapproved') === 'user-limit';
     if (pre && fare <= gatewayLimit) return json(200, mcpAnswer(args, fare));
     return json(428, { error: 'consent_pending', decision: 'PERMIT' });

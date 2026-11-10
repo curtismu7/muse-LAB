@@ -4,46 +4,55 @@
     {
       "id": "SH101",
       "route": "AUS-DEN",
+      "city": "Denver",
       "fare": 180
     },
     {
       "id": "SH102",
       "route": "AUS-SEA",
+      "city": "Seattle",
       "fare": 320
     },
     {
       "id": "SH103",
       "route": "AUS-BOS",
+      "city": "Boston",
       "fare": 480
     },
     {
       "id": "SH104",
       "route": "AUS-LAX",
+      "city": "Los Angeles",
       "fare": 500
     },
     {
       "id": "SH105",
       "route": "AUS-HNL",
+      "city": "Honolulu",
       "fare": 500.01
     },
     {
       "id": "SH106",
       "route": "AUS-LHR",
+      "city": "London",
       "fare": 620
     },
     {
       "id": "SH107",
       "route": "AUS-NRT",
+      "city": "Tokyo",
       "fare": 940
     },
     {
       "id": "SH108",
       "route": "AUS-OGG",
+      "city": "Maui",
       "fare": 750
     },
     {
       "id": "SH109",
       "route": "AUS-SFO",
+      "city": "San Francisco",
       "fare": 750.01
     }
   ]
