@@ -131,7 +131,9 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   });
 
   // Personal Agent as a connector for other agents (off unless MUSE_CONNECTOR=1 and real mode is configured).
-  const connector = mountConnector(app, { env, live, fetchImpl }) || null;
+  // The tier switch is created here (not further down) so the connector can read the signed-in user's limit from PingOne for the pre-approval header; see tier.js.
+  const tier = createTierSwitch({ env, live, fetchImpl });
+  const connector = mountConnector(app, { env, live, fetchImpl, userFacts: tier.readUserFacts }) || null;
   // What ChatGPT, Claude, Codex and Meta AI do on Connect, run by Personal Agent against its own connector (see platforms.js).
   // The CIMD path: an MCP resource behind a real PingFederate (off unless MUSE_PF_ISSUER is set). ChatGPT's signing key is shared with the engine.
   const simKey = live && env.MUSE_PF_ISSUER ? chatgptKey() : null;
@@ -280,7 +282,6 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   // One control for both modes: Mock sets the Mock PingOne user and the Mock agent limit; Real writes airlineMemberTier and agentSpendLimit on
   // the owner's allow-listed demo users through PingOne (one PATCH per user) and reads them back. The user ids and the attribute names never
   // come from a request: the body names a member key and/or a limit and nothing else (other fields are ignored).
-  const tier = createTierSwitch({ env, live, fetchImpl });
   const realNow = (req) => Boolean(live) && liveOn && req.ws.gatewayMode === 'live';
   const mockFacts = (ws) => ({ member: ws.member, tier: MEMBERS[ws.member]?.tier ?? null, limit: ws.agentLimit ?? AGENT_LIMIT_DEFAULT, limitIsDefault: ws.agentLimit == null });
   app.get('/api/booking/tier', (req, res) => res.set('Cache-Control', 'no-store').json({ mode: realNow(req) ? 'real' : 'mock', member: req.ws.member, ...(realNow(req) ? {} : mockFacts(req.ws)), ...tier.view() }));

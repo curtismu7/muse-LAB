@@ -52,8 +52,36 @@ const CONSENT_CODES = ['no_user_consent', 'may_act_mismatch'];
 const bridgeSecretOf = (env) => { const v = typeof env.MUSE_GATEWAY_INTERNAL_SECRET === 'string' ? env.MUSE_GATEWAY_INTERNAL_SECRET.trim() : ''; return /^[\x21-\x7e]{1,512}$/.test(v) ? v : null; };
 const plainId = (v) => (typeof v === 'string' && /^[\x21-\x7e]{1,128}$/.test(v) ? v : null);
 
+// The pre-approval headers (they ride on the consent-bridge exception; the gateway decides, Muse only presents). The limit header is whole dollars as plain digits, at most 7 characters, above zero,
+// and only ever a value PingOne returned for the signed-in user; anything else is dropped and the gateway's own default applies.
+export const PREAPPROVED_HEADER = 'X-Hitl-Preapproved';
+export const PREAPPROVED_VALUE = 'user-limit';
+export const LIMIT_HEADER = 'X-Agent-Spend-Limit';
+export const FACTS_TIMEOUT_MS = 2500;
+export const limitHeaderValue = (v) => {
+  const s = typeof v === 'number' && Number.isSafeInteger(v) ? String(v) : typeof v === 'string' ? v : '';
+  return /^[1-9][0-9]{0,6}$/.test(s) ? s : null;
+};
+
+// The limit a deny statement itself reports (its payload), or undefined. Looked at only on the spend-limit statement. Never the audit trail's AgentSpendLimit parameter: Authorize reads the limit from the
+// PingOne user, so that parameter may not be the one that denied the booking.
+const numberish = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : typeof v === 'string' && /^\d{1,9}(\.\d{1,2})?$/.test(v.trim()) && Number(v) > 0 ? Number(v) : undefined);
+export function statementLimit(statements) {
+  for (const s of statements ?? []) {
+    if (s?.code !== RULES.agentSpendLimit.code) continue;
+    const p = s.payload;
+    if (p && typeof p === 'object' && !Array.isArray(p)) {
+      for (const k of ['limit', 'agentSpendLimit', 'AgentSpendLimit', 'spendLimit', 'agentSpendLimitUsd']) { const n = numberish(p[k]); if (n !== undefined) return n; }
+    }
+    const m = typeof s.message === 'string' ? /\b(?:over your \$(\d{1,9}(?:\.\d{1,2})?) limit|limit (?:of|is) \$(\d{1,9}(?:\.\d{1,2})?))/i.exec(s.message) : null;
+    const n = m ? numberish(m[1] ?? m[2]) : undefined;
+    if (n !== undefined) return n;
+  }
+  return undefined;
+}
+
 // What muse.ai is told, from what the gateway answered. Booked only for HTTP 200 with booked true; every other path says nothing was booked or that no booking was confirmed.
-export function bookingToolResult(bk, flight, { bridge = false } = {}) {
+export function bookingToolResult(bk, flight, { bridge = false, limit = null } = {}) {
   const fare = typeof bk.fare === 'number' ? bk.fare : fareFor(flight);
   if (bk.status === 'booked') {
     const ref = plain(bk.confirmation, 60);
@@ -62,7 +90,9 @@ export function bookingToolResult(bk, flight, { bridge = false } = {}) {
   if (bk.status === 'denied') {
     const codes = (bk.evidence?.statements ?? []).map((s) => plain(s.code, 80)).filter(Boolean);
     const parts = [];
-    if (codes.includes(RULES.agentSpendLimit.code)) parts.push(`an AI agent cannot buy a ticket over your limit (${flight} costs $${fare}; ${typeof bk.facts?.agentSpendLimit === 'number' ? `your limit is $${bk.facts.agentSpendLimit}` : 'your limit was not reported'})`);
+    // The number comes from the deny statement itself, else from what PingOne holds for this user (read in this call); never from the audit trail's AgentSpendLimit parameter. No source, no number.
+    const shownLimit = statementLimit(bk.evidence?.statements) ?? (Number.isSafeInteger(limit) && limit > 0 ? limit : undefined);
+    if (codes.includes(RULES.agentSpendLimit.code)) parts.push(`an AI agent cannot buy a ticket over your limit (${flight} costs $${fare}; ${shownLimit !== undefined ? `your limit is $${shownLimit}` : 'your limit was not reported'})`);
     if (codes.includes(RULES.premiumOnly.code)) parts.push(`fares over $${PREMIUM_THRESHOLD} are for premium members only (${flight} costs $${fare}; ${bk.facts?.memberTier ? `your member tier is ${plain(bk.facts.memberTier)}` : 'your member tier was not reported'})`);
     const consent = codes.some((c) => CONSENT_CODES.includes(c));
     const other = codes.filter((c) => c !== RULES.agentSpendLimit.code && c !== RULES.premiumOnly.code && !CONSENT_CODES.includes(c));
@@ -72,11 +102,34 @@ export function bookingToolResult(bk, flight, { bridge = false } = {}) {
     if (parts.length) return toolError(`The booking was denied: ${parts.join(', and ')}.${other.length ? ` The gateway also returned ${other.join(', ')}.` : ''} Nothing was booked.`);
     return toolError(`The gateway did not allow this booking${other.length ? ` (${other.join(', ')})` : ''}. Nothing was booked.`);
   }
-  if (bk.status === 'consent_pending') return toolError(`This booking is held for the member's approval. Nothing was booked yet. Do not book it again until the member has approved it.`);
+  if (bk.status === 'consent_pending') return toolError(`This booking is held for the member's approval. Nothing was booked yet. Do not book it again until the member has approved it.${bridge ? '' : " To let a booking within the member's limit skip this hold, the connector's trusted-caller setting for the gateway must be configured (see the README)."}`);
   if (bk.status === 'not_booked') return toolError(`The airline server did not book ${flight}. Nothing was booked.`);
   const http = bk.evidence?.httpStatus;
   if (http === 401) return toolError('The gateway did not accept the connector\'s sign-in (HTTP 401). Nothing was booked. Reconnect the connector and try again.');
   return toolError(`The gateway's answer${Number.isInteger(http) ? ` (HTTP ${http})` : ''} could not be read as a booking. No booking was confirmed.`);
+}
+// The MCP server's own answer to a 200, worded for muse.ai. Items are plain text, at most 5, 4000 characters each. A token, a bearer value or a URL that carries an id never passes.
+const PASS_ITEMS = 5;
+const PASS_CHARS = 4000;
+export const NOT_CONFIRMED = 'The airline system answered (not a confirmed booking):';
+export const scrubAnswer = (t) => String(t)
+  .replace(/\bBearer\s+[\w~+/.=-]{8,}/gi, 'Bearer [redacted]')
+  .replace(/\b[\w-]{8,}\.[\w-]{8,}\.[\w-]{4,}\b/g, '[token]')
+  .replace(/https?:\/\/[^\s"'<>)]*/gi, (u) => (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[?#]|\/[\w-]{20,}/i.test(u) ? '<url>' : u));
+// The text items of a gateway 200 (JSON-RPC result.content), or null when there is nothing readable to pass on.
+export function answerItems(body) {
+  const c = body && typeof body === 'object' && !Array.isArray(body) && !body.error ? body.result?.content : null;
+  if (!Array.isArray(c)) return null;
+  const items = c.filter((x) => x && typeof x === 'object' && (x.type === undefined || x.type === 'text') && typeof x.text === 'string' && x.text.trim() !== '').slice(0, PASS_ITEMS).map((x) => x.text);
+  return items.length ? items : null;
+}
+// Returns null when the gateway's 200 has no readable content (the caller then falls back to bookingToolResult). booked true is the only thing that is ever called booked, and not when the server also flagged isError.
+export function passThroughResult(bk, flight, body, redact = (x) => x) {
+  const items = answerItems(body);
+  if (!items) return null;
+  const isError = body.result.isError === true;
+  const head = bk.status === 'booked' && !isError ? bookingToolResult(bk, flight).content[0].text : NOT_CONFIRMED;
+  return { content: [head, ...items.map((t) => scrubAnswer(redact(t)).slice(0, PASS_CHARS))].map((text) => ({ type: 'text', text })), isError };
 }
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const PENDING_MS = 10 * 60 * 1000;
@@ -156,7 +209,7 @@ function saveClients(file, clients) {
 
 function capped(map) { while (map.size >= CAP) map.delete(map.keys().next().value); }
 
-export function mountConnector(app, { env, live, fetchImpl = fetch }) {
+export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = null, factsTimeoutMs = FACTS_TIMEOUT_MS }) {
   const cfg = connectorConfig(env, live);
   if (!cfg) return false;
   const PUBLIC = cfg.publicUrl;
@@ -285,7 +338,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       if (!d.token) return back({ error: 'server_error' });
       capped(codes);
       const code = rand(24);
-      codes.set(code, { token: d.token, actor: plainId(p.idp.clientId), exp: d.claims?.exp ?? null, client: p.client, redirectUri: p.redirectUri, challenge: p.challenge, at: Date.now() });
+      codes.set(code, { token: d.token, actor: plainId(p.idp.clientId), userId: plainId(d.claims?.sub), exp: d.claims?.exp ?? null, client: p.client, redirectUri: p.redirectUri, challenge: p.challenge, at: Date.now() });
       return back({ code });
     } catch { return back({ error: 'server_error' }); }
   };
@@ -320,7 +373,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     const ttl = Math.max(60, Math.min(TOKEN_MAX_S, c.exp ? c.exp - Math.floor(Date.now() / 1000) : TOKEN_MAX_S));
     capped(tokens);
     const access = rand(32);
-    tokens.set(access, { delegated: c.token, actor: c.actor, exp: Date.now() + ttl * 1000 });
+    tokens.set(access, { delegated: c.token, actor: c.actor, userId: c.userId, exp: Date.now() + ttl * 1000 });
     res.set('Cache-Control', 'no-store').json({ access_token: access, token_type: 'Bearer', expires_in: ttl, scope: 'mcp' });
   });
 
@@ -340,8 +393,23 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     }
     return steps;
   }
-  // book_flight: only the flight id goes to the gateway (flight_number); the gateway sets the fare from its own catalogue.
+  // What PingOne holds for the signed-in user (the tier switch's allow-listed read), at most once per booking call, and never a reason to hold the booking: a slow, failed or refused read is "unknown".
+  const factsFor = () => {
+    const cache = new Map();
+    return (userId) => {
+      if (!cache.has(userId)) {
+        const read = typeof userFacts === 'function' && typeof userId === 'string' ? Promise.resolve().then(() => userFacts(userId)).catch(() => null) : Promise.resolve(null);
+        let t;
+        const timer = new Promise((r) => { t = setTimeout(() => r(null), factsTimeoutMs); t.unref?.(); });
+        cache.set(userId, Promise.race([read, timer]).finally(() => clearTimeout(t)).then((f) => (f && typeof f === 'object' ? f : { tier: null, limit: null })));
+      }
+      return cache.get(userId);
+    };
+  };
+  // book_flight: the caller supplies only the flight id. Muse sends flight_number plus amount = the catalogue fare for that flight (never a caller value): the airline MCP server needs an amount to book
+  // (it answers 'A positive ticket price is required' without one), and the gateway still sets the amount Authorize decides on from its own catalogue.
   async function bookFlight(args, session) {
+    const facts = factsFor();
     const flight = validFlight(args);
     if (!flight) return toolError('flightId must be a flight id from list_flights, for example SH101. Nothing was booked.');
     try {
@@ -349,7 +417,15 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       // The consent bridge (owner-approved 2026-11-09): the user accepted the "act for you" screen at sign-in, and a session holding a delegated token means they did. Only here, only with
       // the secret configured, and X-May-Act-Sub is always the actor app this session was signed in with (configured, never taken from the request).
       const bridge = bridgeSecret && session.actor ? { 'x-internal-gateway-secret': bridgeSecret, 'X-May-Act-Sub': session.actor } : null;
-      const steps = await askGateway(session, tool, { flight_number: flight }, bridge);
+      // The pre-approval (same condition, same call, same gateway only): the gateway skips its human hold when the authoritative fare is within the user's limit. The limit is what PingOne holds
+      // for the signed-in user (read now, never from a request); unknown means no limit header and the gateway's default applies. The gateway, not Muse, compares the fare with the limit.
+      let limit = null;
+      if (bridge) {
+        bridge[PREAPPROVED_HEADER] = PREAPPROVED_VALUE;
+        limit = limitHeaderValue((await facts(session.userId)).limit);
+        if (limit) bridge[LIMIT_HEADER] = limit;
+      }
+      const steps = await askGateway(session, tool, { flight_number: flight, amount: fareFor(flight) }, bridge);
       const step9 = steps.find((x) => x.n === 9);
       if (!step9) {
         const last = steps.at(-1);
@@ -362,7 +438,12 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       }
       const bk = classifyBooking(step9, { flightId: flight, tool });
       console.log(`[connector] book_flight ${flight} -> ${bk.status} (HTTP ${bk.evidence?.httpStatus ?? 'none'})`);
-      return bookingToolResult(scrub(bk), flight, { bridge: Boolean(bridgeSecret) });
+      const safe = scrub(bk);
+      // A 200 carrying content is the MCP server's own answer: muse.ai gets it (and only booked true is ever called booked).
+      if (step9.response?.status === 200) { const through = passThroughResult(safe, flight, step9.response.body, redact); if (through) return through; }
+      // The limit in a spend-limit denial: the deny statement's own number if it has one, else what PingOne holds for this user (read once per call, never waited on twice).
+      const wantsLimit = safe.status === 'denied' && (safe.evidence?.statements ?? []).some((x) => x.code === RULES.agentSpendLimit.code) && statementLimit(safe.evidence.statements) === undefined;
+      return bookingToolResult(safe, flight, { bridge: Boolean(bridgeSecret), limit: wantsLimit ? (await facts(session.userId)).limit : null });
     } catch (e) { console.log(redact(`[connector] book_flight failed: ${e?.name}: ${e?.cause?.code ?? e?.message}`)); return toolError('The gateway could not be reached. No booking was confirmed, so do not assume it was booked.'); }
   }
   async function handle(msg, session) {

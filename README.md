@@ -169,25 +169,28 @@ With `MUSE_CONNECTOR=1`, real mode configured and an https `MUSE_PUBLIC_URL`, th
 Try it from muse.ai once the connector is added and signed in:
 
 1. Ask: "List the flights I can book." (`list_flights`: nine invented flights, SH101 to SH109, with route and fare.)
-2. Ask: "Book SH106." ($620, over your $500 limit) The result is an error: an AI agent cannot buy a ticket over your limit, with the fare and the limit. Nothing is booked.
+2. Ask: "Book SH106." ($620, over your limit when the limit is the default $500) The result is an error: an AI agent cannot buy a ticket over your limit, with the fare and the limit. Nothing is booked, and it is never offered for approval.
 3. Ask: "Book SH107." ($940) Over your limit, so your rule fires; the airline rule (premium members only over $750) fires too when the PingOne user's `airlineMemberTier` is not premium, and then both rules are named.
-4. Ask: "Book SH101." ($180, a cheap flight) It passes both rules, so the gateway stops it at its approval step (HTTP 428). In Real today that is the expected answer: the result says the booking is held for the member's approval and nothing was booked yet. This connector has no way to approve it, so a cheap booking does not complete from muse.ai. `Booked ...` only appears if the gateway itself answers 200 with `booked: true`.
-5. Change the PingOne user's `airlineMemberTier` (Premier Gold or Premier Silver) or the agent limit and ask again: the decision changes with the rule inputs, not with anything the agent sends.
+4. Ask: "Book SH101." ($180, within your limit) It passes both rules. With the consent bridge and the pre-approval below configured, the gateway skips its human approval hold and the airline MCP server answers: muse.ai gets that answer back (`Booked SH101 for $180. Booking reference ...` followed by the server's own text). Without them the gateway holds it at its approval step (HTTP 428) and the result says the booking is held and nothing was booked yet; this connector has no way to approve it. `Booked ...` only appears if the airline server's answer says `booked: true`.
+5. Change the PingOne user's `airlineMemberTier` (Premier Gold or Premier Silver) or the agent limit (the *Test controls* card does it) and ask again: the decision changes with the rule inputs, not with anything the agent sends. Raise the limit to $1000 and "Book SH106" ($620) now goes straight through; lower it to $300 and "Book SH103" ($480) is blocked, with $300 in the message.
 
 What each result means (`isError` is true for everything except Booked):
 
 | Gateway answered | muse.ai is told |
 |---|---|
-| 200 and `booked: true` | `Booked <flight> for $<fare>. Booking reference: <ref>.` |
-| 403 with `mcp-airline-agent-spend-limit` and/or `mcp-airline-premium-only` in `X-Gw-Audit-Trail` | The rule in plain words (agent over your limit; fares over $750 are for premium members, with the member tier), both if both fired. Nothing was booked. |
+| 200 and the airline server's answer says `booked: true` | The one-line summary first (`Booked <flight> for $<fare>. Booking reference: <ref>.`), then the airline server's own text, unchanged apart from the scrubbing below. Not an error. |
+| 200 with content that does not say `booked: true` (booked false, no flag, plain text) | `The airline system answered (not a confirmed booking):` then the server's own text. `isError` is whatever the server's result says (false when absent). Never described as booked. |
+| 200 with `isError: true` | The same, with `isError: true`; even `booked: true` is then not called booked. |
+| 200 with no readable text (empty, not text, a JSON-RPC error, over 64 KB) | No booking was confirmed. |
+| 403 with `mcp-airline-agent-spend-limit` and/or `mcp-airline-premium-only` in `X-Gw-Audit-Trail` | The rule in plain words (agent over your limit, with the fare and your limit; fares over $750 are for premium members, with the member tier), both if both fired. The limit number comes from the deny statement itself if it carries one, else from what PingOne holds for you (read in that call), else the message says the limit was not reported. It is never taken from the audit trail's `AgentSpendLimit` parameter, which can differ from the limit that denied the booking. Nothing was booked, and no approval is offered. |
 | 403 with `no_user_consent` or `may_act_mismatch` | `Booking denied: you have not authorized this agent to act for you on bookings.` When the consent bridge below is not configured it adds that the bridge is not configured, so the connector cannot pass on the consent given at sign-in. If a booking rule fired too, it is named after that. Nothing was booked. |
 | 403, another or no code | The gateway did not allow this booking (plus the code when it sent one). Nothing was booked. |
-| 428 `consent_pending` | Held for the member's approval. Nothing was booked yet. |
+| 428 `consent_pending` | Held for the member's approval. Nothing was booked yet. Without the consent bridge it adds that the connector's trusted-caller setting must be configured for a booking within your limit to skip the hold. |
 | 401 from the gateway | The gateway did not accept the connector's sign-in. Nothing was booked. Reconnect. |
 | timeout or dropped connection on the booking call | No answer. No booking was confirmed; do not assume it was booked. |
 | 5xx, unreadable body, JSON-RPC error | No booking was confirmed. |
 
-Nothing is reported as booked unless the gateway answered 200 with `booked: true`. Results carry no token, header value, URL or raw body; the log has one line per booking (`book_flight <id> -> booked|denied|consent_pending|error (HTTP n)`).
+Nothing is reported as booked unless the gateway answered 200 and the airline server's answer says `booked: true`. The airline server's text is passed on at most 5 items of 4000 characters; the bridge secret, bearer values, JWT-shaped values and URLs that carry an id or a query are replaced before it reaches muse.ai. A denial, hold or error never carries the gateway's raw body or headers. The log has one line per booking (`book_flight <id> -> booked|denied|consent_pending|error (HTTP n)`).
 
 ### Consent bridge for book_flight (exception #2, owner-approved 2026-11-09)
 
@@ -198,3 +201,38 @@ Nothing is reported as booked unless the gateway answered 200 with `booked: true
 **What it does.** For `book_flight` only, the `tools/call` request to the configured gateway URL carries two extra headers: `x-internal-gateway-secret: <the secret>` and `X-May-Act-Sub: <the actor app's client id>`. The client id is the PingOne app this session signed in with (the same id the delegated token's `act` claim carries: Muse's app, or the assistant's own app from `MUSE_CONNECTOR_AGENTS`), taken from configuration, never from any field the agent sends. `initialize` and `tools/list` do not carry them: the decision is made at `tools/call`, so the secret travels no further than that. Nothing else trusted is ever sent (no `X-Authz-Simulated`, `X-Act-Client-Id` or `X-Demo-Force-Actor`).
 
 **Limits (the exception is this and nothing more).** The secret is write-only: never returned, logged (a log line that would echo it is redacted), put in an error, result, trace, the page or any file in the repo. It is never sent on `loyalty_balance`, `get_loyalty_status`, `list_flights`, the web page's own booking path, the sign-in or any other request, and only to the gateway URL. A value that is not a plain header value is ignored. Tested against stubs only (`server/test/connector-consent-bridge.test.js`, including a stub gateway that applies the trusted-caller rule); the first real use is the owner's. The rulebook keeps trusted secrets out of standalone apps; this is a labelled, owner-approved exception.
+
+
+### Pre-approval: a booking within your limit skips the approval hold (rides on exception #2)
+
+**What the owner wants.** In muse.ai you ask to book a flight. If the booking is within your dollar limit it goes straight through the gateway to the airline MCP server and muse.ai gets the server's answer back. If it is over your limit it is blocked, and muse.ai is told so with the right numbers.
+
+**How.** The gateway (AI-DEMO2 PR #3538) skips its human-approval hold for a *trusted* caller (the correct `x-internal-gateway-secret`) whose request carries `X-Hitl-Preapproved: user-limit`, when the authoritative fare is at or under the user's limit. It takes that limit from the trusted header `X-Agent-Spend-Limit` (digits with an optional decimal point, at most 7 characters, above zero), else its own default of $500. The gateway compares the fare with the limit; Muse only presents the headers.
+
+For `book_flight` only, and only when `MUSE_GATEWAY_INTERNAL_SECRET` is set (the same condition that sends `x-internal-gateway-secret` and `X-May-Act-Sub`), the `tools/call` request to the configured gateway URL also carries:
+
+- `X-Hitl-Preapproved: user-limit` (a fixed value, never derived from anything the agent sends);
+- `X-Agent-Spend-Limit: <your limit as plain digits>`, only when Muse knows it. The limit comes only from PingOne: for each booking call Muse reads your `agentSpendLimit` through the Test-controls switch (`tier.js readUserFacts`) for the PingOne user id of the signed-in session (the `sub` of the delegated token), and only if that id is on the `MUSE_TIER_USER_IDS` allow-list. The read has a 2.5 second timeout and never blocks the booking: if it fails, is slow, is rate limited, or returns anything that is not whole dollars from 1 to 9999999, no limit header is sent and the gateway's default of $500 applies. Muse never invents a limit.
+
+`initialize` and `tools/list` do not carry these headers, and neither do the loyalty tools, `list_flights`, the web page's own booking path, the sign-in or the PingOne reads. This adds no new exception: it rides on exception #2 (the same trusted-caller secret, the same `tools/call`-only, gateway-URL-only rule, the same scrubbing). The secret rules above are unchanged.
+
+**Honest degradation.**
+
+| Configured | What happens to a booking within the limit |
+|---|---|
+| Bridge secret + Test-controls worker credential (`MUSE_TIER_*`) | Goes straight through, up to the limit PingOne holds (any amount you set). |
+| Bridge secret only | The marker is sent, no limit header: the gateway's default $500 applies. A fare above $500 is held (428) even if PingOne holds a higher limit. To let a raised PingOne limit skip the hold, configure the worker credential. |
+| No bridge secret | Exactly as before: no pre-approval headers; the gateway denies for missing consent (or holds). The messages say what to configure. |
+
+**Environment variables involved** (names only; values live in Muse's own `.env`, see `.env.example`): `MUSE_GATEWAY_INTERNAL_SECRET`, `MUSE_TIER_ENABLE` (must be 1, also in Docker), `MUSE_TIER_WORKER_CLIENT_ID`, `MUSE_TIER_WORKER_CLIENT_SECRET`, `MUSE_TIER_USER_IDS`, `MUSE_TIER_ENV_ID` (or `MUSE_P1_ENV_ID`), `MUSE_TIER_REGION` (or `MUSE_P1_REGION`).
+
+**Owner-run end to end (Real, agents never run it).**
+
+1. In `.env`: the bridge secret, `MUSE_TIER_ENABLE=1`, the worker app and your demo user's id in `MUSE_TIER_USER_IDS`. Restart Muse.
+2. The gateway must be the build with the pre-approval rule (AI-DEMO2 #3538) and the same trusted-caller secret.
+3. In the *Test controls* card set the limit to $500 (or Default). In muse.ai sign in to the connector, then "Book SH106" ($620): blocked, "your limit is $500".
+4. Press $1000 in the card. "Book SH106" again: it goes straight through and muse.ai receives the airline server's answer.
+5. Press $250. "Book SH101" ($180) still passes; "Book SH103" ($480) is blocked with "your limit is $250".
+6. If a booking within your limit is still held: check the secret matches the gateway's, the user id is on the allow-list, and (for a limit above $500) the worker credential is configured.
+
+Tested against stubs only (`server/test/connector-preapprove.test.js`, with a stub gateway that applies the trusted-caller, consent, limit, pre-approval and hold rules); the first real use is the owner's.

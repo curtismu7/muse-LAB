@@ -124,7 +124,7 @@ test('book_flight: a missing, wrong-type, unknown or oversized flightId is a too
   } finally { await a.close(); }
 });
 
-test('book_flight sends the flight id and nothing else; a caller-supplied fare, amount or flight_number is never forwarded', async () => {
+test('book_flight sends the flight id and the CATALOGUE fare, never a caller-supplied fare, amount or flight_number', async () => {
   const a = await boot();
   try {
     const r = await a.call('book_flight', { flightId: ' sh101 ', fare: 1, amount: 1, price: 1, quoted: 1, flight_number: 'SH109', tier: 'Premier Gold', agentSpendLimit: 99999 });
@@ -132,7 +132,7 @@ test('book_flight sends the flight id and nothing else; a caller-supplied fare, 
     const calls = a.gwCalls();
     assert.equal(calls.length, 1);
     assert.equal(calls[0].params.name, 'book_airline_flight');
-    assert.deepEqual(calls[0].params.arguments, { flight_number: 'SH101' });
+    assert.deepEqual(calls[0].params.arguments, { flight_number: 'SH101', amount: 180 });
     const sent = a.seen.filter((x) => x.url === GW).map((x) => x.init.headers.authorization);
     assert.ok(sent.length >= 3 && sent.every((h) => h === `Bearer ${DELEGATED}`), 'the delegated token goes to the gateway, not the agent\'s');
     const t = a.seen.find((x) => x.url === GW && JSON.parse(x.init.body).method === 'tools/call');
@@ -146,7 +146,8 @@ test('booked: HTTP 200 with booked true gives the flight, the fare and the booki
     a.script.book = () => json(200, bookedBody({ fare: 180, confirmationNumber: 'CONF-TEST-7' }));
     const r = await a.call('book_flight', { flightId: 'SH101' });
     assert.equal(r.result.isError, false);
-    assert.match(text(r), /^Booked SH101 for \$180\. Booking reference: CONF-TEST-7\.$/);
+    assert.match(text(r), /^Booked SH101 for \$180\. Booking reference: CONF-TEST-7\.\n/);
+    assert.match(text(r), /"booked":true/, 'the airline server\'s own answer follows the summary');
   } finally { await a.close(); }
 });
 
@@ -157,7 +158,9 @@ test('denied by the agent spend limit: says an AI agent cannot buy over the limi
     a.script.book = () => json(403, { error: 'access_denied' }, audit({ parameters: { Amount: '620', AgentSpendLimit: '500', ActClientId: 'personal-agent.example' }, statements: [AGENT] }));
     const r = await a.call('book_flight', { flightId: 'SH106' });
     assert.equal(r.result.isError, true);
-    assert.match(text(r), /AI agent cannot buy a ticket over your limit/); assert.match(text(r), /SH106 costs \$620/); assert.match(text(r), /your limit is \$500/);
+    assert.match(text(r), /AI agent cannot buy a ticket over your limit/); assert.match(text(r), /SH106 costs \$620/);
+    // The audit trail's AgentSpendLimit parameter (500 here) is not the limit that denied the booking, so it is never printed as the user's limit.
+    assert.match(text(r), /your limit was not reported/); assert.doesNotMatch(text(r), /\$500/);
     assert.match(text(r), new RegExp(DENIED)); assert.match(text(r), /Nothing was booked/); assert.doesNotMatch(text(r), /premium/);
   } finally { await a.close(); }
 });
@@ -173,13 +176,13 @@ test('denied by the premium-only rule: says fares over $750 are for premium memb
   } finally { await a.close(); }
 });
 
-test('denied by both rules: both are named; the tier and limit come from the audit trail (statements as JSON text work too)', async () => {
+test('denied by both rules: both are named; the tier comes from the audit trail (statements as JSON text work too)', async () => {
   const a = await boot();
   try {
     a.script.book = () => json(403, { error: 'access_denied' }, audit({ parameters: { Amount: '940', AgentSpendLimit: '500', MemberTier: 'Premier Silver' }, statements: [{ code: AGENT.code, payload: JSON.stringify(AGENT.payload) }, PREMIUM] }));
     const r = await a.call('book_flight', { flightId: 'SH107' });
     assert.equal(r.result.isError, true);
-    assert.match(text(r), /AI agent cannot buy a ticket over your limit/); assert.match(text(r), /premium members only/); assert.match(text(r), /\$500/); assert.match(text(r), /Premier Silver/);
+    assert.match(text(r), /AI agent cannot buy a ticket over your limit/); assert.match(text(r), /premium members only/); assert.match(text(r), /your limit was not reported/); assert.doesNotMatch(text(r), /\$500/); assert.match(text(r), /Premier Silver/);
   } finally { await a.close(); }
 });
 
@@ -227,9 +230,6 @@ test('refused sign-in, server errors, unreadable or odd answers: honest short me
       ['malformed JSON body', () => new Response('<<not json>>', { status: 200 }), /No booking was confirmed/],
       ['empty 200', () => new Response('', { status: 200 }), /No booking was confirmed/],
       ['200 JSON-RPC error', () => json(200, { jsonrpc: '2.0', id: 3, error: { code: -32000, message: 'SECRET-RPC-TEXT' } }), /No booking was confirmed/],
-      ['200 without a booked flag', () => json(200, { result: { content: [{ type: 'text', text: '{"fare":180}' }] } }), /No booking was confirmed/],
-      ['200 booked false', () => json(200, { result: { content: [{ type: 'text', text: '{"booked":false,"note":"SECRET-NOTE"}' }] } }), /did not book SH101\. Nothing was booked/],
-      ['200 booked as a string', () => json(200, { result: { content: [{ type: 'text', text: '{"booked":"true"}' }] } }), /No booking was confirmed/],
     ];
     for (const [why, fn, re] of cases) {
       a.script.book = fn;

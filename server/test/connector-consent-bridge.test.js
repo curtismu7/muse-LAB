@@ -81,9 +81,9 @@ async function boot(extra = {}, { redirect = REDIRECT } = {}) {
 }
 const text = (r) => r.result.content.map((c) => c.text).join('\n');
 const capture = async (fn) => { const lines = []; const o = console.log; const w = console.warn; console.log = (...x) => lines.push(x.join(' ')); console.warn = (...x) => lines.push(x.join(' ')); try { await fn(); } finally { console.log = o; console.warn = w; } return lines.join('\n'); };
-const EXTRA = ['x-internal-gateway-secret', 'x-may-act-sub'];
+const EXTRA = ['x-hitl-preapproved', 'x-internal-gateway-secret', 'x-may-act-sub'];
 
-test('with the secret set, the booking call carries exactly the two extra headers, with the secret and the configured actor id', async () => {
+test('with the secret set, the booking call carries exactly the two consent headers (plus the fixed pre-approval marker), with the secret and the configured actor id', async () => {
   const withSecret = await boot({ MUSE_GATEWAY_INTERNAL_SECRET: SECRET });
   const without = await boot();
   try {
@@ -92,7 +92,7 @@ test('with the secret set, the booking call carries exactly the two extra header
     const a = withSecret.gw(); const b = without.gw();
     assert.deepEqual(a.map((x) => x.method), ['initialize', 'tools/list', 'tools/call']);
     const callA = a.find((x) => x.method === 'tools/call'); const callB = b.find((x) => x.method === 'tools/call');
-    assert.deepEqual(keys(callA.init.headers).filter((k) => !keys(callB.init.headers).includes(k)), EXTRA, 'exactly these two are new');
+    assert.deepEqual(keys(callA.init.headers).filter((k) => !keys(callB.init.headers).includes(k)), EXTRA, 'exactly these are new (the two consent headers and the fixed pre-approval marker)');
     assert.deepEqual(keys(callB.init.headers).filter((k) => !keys(callA.init.headers).includes(k)), [], 'nothing else changed');
     assert.equal(hdr(callA.init.headers, 'x-internal-gateway-secret'), SECRET);
     assert.equal(hdr(callA.init.headers, 'X-May-Act-Sub'), ACTOR);
@@ -147,7 +147,7 @@ test('a caller-supplied argument cannot change the headers', async () => {
     assert.equal(r.result.isError, false);
     const c = a.gw().find((x) => x.method === 'tools/call');
     assert.equal(hdr(c.init.headers, 'X-May-Act-Sub'), ACTOR); assert.equal(hdr(c.init.headers, 'x-internal-gateway-secret'), SECRET);
-    assert.deepEqual(JSON.parse(c.init.body).params.arguments, { flight_number: 'SH101' });
+    assert.deepEqual(JSON.parse(c.init.body).params.arguments, { flight_number: 'SH101', amount: 180 });
     assert.ok(!JSON.stringify(c.init).includes('evil'));
     // Request headers of the agent's own /mcp call are not forwarded either.
     const raw = await fetch(`${a.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-May-Act-Sub': 'evil', 'x-internal-gateway-secret': 'evil' }, body: '{}' });
