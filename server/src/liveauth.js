@@ -74,7 +74,9 @@ export async function exchangeCode(cfg, learned, { code, verifier, client, resou
   return { step: { ...r.step, note: `${r.step.note} ${claims ? (!resource ? `Issued by PingOne for Personal Agent (aud ${JSON.stringify(claims.aud)}).` : audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
 }
 
-export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null, args } = {}) {
+// extraHeaders (the connector's consent bridge, book_flight only) go on the tools/call request alone: that is where the decision is made, so the secret travels as little as possible.
+// They are never part of the step the page or the agent sees (a step shows the method, url and body only).
+export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null, args, extraHeaders = null } = {}) {
   const gw = cfg.idp ? 'Agent Gateway' : 'Agent Privilege';
   const auth = { authorization: `Bearer ${token}`, ...(cfg.idp ? { 'x-token-validation': 'jwks', 'mcp-protocol-version': '2025-06-18' } : {}) };
   const init = await send(cfg, fetchImpl, { n: 7, title: `Call ${gw} with the token`, method: 'POST', url: cfg.url, headers: auth, body: INIT, note: 'Same call as step 1, now with the bearer token.' });
@@ -87,7 +89,7 @@ export async function callGateway(cfg, token, fetchImpl = fetch, { tool = null, 
   if (tool && list.res?.status === 200) {
     // With args the caller is booking: a timeout or network failure here is a step of its own (nothing booked), not a lost trace.
     const callBody = { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: tool, arguments: args ?? {} } };
-    const callStep = { n: 9, title: `Call ${tool}`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}) }, body: callBody, note: 'Agent Gateway checks the token, PingOne Authorize decides, then the tool runs.' };
+    const callStep = { n: 9, title: `Call ${tool}`, method: 'POST', url: cfg.url, headers: { ...auth, ...(sid ? { 'mcp-session-id': sid } : {}), ...(extraHeaders ?? {}) }, body: callBody, note: 'Agent Gateway checks the token, PingOne Authorize decides, then the tool runs.' };
     if (args === undefined) steps.push((await send(cfg, fetchImpl, callStep)).step);
     else {
       try { steps.push((await send(cfg, fetchImpl, callStep)).step); } catch (e) {

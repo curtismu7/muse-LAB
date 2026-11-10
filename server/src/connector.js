@@ -45,8 +45,15 @@ export const validFlight = (args) => {
   return fareFor(id) === null ? null : id;
 };
 
+// The two Authorize statement codes for a missing or mismatched user consent (the signed-in user's may_act).
+const CONSENT_CODES = ['no_user_consent', 'may_act_mismatch'];
+
+// The consent bridge's trusted-caller secret (owner-approved 2026-11-09). Only a plain header value is accepted, so a bad value can never end up in a fetch error.
+const bridgeSecretOf = (env) => { const v = typeof env.MUSE_GATEWAY_INTERNAL_SECRET === 'string' ? env.MUSE_GATEWAY_INTERNAL_SECRET.trim() : ''; return /^[\x21-\x7e]{1,512}$/.test(v) ? v : null; };
+const plainId = (v) => (typeof v === 'string' && /^[\x21-\x7e]{1,128}$/.test(v) ? v : null);
+
 // What muse.ai is told, from what the gateway answered. Booked only for HTTP 200 with booked true; every other path says nothing was booked or that no booking was confirmed.
-export function bookingToolResult(bk, flight) {
+export function bookingToolResult(bk, flight, { bridge = false } = {}) {
   const fare = typeof bk.fare === 'number' ? bk.fare : fareFor(flight);
   if (bk.status === 'booked') {
     const ref = plain(bk.confirmation, 60);
@@ -57,7 +64,11 @@ export function bookingToolResult(bk, flight) {
     const parts = [];
     if (codes.includes(RULES.agentSpendLimit.code)) parts.push(`an AI agent cannot buy a ticket over your limit (${flight} costs $${fare}; ${typeof bk.facts?.agentSpendLimit === 'number' ? `your limit is $${bk.facts.agentSpendLimit}` : 'your limit was not reported'})`);
     if (codes.includes(RULES.premiumOnly.code)) parts.push(`fares over $${PREMIUM_THRESHOLD} are for premium members only (${flight} costs $${fare}; ${bk.facts?.memberTier ? `your member tier is ${plain(bk.facts.memberTier)}` : 'your member tier was not reported'})`);
-    const other = codes.filter((c) => c !== RULES.agentSpendLimit.code && c !== RULES.premiumOnly.code);
+    const consent = codes.some((c) => CONSENT_CODES.includes(c));
+    const other = codes.filter((c) => c !== RULES.agentSpendLimit.code && c !== RULES.premiumOnly.code && !CONSENT_CODES.includes(c));
+    if (consent) {
+      return toolError(`Booking denied: you have not authorized this agent to act for you on bookings.${bridge ? '' : " The connector's consent bridge is not configured, so it cannot pass on the consent you gave at sign-in."}${parts.length ? ` The booking was also denied: ${parts.join(', and ')}.` : ''}${other.length ? ` The gateway also returned ${other.join(', ')}.` : ''} Nothing was booked.`);
+    }
     if (parts.length) return toolError(`The booking was denied: ${parts.join(', and ')}.${other.length ? ` The gateway also returned ${other.join(', ')}.` : ''} Nothing was booked.`);
     return toolError(`The gateway did not allow this booking${other.length ? ` (${other.join(', ')})` : ''}. Nothing was booked.`);
   }
@@ -152,6 +163,12 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   const signoutFirst = env.MUSE_CONNECTOR_SIGNOUT_FIRST === '1';
   const airline = (env.MUSE_CONNECTOR_AIRLINE ?? '').trim().slice(0, 40).replace(/[^\p{L}\p{N} .&'-]/gu, '');
   const TOOLS = toolsFor(airline);
+  // Write-only: lives in this closure, never in cfg, a session, a step, a log line or a result.
+  const bridgeSecret = bridgeSecretOf(env);
+  const redact = (x) => (bridgeSecret ? String(x).split(bridgeSecret).join('[redacted]') : String(x));
+  // Everything the gateway says (a rule code, a confirmation number) is scrubbed of the secret before it is worded for muse.ai, and the finished result is scrubbed again.
+  const scrub = (v) => (typeof v === 'string' ? redact(v) : Array.isArray(v) ? v.map(scrub) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrub(x)])) : v);
+  if (env.MUSE_GATEWAY_INTERNAL_SECRET && !bridgeSecret) console.log('[connector] MUSE_GATEWAY_INTERNAL_SECRET ignored: it is not a plain header value');
   // Dynamic registrations. With MUSE_CLIENTS_FILE set they survive a restart: loaded here, and written after each registration.
   const clients = loadClients(env.MUSE_CLIENTS_FILE);   // client_id -> { redirectUris, name }
   const pending = new Map();   // our state -> { client, redirectUri, state, challenge, verifier, at }
@@ -268,7 +285,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       if (!d.token) return back({ error: 'server_error' });
       capped(codes);
       const code = rand(24);
-      codes.set(code, { token: d.token, exp: d.claims?.exp ?? null, client: p.client, redirectUri: p.redirectUri, challenge: p.challenge, at: Date.now() });
+      codes.set(code, { token: d.token, actor: plainId(p.idp.clientId), exp: d.claims?.exp ?? null, client: p.client, redirectUri: p.redirectUri, challenge: p.challenge, at: Date.now() });
       return back({ code });
     } catch { return back({ error: 'server_error' }); }
   };
@@ -303,7 +320,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     const ttl = Math.max(60, Math.min(TOKEN_MAX_S, c.exp ? c.exp - Math.floor(Date.now() / 1000) : TOKEN_MAX_S));
     capped(tokens);
     const access = rand(32);
-    tokens.set(access, { delegated: c.token, exp: Date.now() + ttl * 1000 });
+    tokens.set(access, { delegated: c.token, actor: c.actor, exp: Date.now() + ttl * 1000 });
     res.set('Cache-Control', 'no-store').json({ access_token: access, token_type: 'Bearer', expires_in: ttl, scope: 'mcp' });
   });
 
@@ -312,14 +329,14 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
   const rpc = (id, result) => ({ jsonrpc: '2.0', id, result });
   const rpcErr = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
   // The gateway sits behind a load balancer and now and then drops a connection; one retry covers it (the sign-in and tool-list steps; a booking call that was sent is never repeated).
-  async function askGateway(session, tool, args) {
-    const ask = () => callGateway(live, session.delegated, fetchImpl, { tool, args });
-    const steps = await ask().catch((e) => { console.log(`[connector] gateway call failed once: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return ask(); });
+  async function askGateway(session, tool, args, extraHeaders = null) {
+    const ask = () => callGateway(live, session.delegated, fetchImpl, { tool, args, extraHeaders });
+    const steps = await ask().catch((e) => { console.log(redact(`[connector] gateway call failed once: ${e?.name}: ${e?.cause?.code ?? e?.message}`)); return ask(); });
     console.log(`[connector] gateway steps ${JSON.stringify(steps.map((x) => [x.n, x.skipped ? 'skipped' : x.response?.status ?? null]))}`);
     // When a step is refused, say why: the error text only (for example an audience mismatch), never a token or the rest of the body.
     for (const x of steps) {
       const b = x.response?.body; const why = typeof b === 'object' && b ? (b.error_description ?? b.error?.message ?? b.error) : null;
-      if (x.response && x.response.status >= 400 && typeof why === 'string') console.log(`[connector] gateway step ${x.n} refused: ${why.replace(/\s+/g, ' ').slice(0, 300)}`);
+      if (x.response && x.response.status >= 400 && typeof why === 'string') console.log(redact(`[connector] gateway step ${x.n} refused: ${why.replace(/\s+/g, ' ').slice(0, 300)}`));
     }
     return steps;
   }
@@ -329,7 +346,10 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
     if (!flight) return toolError('flightId must be a flight id from list_flights, for example SH101. Nothing was booked.');
     try {
       const tool = bookingTool(env);
-      const steps = await askGateway(session, tool, { flight_number: flight });
+      // The consent bridge (owner-approved 2026-11-09): the user accepted the "act for you" screen at sign-in, and a session holding a delegated token means they did. Only here, only with
+      // the secret configured, and X-May-Act-Sub is always the actor app this session was signed in with (configured, never taken from the request).
+      const bridge = bridgeSecret && session.actor ? { 'x-internal-gateway-secret': bridgeSecret, 'X-May-Act-Sub': session.actor } : null;
+      const steps = await askGateway(session, tool, { flight_number: flight }, bridge);
       const step9 = steps.find((x) => x.n === 9);
       if (!step9) {
         const last = steps.at(-1);
@@ -342,8 +362,8 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       }
       const bk = classifyBooking(step9, { flightId: flight, tool });
       console.log(`[connector] book_flight ${flight} -> ${bk.status} (HTTP ${bk.evidence?.httpStatus ?? 'none'})`);
-      return bookingToolResult(bk, flight);
-    } catch (e) { console.log(`[connector] book_flight failed: ${e?.name}: ${e?.cause?.code ?? e?.message}`); return toolError('The gateway could not be reached. No booking was confirmed, so do not assume it was booked.'); }
+      return bookingToolResult(scrub(bk), flight, { bridge: Boolean(bridgeSecret) });
+    } catch (e) { console.log(redact(`[connector] book_flight failed: ${e?.name}: ${e?.cause?.code ?? e?.message}`)); return toolError('The gateway could not be reached. No booking was confirmed, so do not assume it was booked.'); }
   }
   async function handle(msg, session) {
     const { id, method, params } = msg ?? {};
@@ -354,7 +374,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch }) {
       const name = params?.name;
       if (!TOOLS.some((t) => t.name === name)) return rpcErr(id, -32602, 'Unknown tool');
       if (name === 'list_flights') return rpc(id, flightsResult());
-      if (name === 'book_flight') return rpc(id, await bookFlight(params?.arguments, session));
+      if (name === 'book_flight') return rpc(id, scrub(await bookFlight(params?.arguments, session)));
       try {
         // Both tools read the airline passenger record (get_loyalty_status) through the gateway, so the balance and the status can never disagree.
         const steps = await askGateway(session, 'get_loyalty_status');
