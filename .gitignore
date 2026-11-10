@@ -4,3 +4,4 @@ server/data/
 .env
 .env.*
 !.env.example
+scripts/pingone-app-before-*.json

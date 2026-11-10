@@ -71,7 +71,30 @@ export async function exchangeCode(cfg, learned, { code, verifier, client, resou
   const claims = claimsOf(token);
   const aud = claims ? [].concat(claims.aud ?? []) : [];
   const audOk = !resource || aud.some((a) => a === resource || a === new URL(resource).origin);
-  return { step: { ...r.step, note: `${r.step.note} ${claims ? (!resource ? `Issued by PingOne for Personal Agent (aud ${JSON.stringify(claims.aud)}).` : audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
+  const refreshToken = typeof r.parsed.refresh_token === 'string' && r.parsed.refresh_token ? r.parsed.refresh_token : null;
+  return { refreshToken, step: { ...r.step, note: `${r.step.note} ${claims ? (!resource ? `Issued by PingOne for Personal Agent (aud ${JSON.stringify(claims.aud)}).` : audOk ? 'The audience is the gateway.' : `The audience is ${JSON.stringify(claims.aud)}, not the gateway.`) : 'The token is opaque, so its audience cannot be read here.'}` }, token, claims, audOk };
+}
+
+// The connector's refresh: PingOne's own refresh grant, with the same client authentication as the code swap. Never throws and never returns a step (the refresh token must not be shown anywhere).
+//   ok          -> { kind, token, refreshToken (PingOne's rotated one, or null), claims }
+//   refused     -> PingOne said no (an invalid_grant, a disabled user, a bad client): the sign-in is over
+//   unavailable -> a network failure, a timeout, a 429 or a 5xx, or an answer that is not a token: try again later
+export async function refreshWithPingOne(cfg, learned, { refreshToken, clientId, clientSecret }, fetchImpl = fetch) {
+  let r;
+  try {
+    r = await send(cfg, fetchImpl, {
+      n: 6.4, title: 'Refresh the PingOne sign-in', method: 'POST', url: learned.tokenEndpoint,
+      form: { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: clientId, ...(clientSecret ? { client_secret: clientSecret } : {}) },
+    });
+  } catch { return { kind: 'unavailable' }; }
+  if (r.step.skipped) return { kind: 'refused' };
+  const status = r.res.status;
+  if (status >= 500 || status === 429 || status === 408) return { kind: 'unavailable' };
+  if (status !== 200) return { kind: 'refused' };
+  const token = r.parsed?.access_token;
+  if (typeof token !== 'string' || !token) return { kind: 'unavailable' };
+  const next = typeof r.parsed.refresh_token === 'string' && r.parsed.refresh_token ? r.parsed.refresh_token : null;
+  return { kind: 'ok', token, refreshToken: next, claims: claimsOf(token) };
 }
 
 // extraHeaders (the connector's consent bridge, book_flight only) go on the tools/call request alone: that is where the decision is made, so the secret travels as little as possible.
