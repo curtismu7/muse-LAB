@@ -176,6 +176,7 @@ What each result means (`isError` is true for everything except Booked):
 |---|---|
 | 200 and `booked: true` | `Booked <flight> for $<fare>. Booking reference: <ref>.` |
 | 403 with `mcp-airline-agent-spend-limit` and/or `mcp-airline-premium-only` in `X-Gw-Audit-Trail` | The rule in plain words (agent over your limit; fares over $750 are for premium members, with the member tier), both if both fired. Nothing was booked. |
+| 403 with `no_user_consent` or `may_act_mismatch` | `Booking denied: you have not authorized this agent to act for you on bookings.` When the consent bridge below is not configured it adds that the bridge is not configured, so the connector cannot pass on the consent given at sign-in. If a booking rule fired too, it is named after that. Nothing was booked. |
 | 403, another or no code | The gateway did not allow this booking (plus the code when it sent one). Nothing was booked. |
 | 428 `consent_pending` | Held for the member's approval. Nothing was booked yet. |
 | 401 from the gateway | The gateway did not accept the connector's sign-in. Nothing was booked. Reconnect. |
@@ -183,3 +184,13 @@ What each result means (`isError` is true for everything except Booked):
 | 5xx, unreadable body, JSON-RPC error | No booking was confirmed. |
 
 Nothing is reported as booked unless the gateway answered 200 with `booked: true`. Results carry no token, header value, URL or raw body; the log has one line per booking (`book_flight <id> -> booked|denied|consent_pending|error (HTTP n)`).
+
+### Consent bridge for book_flight (exception #2, owner-approved 2026-11-09)
+
+**Why.** Booking is judged by PingOne Authorize, and its first check is that the signed-in user has authorized this agent to act for them (the user's `may_act`). The delegated token this connector holds carries no `may_act` claim, so without help every booking is denied with `no_user_consent` before the two booking rules run. The main AI-DEMO2 app supplies the consent in a header (`X-May-Act-Sub`) that the gateway honours only from a trusted internal caller (a request that also carries `x-internal-gateway-secret`, equal to the gateway's own secret). The connector is not such a caller by default. The sign-in already includes an "Allow the Airline Connector to act for you" screen, and a session that holds a delegated token means the user accepted it, so the connector can pass that consent on.
+
+**Setup (owner-run, optional).** Set `MUSE_GATEWAY_INTERNAL_SECRET` in Muse's own `.env` (beside `docker-compose.yml`) to the gateway's trusted-caller secret, and restart. Name only in `.env.example`; the value is never committed. `docker-compose.yml` passes it through empty by default. With it unset, nothing changes: the booking call is exactly as before and a consent denial is explained honestly (see the table above).
+
+**What it does.** For `book_flight` only, the `tools/call` request to the configured gateway URL carries two extra headers: `x-internal-gateway-secret: <the secret>` and `X-May-Act-Sub: <the actor app's client id>`. The client id is the PingOne app this session signed in with (the same id the delegated token's `act` claim carries: Muse's app, or the assistant's own app from `MUSE_CONNECTOR_AGENTS`), taken from configuration, never from any field the agent sends. `initialize` and `tools/list` do not carry them: the decision is made at `tools/call`, so the secret travels no further than that. Nothing else trusted is ever sent (no `X-Authz-Simulated`, `X-Act-Client-Id` or `X-Demo-Force-Actor`).
+
+**Limits (the exception is this and nothing more).** The secret is write-only: never returned, logged (a log line that would echo it is redacted), put in an error, result, trace, the page or any file in the repo. It is never sent on `loyalty_balance`, `get_loyalty_status`, `list_flights`, the web page's own booking path, the sign-in or any other request, and only to the gateway URL. A value that is not a plain header value is ignored. Tested against stubs only (`server/test/connector-consent-bridge.test.js`, including a stub gateway that applies the trusted-caller rule); the first real use is the owner's. The rulebook keeps trusted secrets out of standalone apps; this is a labelled, owner-approved exception.

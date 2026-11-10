@@ -13,3 +13,5 @@ services:
       MUSE_TIER_USER_IDS: ${MUSE_TIER_USER_IDS:-}
       MUSE_TIER_ENV_ID: ${MUSE_TIER_ENV_ID:-}
       MUSE_TIER_REGION: ${MUSE_TIER_REGION:-}
+      # Connector consent bridge for book_flight (owner-approved exception 2026-11-09). Name only; the value comes from your shell or the .env beside this file. Empty = off.
+      MUSE_GATEWAY_INTERNAL_SECRET: ${MUSE_GATEWAY_INTERNAL_SECRET:-}
