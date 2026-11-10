@@ -11,6 +11,7 @@ const SignInModal = lazy(() => import('./SignInModal.jsx'));
 import ThemeToggle from './ThemeToggle.jsx';
 import TextSize from './TextSize.jsx';
 import { parseIntent } from './intent.js';
+import ConnectMuseAi from './ConnectMuseAi.jsx';
 import ShelfLink from "./components/ShelfLink.jsx";
 // Opened from Customer Agent LAB (UC48, UC-MUSE1 and UC-MUSE2 route here): strip + header Back only, nothing preselected.
 import ReturnLink from "./return-link/ReturnLink.jsx";
@@ -159,6 +160,9 @@ export default function App() {
   // Rule 19: the Mock/Real toggle. Real is disabled with the server's reason while the live settings are incomplete.
   const [modeInfo, setModeInfo] = useState(null);
   useEffect(() => { api('GET', '/api/info').then(setModeInfo).catch(() => setModeInfo(null)); }, []);
+  // The airline's flight list, so a typed "book a flight to London" can be matched to a flight (intent.js). Display data, the same in both modes.
+  const [flights, setFlights] = useState([]);
+  useEffect(() => { api('GET', '/api/flights').then((r) => setFlights(r.flights ?? [])).catch(() => setFlights([])); }, []);
   const realAvailable = modeInfo ? modeInfo.realAvailable !== false : null; // null = not loaded yet
   const switching = useRef(false);
   const setMode = async (next) => {
@@ -269,7 +273,7 @@ export default function App() {
     const text = draft.trim();
     if (!text) return;
     setDraft('');
-    const intent = parseIntent(text);
+    const intent = parseIntent(text, flights);
     if (intent.reply) {
       push({ kind: 'user', text });
       push({ kind: 'muse', text: intent.reply });
@@ -367,6 +371,8 @@ export default function App() {
         <ReturnLink app="muse" />
         <h1>{session.customer?.brandName ?? 'Personal Agent'}</h1>
         <p className="muted">{session.customer?.agentName ?? 'Personal Agent'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
+
+        <ConnectMuseAi session={session} api={api} />
 
         {presenter && session.signedIn && (
           <p className="say">Say: each reply names the gate that decided, and why. Try a payment over 500, then the burst.</p>
