@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 // booking prompts work. The facts come from GET /api/connector/info (public facts only); nothing here is a secret.
 // Real / connector-enabled: the full card. Mock: one line saying the connector is not enabled in this mode.
 
-export const EXAMPLE_PROMPTS = [
-  'Book me a flight for $620',
-  'Book me a flight to London',
-  'Book me a flight to Denver for $450',
-  'List the flights I can book',
-  'How many points do I have?',
+// Each example with what it does. muse.ai's assistant asks for a destination and a day before it acts, so the examples include both; the
+// connector ignores the day and needs only a price or a destination.
+export const EXAMPLES = [
+  { prompt: 'Book me a flight to London for $620 tomorrow', outcome: 'Blocked: over the $500 limit.' },
+  { prompt: 'Book me a flight to Denver for $450 tomorrow', outcome: 'Booked at your $450, noting the airline lists $180.' },
+  { prompt: 'Book me a flight to Denver tomorrow', outcome: "Booked at the airline's $180." },
+  { prompt: 'Book me a flight to Seattle for $500 tomorrow', outcome: 'Booked: exactly at the limit.' },
+  { prompt: 'List the flights I can book', outcome: 'Lists the flights and their prices.' },
+  { prompt: 'How many points do I have?', outcome: 'Shows your points balance.' },
 ];
+export const EXAMPLE_PROMPTS = EXAMPLES.map((e) => e.prompt);
 
 // The prompt a person pastes into muse.ai so that muse.ai sets the connector up itself.
 export function buildPrompt(info) {
@@ -73,14 +77,14 @@ function Fact({ label, value, testId, copy = true }) {
   );
 }
 
-const HOW = (rules) => [
+const HOW = (rules, airline) => [
   <><strong>"for $620"</strong>: the price you state is the price the rules judge. Say "for $620" and $620 is what your limit and the airline's rule look at.</>,
   <><strong>"to London"</strong>: the airline's own price for London is used. Ask for the flights list to see every destination and its price.</>,
   <><strong>Both</strong>, like "to Denver for $450": your price wins, and the answer tells you what the airline lists for that destination.</>,
   <><strong>The rules.</strong> Your own limit (the default is ${rules.agentLimit}) blocks an AI agent's booking that is over it. The airline's rule: only premium members ({rules.premiumTiers.join(', ')}) can book over ${rules.premiumThreshold}. The Test controls card on this page shows the demo user's tier and limit and, where it allows changes, sets them.</>,
   <><strong>What you get back.</strong> Booked, with a confirmation number. Blocked, with the rule that stopped it and the numbers. Or held for approval, which means nothing is booked until a person approves.</>,
   <><strong>One honest caveat.</strong> When you state a price, the rules judge the price the agent states. A real airline would price the ticket itself.</>,
-  <><strong>No route or date needed.</strong> A price or a destination is enough. The assistant should not ask you for a route, a date or payment details.</>,
+  <><strong>Include a destination and "tomorrow".</strong> muse.ai's assistant asks for a destination and a day first, so include them. The connector ignores the day and only needs a price or a destination. If muse.ai has other airline tools, say "using the {airline} connector" to steer it to this one.</>,
 ];
 
 export default function ConnectMuseAi({ session, api }) {
@@ -165,15 +169,15 @@ export default function ConnectMuseAi({ session, api }) {
       <div className="cm-step">
         <h3>Step 4: try these prompts</h3>
         <ul className="cm-prompts" aria-label="Example prompts">
-          {EXAMPLE_PROMPTS.map((p, i) => (
-            <li key={p}><q data-testid={`cm-example-${i}`}>{p}</q> <CopyButton text={p} what={`the prompt "${p}"`} testId={`cm-example-copy-${i}`} /></li>
+          {EXAMPLES.map(({ prompt: p, outcome }, i) => (
+            <li key={p}><q data-testid={`cm-example-${i}`}>{p}</q> <CopyButton text={p} what={`the prompt "${p}"`} testId={`cm-example-copy-${i}`} /> <span className="muted small" data-testid={`cm-example-outcome-${i}`}>{outcome}</span></li>
           ))}
         </ul>
       </div>
 
       <div className="cm-step" data-testid="cm-how">
         <h3>How the prompts work</h3>
-        <ol className="cm-how">{HOW(rules).map((t, i) => <li key={i}>{t}</li>)}</ol>
+        <ol className="cm-how">{HOW(rules, info.airline || 'SkyHigh').map((t, i) => <li key={i}>{t}</li>)}</ol>
       </div>
     </section>
   );

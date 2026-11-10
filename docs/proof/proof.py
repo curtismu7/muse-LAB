@@ -63,7 +63,7 @@ with sync_playwright() as p:
     txt = card.inner_text()
     for needle in ['http://127.0.0.1:5702/mcp', 'airline-connector', 'Client secret', 'none', 'S256', 'mcp', 'https://chat.agent.example/oauth/callback',
                    'Step 1: ask muse.ai to add it', 'Step 2: sign in', 'Step 3: check you have four tools', 'Step 4: try these prompts', 'How the prompts work',
-                   'loyalty_balance', 'get_loyalty_status', 'list_flights', 'book_flight', 'Book me a flight for $620', 'Book me a flight to London', 'Book me a flight to Denver for $450', 'List the flights I can book', 'How many points do I have?']:
+                   'loyalty_balance', 'get_loyalty_status', 'list_flights', 'book_flight', 'Book me a flight to London for $620 tomorrow', 'Book me a flight to Denver for $450 tomorrow', 'Book me a flight to Denver tomorrow', 'Book me a flight to Seattle for $500 tomorrow', 'List the flights I can book', 'How many points do I have?']:
         check(f'real/local: card text has {needle!r}', needle.lower() in txt.lower())
     check('real/local: prompt filled with the real URL', 'URL: http://127.0.0.1:5702/mcp.' in page.locator('[data-testid=cm-prompt]').inner_text())
     # copy buttons + clipboard
