@@ -62,3 +62,8 @@ describe("return link", () => {
     expect(returnLinkFor("muse").href).toBe("http://127.0.0.1:5603/?returned=muse&uc=UC-MUSE2");
   });
 });
+
+  it("?from=ai-demo-standalone: strip names AI Demo Standalone, Back goes to /ai-demo-standalone/ under the proxy", () => {
+    window.history.replaceState(null, "", "/muse/?from=ai-demo-standalone&uc=UC12");
+    expect(returnLinkFor("muse").href).toBe("/ai-demo-standalone/?returned=muse&uc=UC12");
+  });
