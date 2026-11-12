@@ -8,8 +8,12 @@ import BookFlight from './BookFlight.jsx';
 import FloatingDialog from './floating-dialog/FloatingDialog';
 // Loaded when someone signs in: it carries Ping's DaVinci client SDK.
 const SignInModal = lazy(() => import('./SignInModal.jsx'));
-import ThemeToggle from './ThemeToggle.jsx';
-import TextSize from './TextSize.jsx';
+import ThemeToggle, { applyTheme, readTheme } from './ThemeToggle.jsx';
+import { applySize, readSize, saveSize } from './textsize.js';
+import TopMenu from './top-menu/TopMenu.jsx';
+
+import fs from 'node:fs';
+const LAB_VERSION = (() => { try { return JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version || null; } catch { return null; } })();
 import { parseIntent } from './intent.js';
 import ConnectMuseAi from './ConnectMuseAi.jsx';
 import ShelfLink from "./components/ShelfLink.jsx";
@@ -146,6 +150,16 @@ export default function App() {
   const [via, setVia] = useState('muse');
   const [consentAsk, setConsentAsk] = useState(null);
   const feedEnd = useRef(null);
+  // TopMenu's theme and text size ride the same stores the rest of the app shares (muse.theme, muse.fs as a multiplier).
+  const pickTheme = (t) => {
+    applyTheme(t);
+    try { if (t === 'auto') window.localStorage.removeItem('muse.theme'); else window.localStorage.setItem('muse.theme', t); } catch { /* storage unavailable */ }
+    setThemeTick((n) => n + 1);
+  };
+  const [themeTick, setThemeTick] = useState(0);
+  const FS_STEPS = { S: 0.85, M: 1, L: 1.15 };
+  const pickFontSize = (step) => { const v = FS_STEPS[step] ?? 1; saveSize(v); applySize(v); setThemeTick((n) => n + 1); };
+  const fsToStep = (v) => (v < 1 ? 'S' : v > 1 ? 'L' : 'M');
 
   const refresh = useCallback(async () => {
     try {
@@ -317,34 +331,15 @@ export default function App() {
         <span className="shell-right">
           <ShelfLink />
           <ReturnLink app="muse" variant="header" />
-          <div className="mode-toggle" role="group" aria-label="Mock or real PingOne">
-            <span className="mode-toggle__label">PingOne</span>
-            {[
-              ['mock', 'Mock', false],
-              ['real', 'Real', true],
-            ].map(([m, label, isReal]) => {
-              const current = session.mode === 'live' ? 'real' : 'mock';
-              const off = Boolean(isReal && realAvailable === false);
-              const why = isReal && realAvailable === false && modeInfo?.realReason ? modeInfo.realReason : undefined;
-              return (
-                <button key={m} type="button" className="mode-toggle__button" aria-pressed={current === m} disabled={off} title={why} onClick={() => setMode(m)} data-testid={`mode-${isReal ? 'real' : 'mock'}`}>
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <ThemeToggle className="on-band" />
-          <TextSize className="on-band" />
-          {session.signedIn && (
-            <span className="top-actions">
-              <label className="presenter">
-                <input type="checkbox" checked={presenter} onChange={(e) => setPresenter(e.target.checked)} />
-                Presenter
-              </label>
-              <button type="button" onClick={reset} disabled={busy}>Reset</button>
-              <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
-            </span>
-          )}
+          <TopMenu
+            mode={{ value: session.mode === 'live' ? 'real' : 'mock', onChange: setMode, realAvailable, realHint: modeInfo?.realReason }}
+            theme={{ value: themeTick >= 0 ? readTheme() : 'auto', onChange: pickTheme }}
+            fontSize={{ value: fsToStep(readSize()), onChange: pickFontSize }}
+            present={session.signedIn ? { active: presenter, onToggle: () => setPresenter((v) => !v), label: 'Presenter' } : undefined}
+            help={{ href: 'https://github.com/curtismu7/muse-LAB#readme' }}
+            version={LAB_VERSION}
+            onReset={session.signedIn ? () => guarded(async () => { await api('POST', '/api/reset'); setTrace(null); setFeed([]); }) : undefined}
+          />
         </span>
       </header>
 
