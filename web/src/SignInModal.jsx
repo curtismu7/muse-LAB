@@ -231,7 +231,7 @@ export default function SignInModal({ config, api, onClose, completePath = '/api
   const flowCs = view.collectors.filter((c) => c.type === 'FlowCollector' && !/^cancel$/i.test(textOf(c.output?.label).trim())); // this dialog has its own Cancel
   const ready = view.status === 'continue';
   return (
-    <FloatingDialog isOpen noBackdrop disablePopOut onClose={() => onClose({ cancelled: true })} title="Sign in" closeAriaLabel="Close sign-in"
+    <FloatingDialog isOpen noBackdrop onClose={() => onClose({ cancelled: true })} title="Sign in" closeAriaLabel="Close sign-in"
       footer={null} className="signin-dialog" testId="signin-modal" defaultWidth={420} defaultHeight={null} defaultY={96} minHeight={200}>
       <form ref={dialog} onSubmit={submit} noValidate>
         {view.status === 'loading' && <p className="signin-text" role="status">Opening PingOne…</p>}
