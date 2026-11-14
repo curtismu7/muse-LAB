@@ -1,6 +1,6 @@
+import JsonView from './components/JsonView.jsx';
 import { useState } from 'react';
 
-const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
 const METHOD = { dcr: 'dynamic client registration (RFC 7591)', cimd: 'its client ID metadata document (CIMD)' };
 
 // How a customer adds the airline: they find it in their assistant's app directory and click Connect. No server address, no client id.
@@ -54,8 +54,8 @@ export default function AssistantConnect({ session, api, guarded }) {
                   {s.note && <p className="small">{s.note}</p>}
                   {open === s.n && (
                     <div className="disco-raw">
-                      <pre>{`${s.request.method} ${s.request.url}${s.request.body ? `\n\n${pretty(s.request.body)}` : ''}`}</pre>
-                      {s.response && <pre>{`${s.response.status}${Object.entries(s.response.headers ?? {}).map(([k, v]) => `\n${k}: ${v}`).join('')}\n\n${pretty(s.response.body)}`}</pre>}
+                      <JsonView value={s.request.body ?? { method: s.request.method, url: s.request.url }} testId="ac-req" label="request" />
+                      {s.response && <JsonView value={{ status: s.response.status, headers: s.response.headers, body: s.response.body }} testId="ac-res" label="response" />}
                     </div>
                   )}
                 </li>

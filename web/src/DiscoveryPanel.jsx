@@ -1,3 +1,4 @@
+import JsonView from './components/JsonView.jsx';
 import { useState } from 'react';
 
 const POINTS_PROMPT = 'Show my airline points';
@@ -7,7 +8,6 @@ const readMfa = () => { try { return window.localStorage.getItem(MFA_KEY) !== '0
 const readAuto = () => { try { return window.localStorage.getItem(AUTO_KEY) === '1'; } catch { return false; } };
 
 // The 401 and discovery steps, for the mock Agent Privilege or (owner-run) the real one. Every request and response is shown raw.
-const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
 
 export default function DiscoveryPanel({ session, api, onChange, busy, guarded, signInWith }) {
   const [open, setOpen] = useState(null);
@@ -107,8 +107,8 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded, 
               <p className="small">{s.note}</p>
               {open === s.n && (
                 <div className="disco-raw">
-                  <pre>{`${s.request.method} ${s.request.url}${s.request.body ? `\n\n${pretty(s.request.body)}` : ''}`}</pre>
-                  {s.response && <pre>{`${s.response.status}${Object.entries(s.response.headers ?? {}).map(([k, v]) => `\n${k}: ${v}`).join('')}\n\n${pretty(s.response.body)}`}</pre>}
+                  <JsonView value={s.request.body ?? { method: s.request.method, url: s.request.url }} testId={`req-${s.id ?? 'x'}`} label="request" />
+                  {s.response && <JsonView value={{ status: s.response.status, headers: s.response.headers, body: s.response.body }} testId={`res-${s.id ?? 'x'}`} label="response" />}
                 </div>
               )}
             </li>

@@ -1,3 +1,4 @@
+import JsonView from './components/JsonView.jsx';
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 import PatternFlow from './PatternFlow.jsx';
@@ -96,7 +97,7 @@ function MuseReply({ entry, onApprove, busy }) {
         {entry.rules.map((r) => <li key={r}>{r}</li>)}
         {entry.signals?.length > 0 && <li>Personal Agent check: {entry.signals.join(', ')}</li>}
       </ul>
-      {entry.result && <pre>{JSON.stringify(entry.result, null, 2)}</pre>}
+      {entry.result && <JsonView value={entry.result} testId={`run-${entry.id ?? 'x'}`} label="result" />}
       {entry.outcome === 'held' && (
         <button type="button" className="approve" onClick={() => onApprove(entry)} disabled={busy}>
           Approve (simulated CIBA)
