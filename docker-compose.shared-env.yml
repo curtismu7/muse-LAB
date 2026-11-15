@@ -1,0 +1,22 @@
+# Optional overlay: give the container the one shared settings file (~/Development/.env), read-only, plus
+# the real-mode opt-ins (rule 19). Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.shared-env.yml up -d --build
+# Real (local Docker, owner-run) needs: ALLOW_LIVE=1, MUSE_ALLOW_LIVE_HOSTED=1, MUSE_ALLOW_LIVE_LOOPBACK=1,
+# MUSE_LIVE_GATEWAY_URL (https, or loopback http for local Docker) and MUSE_PUBLIC_URL.
+services:
+  muse:
+    environment:
+      STANDALONE_ENV: /run/standalone.env
+      MODE: ${MUSE_MODE:-}
+      ALLOW_LIVE: "1"
+      MUSE_ALLOW_LIVE_HOSTED: "1"
+      MUSE_ALLOW_LIVE_LOOPBACK: "1"
+      MUSE_LIVE_GATEWAY_URL: ${MUSE_LIVE_GATEWAY_URL:-}
+      MUSE_PUBLIC_URL: ${MUSE_PUBLIC_URL:-http://127.0.0.1:5102}
+    volumes:
+      - type: bind
+        source: ${STANDALONE_ENV:-${HOME}/Development/.env}
+        target: /run/standalone.env
+        read_only: true
+        bind:
+          create_host_path: false
