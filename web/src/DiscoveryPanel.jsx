@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import Json from './components/JsonPane.jsx';
+import RawStep from './RawStep.jsx';
 
 const POINTS_PROMPT = 'Show my airline points';
 const AUTO_KEY = 'muse.autoPingOne';
@@ -7,7 +9,6 @@ const readMfa = () => { try { return window.localStorage.getItem(MFA_KEY) !== '0
 const readAuto = () => { try { return window.localStorage.getItem(AUTO_KEY) === '1'; } catch { return false; } };
 
 // The 401 and discovery steps, for the mock Agent Privilege or (owner-run) the real one. Every request and response is shown raw.
-const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
 
 export default function DiscoveryPanel({ session, api, onChange, busy, guarded, signInWith }) {
   const [open, setOpen] = useState(null);
@@ -107,8 +108,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded, 
               <p className="small">{s.note}</p>
               {open === s.n && (
                 <div className="disco-raw">
-                  <pre>{`${s.request.method} ${s.request.url}${s.request.body ? `\n\n${pretty(s.request.body)}` : ''}`}</pre>
-                  {s.response && <pre>{`${s.response.status}${Object.entries(s.response.headers ?? {}).map(([k, v]) => `\n${k}: ${v}`).join('')}\n\n${pretty(s.response.body)}`}</pre>}
+                  <RawStep step={s} testId={`disco-${s.n}`} />
                 </div>
               )}
             </li>
@@ -122,7 +122,12 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded, 
         </p>
       )}
       {live && la.error && <p role="alert" className="small bad">{la.error}</p>}
-      {live && la.claims && <p className="small" data-testid="claims">Token claims (the token itself stays on the Personal Agent server): <code>{JSON.stringify(la.claims)}</code></p>}
+      {live && la.claims && (
+        <div data-testid="claims">
+          <p className="small">Token claims (the token itself stays on the Personal Agent server):</p>
+          <Json value={la.claims} label="Token claims" testId="claims-json" hot={['protect_agent', 'may_act']} />
+        </div>
+      )}
     </section>
   );
 }

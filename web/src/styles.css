@@ -169,7 +169,7 @@ code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: br
 .bubble pre {
   margin: 0; padding: 8px; border-radius: 8px;
   background: var(--panel); border: 1px solid var(--line);
-  font: 12px ui-monospace, Menlo, monospace; overflow-x: auto;
+  font: 12px ui-monospace, Menlo, monospace;
 }
 
 .badge {
@@ -353,7 +353,7 @@ button.approve { border-radius: 8px; width: 100%; }
 .disco-head code.ok { color: var(--ok); }
 .disco-head code.bad, .bad { color: var(--bad); }
 .disco-steps .skipped { opacity: 0.6; }
-.disco-raw pre { margin: 4px 0; padding: 8px; background: var(--panel); border-radius: 8px; font-size: calc(15px * var(--fs, 1)); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+.disco-raw pre { margin: 4px 0; padding: 8px; background: var(--panel); border-radius: 8px; font-size: calc(15px * var(--fs, 1)); white-space: pre-wrap; word-break: break-all; }
 .bubble.steps ol { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 2px; }
 /* consent dialog: the frame is the shared FloatingDialog (.fd-panel) */
 .modal .fd-body { display: grid; gap: 12px; }
@@ -570,7 +570,8 @@ h2.undetected, .agent-note.undetected { color: var(--undetected-text); }
 .bk-state { margin-left: auto; font-weight: 700; }
 .bk-state--stop { color: var(--bad); }
 .bk-state--ok { color: var(--ok); }
-.bk-raw { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+/* The shared JsonPane (Form | JSON) styles its own parts; this is only the frame. Full view: no max-height, no overflow. */
+.json { margin: 4px 0; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: calc(15px * var(--fs, 1)); }
 .bk-ledger { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--panel); }
 .bk-ledger ul { margin: 6px 0 0; padding-left: 20px; }
 .bk-ledger p { margin: 6px 0 0; }

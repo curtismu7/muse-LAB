@@ -8,6 +8,7 @@ import TextSize from './TextSize.jsx';
 import { applySize, readSize } from './textsize.js';
 import './standalone-ui.css';
 import './top-menu/top-menu.css';
+import './components/JsonPane.css';
 import './styles.css';
 
 applyTheme(readTheme());

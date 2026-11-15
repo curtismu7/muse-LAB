@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import MuseFlow from './MuseFlow.jsx';
+import Json from './components/JsonPane.jsx';
 import { expectFor, parseDollars } from './bookingExpect.js';
 
 // "Book a flight": Muse -> Agent Gateway -> PingOne Authorize, under two rules from two owners. Both modes use this panel.
@@ -29,7 +30,8 @@ const REAL_TIER = { premium: 'Premier Gold expected', standard: 'Premier Silver 
 
 const MOCK_TIER = { premium: 'Premium (Gold)', standard: 'Standard (Silver)', none: 'No tier set' };
 
-const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
+// The keys that decide a booking, marked on every hop's raw pane (Authorize's inputs, the fare, the answer).
+const HOP_HOT = ['ToolName', 'Amount', 'AgentSpendLimit', 'ActClientId', 'flight_number', 'fare', 'rulesDenied', 'status'];
 const mfaOff = () => { try { return window.localStorage.getItem('muse.p1mfa') === '0'; } catch { return false; } };
 const money = (n) => `$${n}`;
 
@@ -67,7 +69,7 @@ function Trace({ hops }) {
             <span className={`bk-state bk-state--${h.state}`}>{h.state === 'stop' ? 'stopped' : h.state === 'unknown' ? 'not reported' : h.state === 'skipped' ? 'not reached' : 'ok'}</span>
           </button>
           <p className="small">{h.summary}</p>
-          {open === h.n && <pre className="bk-raw">{pretty(h.raw)}</pre>}
+          {open === h.n && <Json value={h.raw} label={`Hop ${h.n} raw`} testId={`hop-${h.n}`} hot={HOP_HOT} />}
         </li>
       ))}
     </ol>
