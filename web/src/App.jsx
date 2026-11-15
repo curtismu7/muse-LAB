@@ -5,6 +5,8 @@ import DiscoveryPanel from './DiscoveryPanel.jsx';
 import AssistantConnect from './AssistantConnect.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
 import BookFlight from './BookFlight.jsx';
+import GatewayTrace from './gateway-trace/GatewayTrace.jsx';
+import { exchangesOf } from './gatewayExchanges.js';
 import Json from './components/JsonPane.jsx';
 import FloatingDialog from './floating-dialog/FloatingDialog';
 // Loaded when someone signs in: it carries Ping's DaVinci client SDK.
@@ -320,6 +322,8 @@ export default function App() {
   const agentState = session.mode === 'live' && session.liveAuth?.signedIn ? detectedBy(session.liveAuth.claims) : null;
   const decisions = session.decisions ?? [];
   const lastEntry = [...feed].reverse().find((m) => m.entry)?.entry ?? null;
+  // The booking has its own panel in Book a flight; this one is for every other tool the chat calls.
+  const lastToolTrace = [...feed].reverse().find((m) => m.entry?.trace && m.entry.tool !== 'flights.book')?.entry.trace ?? null;
 
   return (
     <main className={session.mode === 'live' ? 'app app--live' : 'app'}>
@@ -521,6 +525,12 @@ export default function App() {
           </div>
         )}
       </aside>
+
+      {session.mode !== 'live' && lastToolTrace && (
+        <div className="flow-row">
+          <GatewayTrace exchanges={exchangesOf(lastToolTrace, 'mock')} source="mock" title="What Privilege did: the last chat request" />
+        </div>
+      )}
 
       <div className="flow-row">
         <BookFlight session={session} api={api} busy={busy} guarded={guarded} signInWith={signInWith} bookMock={bookMock} onReset={reset} onTierChanged={refresh} />

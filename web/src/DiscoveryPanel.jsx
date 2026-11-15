@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import Json from './components/JsonPane.jsx';
 import RawStep from './RawStep.jsx';
+import GatewayTrace from './gateway-trace/GatewayTrace.jsx';
+import { exchangesOf } from './gatewayExchanges.js';
 
 const POINTS_PROMPT = 'Show my airline points';
 const AUTO_KEY = 'muse.autoPingOne';
@@ -122,6 +124,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded, 
         </p>
       )}
       {live && la.error && <p role="alert" className="small bad">{la.error}</p>}
+      {live && la.trace && <GatewayTrace exchanges={exchangesOf(la.trace, 'real')} source="real" title="What Privilege did: the points question" />}
       {live && la.claims && (
         <div data-testid="claims">
           <p className="small">Token claims (the token itself stays on the Personal Agent server):</p>

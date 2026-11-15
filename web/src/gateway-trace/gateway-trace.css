@@ -1,0 +1,36 @@
+/*
+  Styles for GatewayTrace. Tokens only (standalone-ui.css): no colour literals, no app classes,
+  so any Privilege demo can vendor this file with the component. The request and response bodies are
+  drawn by the shared JsonPane (its own css), which is full view: nothing here caps or scrolls a JSON pane.
+*/
+.gw-trace h2 { margin: 0 0 8px; font-size: 1.375rem; line-height: 1.25; color: var(--text); }
+.gw-lead { margin: 0 0 8px; max-width: 80ch; font-size: 1.125rem; line-height: 1.5; color: var(--text); }
+.gw-muted { margin: 0 0 14px; max-width: 80ch; color: var(--muted); line-height: 1.5; }
+
+.gw-ex { margin: 18px 0 0; padding: 14px 0 4px; border-top: 1px solid var(--border); }
+.gw-ex > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; cursor: pointer; list-style: none; font-size: 1.125rem; color: var(--text); }
+.gw-ex > summary::-webkit-details-marker { display: none; }
+.gw-num { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 0.9375rem; }
+.gw-sum { color: var(--muted); font-size: 1rem; }
+.gw-ex h4 { margin: 18px 0 10px; font-size: 1rem; color: var(--text); }
+
+/* Outcome chips: text label + token colour (never colour alone) */
+.gw-chip { display: inline-block; padding: 1px 10px; border: 1px solid var(--muted); border-radius: 999px; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.03em; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+.gw-chip[data-outcome="pass"] { color: var(--status-ok); border-color: var(--status-ok); }
+.gw-chip[data-outcome="fail"] { color: var(--danger-text); border-color: var(--danger-text); }
+.gw-chip[data-outcome="info"] { color: var(--status-info); border-color: var(--status-info); }
+
+.gw-decisions { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 12px; }
+.gw-decisions li { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 14px; align-items: baseline; line-height: 1.5; }
+.gw-decisions li > div { min-width: 0; overflow-wrap: anywhere; }
+.gw-decisions .gw-chip { justify-self: start; }
+.gw-decisions li[data-outcome="skipped"] { color: var(--muted); }
+.gw-evidence { color: var(--text-body); }
+.gw-decisions li[data-outcome="skipped"] .gw-evidence { color: var(--muted); }
+.gw-tag { display: inline-block; margin-left: 8px; padding: 0 8px; border: 1px dashed var(--muted); border-radius: 999px; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; }
+
+.gw-io { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.gw-io > div { min-width: 0; }
+@media (max-width: 1100px) { .gw-io { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .gw-decisions li { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+.gw-record, .gw-setup { margin: 14px 0 6px; }

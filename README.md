@@ -296,3 +296,5 @@ For `book_flight` only, and only when `MUSE_GATEWAY_INTERNAL_SECRET` is set (the
 6. If a booking within your limit is still held: check the secret matches the gateway's, the user id is on the allow-list, and (for a limit above $500) the worker credential is configured.
 
 Tested against stubs only (`server/test/connector-preapprove.test.js`, with a stub gateway that applies the trusted-caller, consent, limit, pre-approval and hold rules); the first real use is the owner's.
+
+**What Privilege did.** Under Run, each call to the gateway shows its exact request, its exact response and the decisions made in between (shared `GatewayTrace`, Rule 25). In Mock the decisions are marked checked (the simulation computed them); in Real they are inferred from the status or observed in the reply, because the real gateway does not report per-check detail.
