@@ -18,6 +18,7 @@ const LAB_VERSION = (() => { try { return JSON.parse(fs.readFileSync(new URL('..
 import { parseIntent } from './intent.js';
 import ConnectMuseAi from './ConnectMuseAi.jsx';
 import ShelfLink from "./components/ShelfLink.jsx";
+import VerifyMark from "./components/VerifyMark.jsx";
 // Opened from Customer Agent LAB (UC48, UC-MUSE1 and UC-MUSE2 route here): strip + header Back only, nothing preselected.
 import ReturnLink from "./return-link/ReturnLink.jsx";
 
@@ -343,7 +344,9 @@ export default function App() {
             help={{ href: 'https://github.com/curtismu7/muse-LAB#readme' }}
             version={LAB_VERSION}
             onReset={session.signedIn ? () => guarded(async () => { await api('POST', '/api/reset'); setTrace(null); setFeed([]); }) : undefined}
-          />
+          >
+            <VerifyMark id="muse" />
+          </TopMenu>
         </span>
       </header>
 
