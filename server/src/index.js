@@ -21,6 +21,7 @@ import { PERSONAS, TOOLS, runTool } from './tools.js';
 import { shelfInfo } from './shelfLink.js';
 import { AGENT_LIMIT_DEFAULT, MEMBERS, PREMIUM_THRESHOLD, PREMIUM_TIERS, RULES, TIER_ATTRIBUTE, TIER_SOURCE_MOCK, TIER_SOURCE_REAL, fareFor, flightId, listFlights, memberFor } from './fares.js';
 import { bookingTool, classifyBooking, mockAuthorize, mockBooking } from './booking.js';
+import { approvedTrace, mockCallTrace, realCallTrace } from './museTrace.js';
 import { LIMIT_ATTRIBUTE, LIMIT_MAX, LIMIT_MIN, LIMIT_RULE, READ_ONLY_MESSAGE, createTierSwitch, parseLimit } from './tier.js';
 
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -221,7 +222,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       live: live ? { available: true, origin: live.origin, viaPingOne: Boolean(live.idp), lane: live.idp?.lane ?? null, userLogin: Boolean(live.idp?.userClientId) } : { available: false },
       agent: agent ? { enabled: true, model: agent.model } : { enabled: false },
       discovery: ws.discovery ?? null,
-      liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null, ask: ws.liveAsk ?? null, answer: ws.liveAnswer ?? null },
+      liveAuth: { registered: Boolean(ws.liveClient), signedIn: Boolean(ws.liveToken), claims: ws.liveClaims ?? null, steps: ws.liveSteps ?? [], error: ws.liveError ?? null, ask: ws.liveAsk ?? null, answer: ws.liveAnswer ?? null, trace: ws.liveTrace ?? null },
       userLogin: ws.userLogin ?? null,
       assistant: ws.assistant ?? null,
       personas: picker ? Object.entries(PERSONAS).map(([key, p]) => ({ key, ...p })) : [],
@@ -337,7 +338,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     res.json(ws.discovery);
   });
 
-  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; ws.booking = null; ws.bookings = []; ws.member = 'standard'; ws.agentLimit = null; ws.userToken = null; };
+  const clearLive = (ws) => { ws.liveClient = null; ws.liveToken = null; ws.liveClaims = null; ws.liveSteps = []; ws.liveError = null; ws.liveAsk = null; ws.liveAnswer = null; ws.userLogin = null; ws.assistant = null; ws.booking = null; ws.bookings = []; ws.member = 'standard'; ws.agentLimit = null; ws.userToken = null; ws.liveTrace = null; };
   // The tool result comes back as MCP text content holding JSON; Personal Agent reads the points out of it.
   const answerFrom = (steps) => {
     const r = steps.find((x) => x.n === 9)?.response;
@@ -349,18 +350,22 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
   const runBooking = async (ws) => {
     const { tool, args, channel } = ws.liveAsk;
     // 'user' = Sam's own token (no act claim), held on the server only; 'agent' = the delegated token.
-    const steps = await callGateway(live, channel === 'user' ? ws.userToken : ws.liveToken, fetchImpl, { tool, args });
+    const token = channel === 'user' ? ws.userToken : ws.liveToken;
+    const steps = await callGateway(live, token, fetchImpl, { tool, args });
     for (const st of steps) addStep(ws, st);
     const bk = classifyBooking(steps.find((x) => x.n === 9), { flightId: args.flight_number, quoted: args.amount, tool, channel });
-    ws.booking = bk;
+    // "What Privilege did": the call as sent and answered, for the page. The token is shown by its length only; every secret is scrubbed from it.
+    ws.booking = { ...bk, trace: traceOf(ws, steps, token) };
     if (bk.status === 'booked') ws.bookings.push({ flightId: bk.flightId, fare: bk.fare, confirmation: bk.confirmation, mode: 'live', at: bk.at });
     ws.liveAnswer = null;
   };
+  const traceOf = (ws, steps, token) => realCallTrace(steps, { token, secrets: [live?.idp?.clientSecret, ws.liveToken, ws.userToken] });
   const runAsk = async (ws) => {
     if (ws.liveAsk?.scenario === 'book') return runBooking(ws);
     const asked = ws.liveAsk?.tool ?? (live.idp?.clientSecret ? 'loyalty_balance' : null);
     const steps = await callGateway(live, ws.liveToken, fetchImpl, { tool: asked ? AIRLINE_RECORD : null });
     for (const st of steps) addStep(ws, st);
+    ws.liveTrace = traceOf(ws, steps, ws.liveToken);
     const result = answerFrom(steps);
     if (!result) { ws.liveAnswer = null; return; }
     const said = await reply(agent, ws.liveAsk?.prompt, result, fetchImpl);
@@ -496,6 +501,7 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
           const steps = await callGateway(live, r.token, fetchImpl, { tool: AIRLINE_RECORD });
           const first = steps[0]?.response?.status;
           ws.userLogin.steps.push(...steps);
+          ws.userLogin.trace = traceOf(ws, steps, r.token);
           ws.userLogin.denied = first == null ? null : first >= 400 || steps.some((x) => x.response?.status >= 400);
         }
       } catch (e) { ws.userLogin = { claims: null, steps: [], error: failed(e).error, denied: null }; }
@@ -606,14 +612,17 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
     };
     if (d.outcome === 'held') ws.holds.set(entry.id, { tool, args, actor: entry.actor });
     if (d.outcome === 'allowed') entry.result = runTool(tool, args);
+    // "What Privilege did", Mock: what the simulated gateway computed for this call. It rides on the reply and the booking, not on the activity log entry.
+    const authorizeFor = tool === 'flights.book' ? mockAuthorize({ flightId: flightId(args.flightId), fine: d.fine, actor: d.protect.actor, member: ws.member, limit: ws.agentLimit }) : null;
+    const trace = mockCallTrace({ tool, args, d, authorize: authorizeFor, result: entry.result, rules: entry.rules });
     if (tool === 'flights.book') {
       // The Authorize rule's stand-in: it saw the catalogue fare, not the quote. A stopped booking never reaches runTool, so the ledger stays empty.
-      entry.authorize = mockAuthorize({ flightId: flightId(args.flightId), fine: d.fine, actor: d.protect.actor, member: ws.member, limit: ws.agentLimit });
-      ws.booking = mockBooking({ flightId: flightId(args.flightId), quoted: args.quoted, fine: d.fine, outcome: d.outcome, rules: entry.rules, result: entry.result, actor: d.protect.actor, member: ws.member, limit: ws.agentLimit });
+      entry.authorize = authorizeFor;
+      ws.booking = { ...mockBooking({ flightId: flightId(args.flightId), quoted: args.quoted, fine: d.fine, outcome: d.outcome, rules: entry.rules, result: entry.result, actor: d.protect.actor, member: ws.member, limit: ws.agentLimit }), trace };
       if (d.outcome === 'allowed') ws.bookings.push({ flightId: entry.result.flightId, fare: entry.result.fare, confirmation: entry.result.confirmationNumber, mode: 'mock', at: entry.at });
     }
     record(ws, entry);
-    res.json({ ...entry, detect: d.detect.steps, protect: d.protect, coarse: d.coarse, fine: d.fine });
+    res.json({ ...entry, detect: d.detect.steps, protect: d.protect, coarse: d.coarse, fine: d.fine, trace });
   });
 
   // The caller got a 401 from the gateway, so it asks PingOne for a token. PingOne has Sam signed in, then asks Protect
@@ -675,12 +684,13 @@ export function createApp(env = process.env, { fetchImpl: rawFetch = fetch } = {
       rules: ['A person approved this call (simulated CIBA)'],
       result: runTool(hold.tool, hold.args),
     };
+    const trace = approvedTrace({ tool: hold.tool, args: hold.args, result: entry.result });
     record(ws, entry);
     if (hold.tool === 'flights.book') {
-      ws.booking = mockBooking({ flightId: entry.result.flightId, quoted: hold.args.quoted, fine: { result: 'allow' }, outcome: 'allowed', result: entry.result, actor: hold.actor, member: ws.member, limit: ws.agentLimit });
+      ws.booking = { ...mockBooking({ flightId: entry.result.flightId, quoted: hold.args.quoted, fine: { result: 'allow' }, outcome: 'allowed', result: entry.result, actor: hold.actor, member: ws.member, limit: ws.agentLimit }), trace };
       ws.bookings.push({ flightId: entry.result.flightId, fare: entry.result.fare, confirmation: entry.result.confirmationNumber, mode: 'mock', at: entry.at });
     }
-    res.json(entry);
+    res.json({ ...entry, trace });
   });
 
   // The connect card's own reset: clears only the last assistant result, so the card can start over.

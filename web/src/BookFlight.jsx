@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import MuseFlow from './MuseFlow.jsx';
 import Json from './components/JsonPane.jsx';
+import GatewayTrace from './gateway-trace/GatewayTrace.jsx';
+import { exchangesOf } from './gatewayExchanges.js';
 import { expectFor, parseDollars } from './bookingExpect.js';
 
 // "Book a flight": Muse -> Agent Gateway -> PingOne Authorize, under two rules from two owners. Both modes use this panel.
@@ -342,6 +344,7 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
 
       <Banner b={b} />
       {b && <Trace hops={b.hops} />}
+      <GatewayTrace exchanges={exchangesOf(b?.trace, live ? 'real' : 'mock')} source={live ? 'real' : 'mock'} />
 
       <section className="bk-ledger" aria-label="Bookings made this session" data-testid="ledger">
         <h3>Bookings made this session</h3>
