@@ -5,6 +5,7 @@ import DiscoveryPanel from './DiscoveryPanel.jsx';
 import AssistantConnect from './AssistantConnect.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
 import BookFlight from './BookFlight.jsx';
+import Json from './components/JsonPane.jsx';
 import FloatingDialog from './floating-dialog/FloatingDialog';
 // Loaded when someone signs in: it carries Ping's DaVinci client SDK.
 const SignInModal = lazy(() => import('./SignInModal.jsx'));
@@ -83,6 +84,9 @@ function Icon({ name, size = 18 }) {
   );
 }
 
+// The keys that matter in a tool's simulated answer: did it happen (booked, queued, saved), the confirmation, and the money.
+const RESULT_HOT = ['booked', 'queued', 'saved', 'confirmationNumber', 'fare', 'amount', 'payee', 'simulated'];
+
 function Outcome({ value }) {
   return <span className={`badge badge-${value}`}>{OUTCOME_LABEL[value] ?? value}</span>;
 }
@@ -96,7 +100,7 @@ function MuseReply({ entry, onApprove, busy }) {
         {entry.rules.map((r) => <li key={r}>{r}</li>)}
         {entry.signals?.length > 0 && <li>Personal Agent check: {entry.signals.join(', ')}</li>}
       </ul>
-      {entry.result && <pre>{JSON.stringify(entry.result, null, 2)}</pre>}
+      {entry.result && <Json value={entry.result} label="Tool result" testId={`result-${entry.id}`} hot={RESULT_HOT} />}
       {entry.outcome === 'held' && (
         <button type="button" className="approve" onClick={() => onApprove(entry)} disabled={busy}>
           Approve (simulated CIBA)

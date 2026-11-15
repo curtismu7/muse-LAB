@@ -1,3 +1,5 @@
+import Json from './components/JsonPane.jsx';
+
 // Sam signs in as himself: no agent, no consent, no exchange. Then his own token goes straight to the gateway, which should refuse it.
 export default function UserLoginPanel({ session, api, guarded, signInWith, mfaOff }) {
   if (session.mode !== 'live' || !session.live?.userLogin) return null;
@@ -12,7 +14,12 @@ export default function UserLoginPanel({ session, api, guarded, signInWith, mfaO
       {u && (
         <div data-testid="user-login-result">
           {u.error && <p className="muted small">{u.error}</p>}
-          {u.claims && <p className="small">Token: <code>sub {String(u.claims.sub).slice(0, 8)}…</code>, <code>{u.claims.act ? 'act present' : 'no act claim'}</code>, aud <code>{JSON.stringify(u.claims.aud)}</code></p>}
+          {u.claims && (
+            <div>
+              <p className="small">Token: <code>{u.claims.act ? 'act present' : 'no act claim'}</code></p>
+              <Json value={u.claims} label="Sam's token claims" testId="user-claims" />
+            </div>
+          )}
           {u.denied === true && <p className="small" data-testid="user-denied"><strong>Denied.</strong> The gateway refused Sam's own token ({last?.response?.status}). Only a token that names an agent acting for him gets through.</p>}
           {u.denied === false && <p className="small" data-testid="user-allowed"><strong>Allowed.</strong> The gateway accepted Sam's own token ({last?.response?.status}).</p>}
         </div>
