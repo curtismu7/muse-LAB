@@ -5,83 +5,62 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>One back end, any agent</title>
 <script>try{var t=localStorage.getItem('muse.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<link rel="stylesheet" href="standalone-ui.css">
+<link rel="stylesheet" href="static-shell.css">
 <style>
 /* /clients: one back end, four client skins. The steps are scripted; "Sign in live" runs the real PingOne sign-in and shows the real answer.
-   Logos: brands/claude-symbol.svg (CC0) and brands/openai-symbol.svg (public domain), from Wikimedia Commons, unchanged. */
-:root {
-  --bg: #eef1f6; --surface: #ffffff; --fg: #14213d; --muted: #5b6577; --line: #d9dee8;
-  --band-a: #0b1f44; --band-b: #1c3f7a; --accent: #b3261e; --accent-soft: #fbe9e7;
-  --ok: #1d6b35; --warn: #8a5a00; --warn-soft: #fff6e0;
-  --control-border: #6f7c8a;
-  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans: Montserrat, "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0c1220; --surface: #141c2e; --fg: #e8ecf4; --muted: #9aa5ba; --line: #26324a;
-    --band-a: #08142c; --band-b: #16315f; --accent: #ff8a80; --accent-soft: #3a1e1e;
-    --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; --control-border: #c3c8d0; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0c1220; --surface: #141c2e; --fg: #e8ecf4; --muted: #9aa5ba; --line: #26324a;
-  --band-a: #08142c; --band-b: #16315f; --accent: #ff8a80; --accent-soft: #3a1e1e;
-  --ok: #6fd08c; --warn: #f0c060; --warn-soft: #2b2415; --control-border: #c3c8d0; color-scheme: dark;
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); }
-code { font: 13px var(--mono); overflow-wrap: anywhere; }
-button { font: inherit; cursor: pointer; color: inherit; }
-button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-.band button:focus-visible { outline-color: #fff; }
+   Logos: brands/claude-symbol.svg (CC0) and brands/openai-symbol.svg (public domain), from Wikimedia Commons, unchanged.
+   Page chrome (the bar, banner, band, controls, trace) uses the shared tokens from standalone-ui.css and the bar from static-shell.css.
+   The four client skins below are look-alikes of other products and keep their own palettes. */
+body { font-size: 16px; line-height: 1.55; }
+code { font-size: 13px; overflow-wrap: anywhere; }
 img { display: block; }
 
-/* ---------- Page chrome (Personal Agent look) ---------- */
-.topnav { max-width: 1440px; margin: 0 auto; padding: 12px 16px 0; font-size: 14px; }
-.topnav a { color: var(--fg); }
-.real-box { border: 1px solid var(--line); border-left: 4px solid var(--ok); background: var(--surface); border-radius: 8px; padding: 8px 12px; font-size: 13px; display: grid; gap: 4px; }
-.real-box.bad { border-left-color: var(--accent); }
-.band { background: linear-gradient(120deg, var(--band-a), var(--band-b)); color: #fff; padding: 22px 16px 18px; }
-.band__in { max-width: 1440px; margin: 0 auto; display: grid; gap: 12px; }
-.eyebrow { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .75; }
-.band h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); line-height: 1.15; }
-.band p { margin: 0; max-width: 72ch; opacity: .88; }
+/* ---------- Page chrome ---------- */
+main { max-width: 1100px; margin: 0 auto; padding-block: 0 40px; }
+.links { margin: 12px 0 0; font-size: 14px; }
+.links a { color: var(--status-info); }
+.real-box { border: 1px solid var(--border); border-left: 4px solid var(--status-ok); background: var(--surface); border-radius: 8px; padding: 8px 12px; font-size: 13px; display: grid; gap: 4px; }
+.real-box.bad { border-left-color: var(--danger-text); }
+.band { margin-top: 14px; background: var(--box-dark); color: var(--on-box); border: 1px solid var(--box-grey); border-radius: 14px; padding: 22px 16px 18px; display: grid; gap: 12px; }
+.eyebrow { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.band h1 { margin: 0; color: var(--on-box); font-size: clamp(24px, 4vw, 34px); line-height: 1.15; }
+.band p { margin: 0; max-width: 72ch; }
 .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.picker { display: inline-flex; flex-wrap: wrap; gap: 4px; background: rgba(255,255,255,.1); padding: 4px; border-radius: 12px; }
-.picker button { border: 1px solid #c3c8d0; background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; display: inline-flex; gap: 7px; align-items: center; }
+.picker { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--box-grey); padding: 4px; border-radius: 12px; }
+.picker button { padding: 7px 12px; border-radius: 9px; font-size: 14px; display: inline-flex; gap: 7px; align-items: center; }
 .picker button img { width: 16px; height: 16px; }
-.picker button .inv { filter: invert(1); }
-.picker button[aria-pressed="true"] { background: #fff; color: var(--band-a); font-weight: 600; border-color: #fff; }
-.picker button[aria-pressed="true"] .inv { filter: none; }
-.picker .m { width: 16px; height: 16px; border-radius: 5px; background: #fff; color: var(--band-a); font: 700 11px/16px var(--sans); text-align: center; }
-.picker button[aria-pressed="true"] .m { background: var(--band-a); color: #fff; }
-.ctl { border: 1px solid #c3c8d0; background: transparent; color: #fff; padding: 7px 12px; border-radius: 9px; font-size: 14px; }
+.picker .inv { filter: none; }
+:root[data-theme="dark"] .picker .inv { filter: invert(1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .picker .inv { filter: invert(1); } }
+:root .picker button[aria-pressed="true"] .inv { filter: invert(1); }
+.picker .m { width: 16px; height: 16px; border-radius: 5px; background: var(--text); color: var(--bg); font: 700 11px/16px var(--font-primary); text-align: center; }
+.picker button[aria-pressed="true"] .m { background: var(--on-accent); color: var(--accent); }
+.ctl { padding: 7px 12px; border-radius: 9px; font-size: 14px; }
 select.ctl { appearance: auto; }
-select.ctl option { color: #14213d; background: #fff; }
-.ctl:disabled { opacity: .4; cursor: default; }
-.stepname { font-size: 14px; opacity: .85; }
-.ribbon { max-width: 1440px; margin: 14px auto 0; padding: 0 16px; }
-.ribbon p { margin: 0; border: 1px solid var(--line); border-left: 4px solid var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
-.layout { max-width: 1440px; margin: 14px auto 40px; padding: 0 16px; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 16px; }
+.stepname { font-size: 14px; }
+.ribbon { margin: 14px 0 0; }
+.ribbon p { margin: 0; border: 1px solid var(--border); border-left: 4px solid var(--status-warn); background: var(--surface-2); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.layout { margin: 14px 0 0; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 16px; }
 @media (max-width: 960px) { .layout { grid-template-columns: minmax(0, 1fr); } }
 
-.stage { position: relative; height: 680px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(10,20,40,.12); }
+.stage { position: relative; height: 680px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 10px 40px var(--shadow-ink); }
 @media (max-width: 640px) { .stage { height: 620px; } }
 .stage > .app { height: 100%; }
+/* The look-alike windows keep their own button looks: undo the shared control sizing inside them. */
+.stage button { min-height: 0; font: inherit; color: inherit; }
 .claude, .gpt { grid-template-rows: minmax(0, 1fr); }
 .log { overflow-y: auto; scroll-behavior: smooth; }
 .in { animation: rise .3s ease both; }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .in, .pop { animation: none; } .log { scroll-behavior: auto; } }
-.sim { font: 600 10px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; opacity: .7; white-space: nowrap; }
+.sim { font: 600 10px/1 var(--font-primary); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; opacity: .7; white-space: nowrap; }
 svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-
 /* ---------- PingOne hosted page (same for every client, only the agent name changes) ---------- */
 .pop { position: absolute; top: 54px; right: 18px; width: min(400px, calc(100% - 36px)); background: #fff; color: #1d2433; border-radius: 10px; box-shadow: 0 24px 60px rgba(0,0,0,.4); overflow: hidden; animation: rise .3s ease both; z-index: 5; font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; }
 .pop .bar { background: #e9ebef; padding: 8px 10px; display: flex; gap: 8px; align-items: center; }
 .pop .dots { display: flex; gap: 5px; } .pop .dots i { width: 9px; height: 9px; border-radius: 50%; background: #c7cbd3; display: block; }
-.pop .url { flex: 1; min-width: 0; background: #fff; border-radius: 6px; padding: 3px 9px; font: 12px var(--mono); color: #3a404a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pop .url { flex: 1; min-width: 0; background: #fff; border-radius: 6px; padding: 3px 9px; font: 12px var(--font-mono); color: #3a404a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pop .body { padding: 18px 20px 20px; display: grid; gap: 10px; }
 .pop .org { font-size: 12px; color: #6b7280; letter-spacing: .04em; text-transform: uppercase; }
 .pop h5 { margin: 0; font-size: 19px; }
@@ -93,15 +72,15 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 
 /* ======================= Personal Agent ======================= */
 .muse { display: grid; grid-template-rows: auto minmax(0,1fr) auto; background: var(--surface); }
-.muse .hd { background: linear-gradient(120deg, var(--band-a), var(--band-b)); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+.muse .hd { background: var(--box-dark); color: var(--on-box); padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
 .muse .log { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
-.muse .u { align-self: flex-end; background: #1c3f7a; color: #fff; padding: 9px 13px; border-radius: 14px 14px 4px 14px; max-width: 80%; }
+.muse .u { align-self: flex-end; background: var(--box-blue); color: var(--on-box); padding: 9px 13px; border-radius: 14px 14px 4px 14px; max-width: 80%; }
 .muse .b { background: var(--bg); padding: 9px 13px; border-radius: 14px 14px 14px 4px; max-width: 80%; }
-.muse .card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; max-width: 520px; }
+.muse .card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; max-width: 520px; }
 .muse .card b { font-size: 15px; }
-.muse .btn { justify-self: start; border-radius: 8px; padding: 6px 12px; border: 0; background: #1c3f7a; color: #fff; }
-.muse .tool { font: 13px var(--mono); }
-.muse .cmp { margin: 0 18px 18px; border: 1px solid var(--control-border); background: var(--bg); border-radius: 14px; padding: 11px 14px; display: flex; justify-content: space-between; color: var(--muted); }
+.muse .btn { justify-self: start; border-radius: 8px; padding: 6px 12px; border: 0; background: var(--accent-gradient); color: var(--on-accent); }
+.muse .tool { font: 13px var(--font-mono); }
+.muse .cmp { margin: 0 18px 18px; border: 1px solid var(--border); background: var(--bg); border-radius: 14px; padding: 11px 14px; display: flex; justify-content: space-between; color: var(--muted); }
 
 /* ======================= Claude ======================= */
 .claude { --c-bg: #faf9f5; --c-side: #f5f4ed; --c-fg: #141413; --c-mut: #73726c; --c-line: #e3e1d7; --c-bub: #f0eee6; --c-box: #ffffff; --c-clay: #d97757; --c-ava: #3d3d3a;
@@ -114,7 +93,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .claude .main { display: grid; grid-template-rows: auto minmax(0,1fr) auto; min-width: 0; }
 .claude .hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; gap: 8px; }
 .claude .hd .t { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
-.claude .hd .share { border: 1px solid var(--control-border); background: var(--c-box); border-radius: 8px; padding: 4px 12px; font-size: 13px; }
+.claude .hd .share { border: 1px solid var(--border); background: var(--c-box); border-radius: 8px; padding: 4px 12px; font-size: 13px; }
 .claude .log { padding: 8px 16px 16px; }
 .claude .col { max-width: 700px; margin: 0 auto; display: grid; gap: 18px; }
 .claude .u { justify-self: end; display: flex; gap: 10px; align-items: flex-start; background: var(--c-bub); border-radius: 12px; padding: 10px 14px; max-width: 90%; }
@@ -125,20 +104,22 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .claude .tool { border: 1px solid var(--c-line); border-radius: 10px; background: var(--c-box); font-size: 14px; overflow: hidden; }
 .claude .tool .th { display: flex; gap: 8px; align-items: center; padding: 9px 12px; color: var(--c-mut); }
 .claude .tool .th b { color: var(--c-fg); font-weight: 500; }
-.claude .tool pre { margin: 0; border-top: 1px solid var(--c-line); padding: 9px 12px; font: 12.5px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-.claude .tool .lab { font: 600 11px var(--sans); color: var(--c-mut); text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 3px; }
+.claude .tool pre { margin: 0; border-top: 1px solid var(--c-line); padding: 9px 12px; font: 12.5px var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.claude .tool .lab { font: 600 11px var(--font-primary); color: var(--c-mut); text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 3px; }
 .claude .auth { border: 1px solid var(--c-line); background: var(--c-box); border-radius: 12px; padding: 14px; display: grid; gap: 10px; font-size: 14px; }
 .claude .auth .row { display: flex; gap: 10px; align-items: center; }
-.claude .auth .tile { width: 32px; height: 32px; border-radius: 8px; background: #1c3f7a; color: #fff; display: grid; place-items: center; font: 700 14px system-ui; flex: none; }
+.claude .auth .tile { width: 32px; height: 32px; border-radius: 8px; background: var(--box-blue); color: var(--on-box); display: grid; place-items: center; font: 700 14px system-ui; flex: none; }
+/* ui-pattern: allow P10 Claude look-alike skin: this Connect button copies Claude's own near-black button through the skin's --c-fg / --c-bg palette, a deliberate third-party look-alike, not a lab button */
 .claude .auth .btn { justify-self: start; background: var(--c-fg); color: var(--c-bg); border: 0; border-radius: 8px; padding: 6px 14px; font-size: 14px; }
 .claude .cmp { margin: 0 16px 14px; }
-.claude .box { max-width: 700px; margin: 0 auto; background: var(--c-box); border: 1px solid var(--control-border); border-radius: 18px; box-shadow: 0 4px 18px rgba(0,0,0,.05); padding: 12px 12px 10px 16px; display: grid; gap: 12px; }
+.claude .box { max-width: 700px; margin: 0 auto; background: var(--c-box); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 4px 18px rgba(0,0,0,.05); padding: 12px 12px 10px 16px; display: grid; gap: 12px; }
 .claude .box .ph { color: var(--c-mut); }
 .claude .box .row { display: flex; align-items: center; gap: 8px; color: var(--c-mut); }
-.claude .box .ib { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--control-border); display: grid; place-items: center; }
+.claude .box .ib { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); display: grid; place-items: center; }
 .claude .box .model { margin-left: auto; font-size: 13px; display: inline-flex; gap: 2px; align-items: center; }
 .claude .box .send { width: 32px; height: 32px; border-radius: 8px; background: var(--c-clay); color: #fff; display: grid; place-items: center; }
-.claude .box .chip { font-size: 12px; border: 1px solid var(--control-border); border-radius: 999px; padding: 3px 10px; display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.claude .box .chip { font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.claude .ok-note { font-size: 14px; opacity: .8; }
 .claude .disc { text-align: center; font-size: 11.5px; color: var(--c-mut); margin-top: 6px; }
 @media (max-width: 640px) { .claude { grid-template-columns: minmax(0,1fr); } .claude .rail { display: none; } .claude .box .chip { display: none; } }
 
@@ -160,7 +141,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .gpt .hd { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; gap: 8px; }
 .gpt .hd .mdl { font-size: 17px; display: inline-flex; gap: 4px; align-items: center; padding: 4px 8px; border-radius: 8px; }
 .gpt .hd .right { display: flex; gap: 10px; align-items: center; color: var(--g-mut); }
-.gpt .hd .share { border: 1px solid var(--control-border); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--g-fg); display: inline-flex; gap: 6px; align-items: center; }
+.gpt .hd .share { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--g-fg); display: inline-flex; gap: 6px; align-items: center; }
 .gpt .log { padding: 8px 16px 16px; }
 .gpt .col { max-width: 720px; margin: 0 auto; display: grid; gap: 22px; }
 .gpt .u { justify-self: end; background: var(--g-bub); border-radius: 18px; padding: 9px 16px; max-width: 75%; }
@@ -168,29 +149,33 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .gpt .acts { display: flex; gap: 12px; color: var(--g-mut); margin-top: 8px; }
 .gpt .acts .i { width: 16px; height: 16px; }
 .gpt .used { display: inline-flex; gap: 8px; align-items: center; color: var(--g-mut); font-size: 14px; }
-.gpt .apptile { width: 22px; height: 22px; border-radius: 6px; background: #1c3f7a; color: #fff; display: grid; place-items: center; font: 700 11px system-ui; flex: none; }
-.gpt .res { margin: 6px 0 0; font: 12.5px var(--mono); background: var(--g-bub); border-radius: 10px; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gpt .apptile { width: 22px; height: 22px; border-radius: 6px; background: var(--box-blue); color: var(--on-box); display: grid; place-items: center; font: 700 11px system-ui; flex: none; }
+.gpt .res { margin: 6px 0 0; font: 12.5px var(--font-mono); background: var(--g-bub); border-radius: 10px; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .gpt .conn { border: 1px solid var(--g-line); border-radius: 16px; padding: 16px; display: grid; gap: 10px; max-width: 460px; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
 .gpt .conn .row { display: flex; gap: 12px; align-items: center; }
 .gpt .conn .apptile { width: 40px; height: 40px; border-radius: 10px; font-size: 16px; }
 .gpt .conn small { color: var(--g-mut); display: block; }
 .gpt .conn .btns { display: flex; gap: 8px; }
-.gpt .pill { border-radius: 999px; padding: 7px 16px; border: 1px solid var(--control-border); background: transparent; font-size: 14px; }
+.gpt .pill { border-radius: 999px; padding: 7px 16px; border: 1px solid var(--border); background: transparent; font-size: 14px; }
 .gpt .pill.k { background: var(--g-fg); color: var(--g-bg); border-color: var(--g-fg); }
 .gpt .cmp { padding: 0 16px 10px; }
-.gpt .box { max-width: 720px; margin: 0 auto; background: var(--g-box); border: 1px solid var(--control-border); border-radius: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.06); padding: 10px 10px 10px 12px; display: flex; gap: 8px; align-items: center; color: var(--g-mut); }
+.gpt .box { max-width: 720px; margin: 0 auto; background: var(--g-box); border: 1px solid var(--border); border-radius: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.06); padding: 10px 10px 10px 12px; display: flex; gap: 8px; align-items: center; color: var(--g-mut); }
 .gpt .box .ph { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ui-pattern: allow P7 ChatGPT look-alike skin: the blue connector chip in the composer copies ChatGPT's own blue tag with a colour literal; it is part of the drawn ChatGPT window, not a lab status chip */
 .gpt .box .chip { display: inline-flex; gap: 6px; align-items: center; color: #2b6fd6; background: rgba(43,111,214,.1); border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 13px; }
+/* ui-pattern: allow T2 ChatGPT look-alike skin: the 9px letter inside the tiny 18px app tile of the composer chip copies ChatGPT's own app tile; it is drawn artwork, not reading text */
 .gpt .box .chip .apptile { width: 18px; height: 18px; font-size: 9px; border-radius: 5px; }
 .gpt .box .voice { width: 36px; height: 36px; border-radius: 50%; background: var(--g-fg); color: var(--g-bg); display: grid; place-items: center; flex: none; }
 .gpt .disc { text-align: center; font-size: 12px; color: var(--g-mut); margin-top: 8px; }
 @media (max-width: 760px) { .gpt { grid-template-columns: minmax(0,1fr); } .gpt .side { display: none; } }
 
 /* ======================= Codex CLI ======================= */
+/* ui-pattern: allow T1 Codex terminal look-alike skin: --x-mg #d7a6ff is the magenta of the Codex terminal prompt mark; a deliberate third-party look-alike palette, owner-approved exception 2026-11-16 (STANDALONE-RULES.md) */
 .codex { --x-bg: #0c0c0c; --x-fg: #d4d4d4; --x-dim: #7f7f7f; --x-cy: #5fd7ff; --x-gr: #87d787; --x-rd: #ff7b72; --x-yl: #e5c07b; --x-mg: #d7a6ff;
-  display: grid; grid-template-rows: auto minmax(0,1fr) auto auto; background: var(--x-bg); color: var(--x-fg); font: 13.5px/1.5 var(--mono); }
+  display: grid; grid-template-rows: auto minmax(0,1fr) auto auto; background: var(--x-bg); color: var(--x-fg); font: 13.5px/1.5 var(--font-mono); }
 .codex .win { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #1d1d1f; color: #9a9a9a; font: 12px -apple-system, system-ui, sans-serif; }
 .codex .win .dots { display: flex; gap: 7px; } .codex .win .dots i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.codex .win .dots .r { background: #ff5f57; } .codex .win .dots .y { background: #febc2e; } .codex .win .dots .g { background: #28c840; }
 .codex .win .t { flex: 1; text-align: center; }
 .codex .log { padding: 12px 16px; }
 .codex .ln { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -199,33 +184,39 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .codex .dim { color: var(--x-dim); } .codex .cy { color: var(--x-cy); } .codex .gr { color: var(--x-gr); } .codex .rd { color: var(--x-rd); } .codex .yl { color: var(--x-yl); } .codex .mg { color: var(--x-mg); }
 .codex .usr { background: #1a1a1a; border-left: 2px solid var(--x-cy); padding: 2px 8px; margin: 8px 0; }
 .codex .gap { height: 8px; }
-.codex .cmp { margin: 0 16px; border: 1px solid var(--control-border); border-radius: 6px; padding: 8px 10px; display: flex; gap: 8px; }
+.codex .cmp { margin: 0 16px; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; display: flex; gap: 8px; }
 .codex .cmp .ph { color: var(--x-dim); }
 .codex .foot { display: flex; justify-content: space-between; gap: 10px; padding: 6px 16px 10px; color: var(--x-dim); font-size: 12px; flex-wrap: wrap; }
 
 /* ---------- Trace: the back end, identical for every client ---------- */
-.trace { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; }
+.trace { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; }
 .trace h2 { margin: 0; font-size: 17px; }
 .trace .sub { margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .trace ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.trace li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); opacity: .38; transition: opacity .25s, border-color .25s; font-size: 14px; }
+.trace li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); opacity: .38; transition: opacity .25s, border-color .25s; font-size: 14px; }
 .trace li.done { opacity: 1; }
 .trace li.now { opacity: 1; border-color: var(--accent); background: var(--accent-soft); }
-.trace .n { font: 600 12px var(--mono); color: var(--muted); padding-top: 2px; }
+.trace .n { font: 600 12px var(--font-mono); color: var(--muted); padding-top: 2px; }
 .trace .who { font-size: 12px; color: var(--muted); }
 .trace .txt { overflow-wrap: anywhere; }
-.trace .st { font: 12px var(--mono); }
+.trace .st { font: 12px var(--font-mono); }
 .trace details.raw { margin-top: 6px; }
-.trace details.raw summary { cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid var(--control-border); border-radius: 6px; padding: 2px 8px; display: inline-block; }
-.trace details.raw pre { margin: 6px 0 0; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
-.st.e { color: var(--accent); } .st.k { color: var(--ok); }
-.same { margin: 0; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+.trace details.raw summary { cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; display: inline-block; }
+.trace details.raw pre { margin: 6px 0 0; font: 12px/1.45 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+.st.e { color: var(--danger-text); } .st.k { color: var(--status-ok); }
+.same { margin: 0; font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px; }
 </style>
 </head>
 <body>
-<p class="topnav"><a href="/">Back to Personal Agent</a> &middot; <a href="/how-agent-connect-works.html#publish">How a company adds the connector</a> &middot; <a href="/cimd.html">CIMD examples</a></p>
-<header class="band">
-  <div class="band__in">
+<header class="shell-bar">
+  <span class="shell-brand"><span class="shell-logo" aria-hidden="true">M</span> Personal Agent</span>
+  <nav class="shell-nav" aria-label="Site"><a href="/">Personal Agent</a><a href="/how-agent-connect-works.html">How it works</a><a href="/clients.html" aria-current="page">Clients</a><a href="/cimd.html">CIMD</a></nav>
+  <span class="shell-right"><button type="button" id="theme">Theme: System</button></span>
+</header>
+<main>
+  <p class="banner" role="note"><strong>Simulated clients.</strong> The Claude, ChatGPT and Codex windows are look-alikes drawn by this page, not the vendors' apps, and the steps are scripted. In Mock mode, the default, nothing is contacted. Sign in live runs the real PingOne sign-in and shows the real answer, and only works when the Real connector is configured.</p>
+  <p class="links"><a href="/how-agent-connect-works.html#publish">How a company adds the connector</a></p>
+<div class="band">
     <p class="eyebrow">Personal Agent</p>
     <h1>One airline back end, any agent</h1>
     <p>Pick a client. Each one adds the same Airline Connector, signs Sam in at PingOne, and calls the same gateway. Only the client and the name PingOne shows change.</p>
@@ -237,16 +228,14 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
         <button type="button" data-c="codex"><img class="inv" src="brands/openai-symbol.svg" alt="">Codex</button>
       </div>
       <button type="button" class="ctl" id="next">Next step</button>
-      <button type="button" class="ctl" id="play">Play</button>
+      <button type="button" class="ctl primary" id="play">Play</button>
       <button type="button" class="ctl" id="reset">Reset</button>
       <button type="button" class="ctl" id="live" disabled>Sign in live</button>
       <select class="ctl" id="vertical" aria-label="Story"></select>
-      <button type="button" class="ctl" id="theme">Theme: System</button>
       <span class="stepname" id="stepname" aria-live="polite"></span>
       <span class="stepname" id="livenote" aria-live="polite"></span>
     </div>
-  </div>
-</header>
+</div>
 
 <div class="ribbon"><p id="ribbon"></p></div>
 
@@ -260,6 +249,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
     <p class="same">The same code runs for every client: Personal Agent's <code>/mcp</code> and <code>/connector/*</code>, the PingOne DaVinci flow (Protect, agent detected, consent), the on-behalf-of exchange and the gateway. The client only changes its name, its callback, and which PingOne app signs Sam in (its own when it has one).</p>
   </aside>
 </div>
+</main>
 
 <script>
 (function () {
@@ -345,7 +335,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
       function () { col('<div class="u in"><span class="ava">S</span><span>' + esc(STORY.ask) + '</span></div>'); },
       function () { col('<div class="auth in"><div class="row"><span class="tile">A</span><div><b>Airline Connector</b><br><span style="opacity:.75">This connector needs you to sign in before Claude can use it.</span></div></div><button class="btn" type="button">Connect</button></div>'); },
       signin, detected, consent,
-      function () { clearPop(); col('<div class="in" style="font-size:14px;opacity:.8">✓ Airline Connector connected</div>'); },
+      function () { clearPop(); col('<div class="in ok-note">✓ Airline Connector connected</div>'); },
       function () { col('<div class="tool in"><div class="th">' + I.tool + '<span><b>Airline Connector</b> · loyalty_balance</span><span style="margin-left:auto">' + I.down + '</span></div><pre><span class="lab">Request</span>{}</pre><pre><span class="lab">Response</span>' + esc(result()) + '</pre></div>'); },
       function () { col('<div class="a in"><p>' + answerHtml() + '</p>' + CL + 'class="spark"></div>'); }
     ]
@@ -374,7 +364,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 
   S.codex = {
     shell: function () {
-      return '<div class="app codex"><div class="win"><span class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><span class="t">codex — ~/trips</span><span class="sim" style="color:#9a9a9a">Simulated</span></div>' +
+      return '<div class="app codex"><div class="win"><span class="dots"><i class="r"></i><i class="y"></i><i class="g"></i></span><span class="t">codex — ~/trips</span><span class="sim">Simulated</span></div>' +
         '<div class="log" id="log"><div class="head"><b>&gt;_ OpenAI Codex</b> <span class="k">(simulated)</span>\n\n<span class="k">model:</span>     gpt-5-codex   <span class="k">/model to change</span>\n<span class="k">directory:</span> ~/trips\n<span class="k">mcp:</span>       airline <span class="k">' + esc(location.origin) + '/mcp</span></div>' +
         '<p class="ln dim">  To get started, describe a task or try one of these commands:</p><p class="ln dim">  /mcp - list configured MCP tools   /model - choose model</p></div>' +
         '<div class="cmp"><span class="cy">›</span><span class="ph">Ask Codex to do anything</span></div>' +
@@ -461,6 +451,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
   try { var saved = localStorage.getItem('clients.pick'); if (C[saved]) cur = saved; } catch (e) {}
 
   var O = ['system', 'light', 'dark'], tb = document.getElementById('theme'), t = 'system';
+  try { var sv = localStorage.getItem('muse.theme'); if (sv === 'light' || sv === 'dark') { t = sv; tb.textContent = 'Theme: ' + t[0].toUpperCase() + t.slice(1); } } catch (e) {}
   tb.addEventListener('click', function () {
     t = O[(O.indexOf(t) + 1) % 3];
     if (t === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
