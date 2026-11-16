@@ -47,8 +47,8 @@ describe('verification mark in the header', () => {
     }
   });
 
-  it('the badge is rendered by App.jsx: without the line this test fails', () => {
-    const src = fs.readFileSync(path.join(process.cwd(), 'src', 'App.jsx'), 'utf8');
+  it('the badge is rendered by Frame.jsx (the one frame every view shares): without the line this test fails', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'src', 'Frame.jsx'), 'utf8');
     expect(src.match(/<VerifyMark id="muse"/g)).toHaveLength(1);
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import SignInModal from './SignInModal.jsx';
+import Frame, { PageTitle } from './Frame.jsx';
 
 // /connector/signin: where an assistant's customer lands from /connector/authorize. The sign-in runs here, in the Sign in dialog (pi.flow), not on a
 // PingOne login page. When it is done the server answers with the assistant's own redirect address, and this page opens it (that return is the OAuth
@@ -25,11 +26,13 @@ export default function ConnectorSignIn() {
   };
 
   return (
-    <main className="connector-signin">
-      <h1>Sign in</h1>
-      {error ? <p className="signin-error" role="alert">{error}</p>
-        : <p>{cfg ? `Sign in so ${cfg.agent ?? 'your assistant'} can act for you.` : 'Opening the sign-in…'}</p>}
-      {cfg && !error && <SignInModal config={cfg.piflow} api={call} onClose={onClose} completePath="/connector/signin/complete" />}
-    </main>
+    <Frame>
+      <div className="connector-signin">
+        <PageTitle>Sign in</PageTitle>
+        {error ? <p className="signin-error" role="alert">{error}</p>
+          : <p>{cfg ? `Sign in so ${cfg.agent ?? 'your assistant'} can act for you.` : 'Opening the sign-in…'}</p>}
+        {cfg && !error && <SignInModal config={cfg.piflow} api={call} onClose={onClose} completePath="/connector/signin/complete" />}
+      </div>
+    </Frame>
   );
 }

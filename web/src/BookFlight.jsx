@@ -200,7 +200,7 @@ export function TierCard({ live, session, info, api, busy, onChanged, onHeldLimi
               onChange={(e) => { setCustom(e.target.value); setCustomProblem(null); }}
               aria-invalid={customProblem ? 'true' : undefined} aria-describedby={customProblem ? 'bk-limit-problem' : undefined} data-testid="limit-input" />
           </label>
-          <button type="submit" className="primary" disabled={noWrite} data-testid="limit-apply">Apply</button>
+          <button type="submit" disabled={noWrite} data-testid="limit-apply">Apply</button>
         </form>
         {customProblem && <p id="bk-limit-problem" className="small bk-tier__bad" role="alert" data-testid="limit-error">{customProblem}</p>}
       </div>
@@ -318,7 +318,7 @@ export default function BookFlight({ session, api, busy, guarded, signInWith, bo
                 <td data-testid={`row-label-${r.n}`}>{placeOf(r.flight)} {fares[r.flight] !== undefined && <b>{money(fares[r.flight])}</b>} {cities[r.flight] && <small className="muted" data-testid={`row-id-${r.n}`}>{r.flight}</small>}</td>
                 <td>{live ? <span className="small muted" title="Set on the PingOne user, read by Authorize">{REAL_TIER[r.member]}</span> : MOCK_TIER[r.member]}</td>
                 <td className="small" data-testid={`expect-${r.n}`}>{expectFor(r, { fare: fares[r.flight], limit: limitNow, threshold: info?.rules?.premiumThreshold })}</td>
-                <td><button type="button" className="primary" onClick={() => run(r.flight, r.caller, r.member)} disabled={busy || (r.caller === 'human' && !userOk)} data-testid={`run-${r.n}`} aria-label={`Run: ${r.caller === 'agent' ? 'Agent' : 'Sam'}, ${placeOf(r.flight)}${fares[r.flight] !== undefined ? `, ${money(fares[r.flight])}` : ''}`}>Run</button></td>
+                <td><button type="button" onClick={() => run(r.flight, r.caller, r.member)} disabled={busy || (r.caller === 'human' && !userOk)} data-testid={`run-${r.n}`} aria-label={`Run: ${r.caller === 'agent' ? 'Agent' : 'Sam'}, ${placeOf(r.flight)}${fares[r.flight] !== undefined ? `, ${money(fares[r.flight])}` : ''}`}>Run</button></td>
               </tr>
             ))}
           </tbody>
