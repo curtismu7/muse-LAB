@@ -1,0 +1,551 @@
+/*
+  standalone-ui.css: the shared UI standard for every -LAB app.
+  Canonical copy lives in AI-DEMO-Standalone/shared/. Each app vendors an identical copy
+  (check with scripts/check-ui-standard.sh). Do not edit a vendored copy; change this file.
+
+  Tokens come from the Ping brand palette.
+  Light is the default. Dark follows the system setting unless data-theme is set.
+  Montserrat for text, IBM Plex Mono for code. Emphasis is heavier weight, never italics.
+  Every unselected control has a visible border at 3:1 or more in both themes.
+*/
+
+:root {
+  color-scheme: light;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --surface-2: #eff0f1;
+  --text: #051727;
+  --text-body: #263746;
+  --muted: #556070;            /* 6.4:1 on surface */
+  --border: #556070;           /* 6.4:1 on surface (needs 3:1) */
+  --accent: #d20e0f;           /* white text on it: 5.5:1 */
+  --accent-deep: #aa0005;
+  --on-accent: #ffffff;
+  --accent-soft: #fde8e8;
+  --focus: #12538d;
+  --danger-text: #aa0005;
+  --accent-gradient: linear-gradient(90deg, #d20e0f 55%, #aa0005);
+  --accent-inactive: #636b74;        /* disabled primary: neutral grey, white label 5.4:1 */
+  --accent-inactive-gradient: linear-gradient(90deg, #636b74 55%, #565e66);
+  --status-ok: #1d7a43;              /* semantic green: status dots */
+  --on-accent-border: rgba(255, 255, 255, 0.35); /* thin border or spinner ring drawn on the accent */
+  --primary-edge: transparent;       /* edge of button.primary; dark themes set it so the deep red end meets 3:1 */
+  --bg-lab: var(--bg);               /* per-app page background; apps use background: var(--bg-lab), never a colour */
+  --status-warn: #8a5a00;            /* semantic amber: pending, slow, expired. 5.9:1 on --surface */
+  --status-info: #12538d;            /* semantic blue: informational. 8:1 on --surface */
+  --shadow-ink: rgba(5, 23, 39, 0.16); /* neutral ink for box shadows */
+  --box-dark: #051727;               /* diagram box fills: dark in BOTH themes, with --on-box text */
+  --box-blue: #12538d;
+  --box-grey: #3e4f60;
+  --box-red: #aa0005;
+  --on-box: #fcfcfc;
+  --font-primary: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #051727;
+    --surface: #172033;
+    --surface-2: #0f2236;
+    --text: #fcfcfc;
+    --text-body: #e0e2e4;
+    --muted: #909ea4;          /* 5.9:1 on surface */
+    --border: #909ea4;         /* 5.9:1 on surface */
+    --primary-edge: #909ea4;
+    --status-warn: #f0b34c;
+    --status-info: #8fbcff;
+    --shadow-ink: rgba(0, 0, 0, 0.5);
+    --accent-soft: #3a1213;
+    --focus: #fcfcfc;
+    --danger-text: #fca5a5;
+    --status-ok: #7fd1a0;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #051727;
+  --surface: #172033;
+  --surface-2: #0f2236;
+  --text: #fcfcfc;
+  --text-body: #e0e2e4;
+  --muted: #909ea4;
+  --border: #909ea4;
+  --primary-edge: #909ea4;
+  --status-warn: #f0b34c;
+  --status-info: #8fbcff;
+  --shadow-ink: rgba(0, 0, 0, 0.5);
+  --accent-soft: #3a1213;
+  --focus: #fcfcfc;
+  --danger-text: #fca5a5;
+  --status-ok: #7fd1a0;
+  --accent-inactive: #6e7681;        /* disabled primary: neutral grey; 4.59:1 vs the light surface, 3.77:1 boundary vs the dark */
+  --accent-inactive-gradient: linear-gradient(90deg, #6e7681 55%, #636b74);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-lab);
+  color: var(--text-body);
+  font-family: var(--font-primary);
+  font-size: 0.875rem;  /* 14px at the default root; scales with the TopMenu Text size control */
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+h1, h2, h3 {
+  color: var(--text);
+  font-weight: 700;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Simulation or status banner, shown on every page. */
+.banner {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.8125rem;
+}
+
+/* Live mode: the banner edge changes colour so a live page never looks simulated. */
+.banner[data-state="live"] {
+  border-left-color: var(--focus);
+}
+
+/* Controls: every unselected control has a visible border. */
+input,
+textarea,
+select,
+button {
+  max-width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 600;
+  min-height: 40px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+/* A disabled primary is neutral grey (not a faded red): the white label stays 4.5:1+ on every stop, light and dark,
+   and the shared --accent-inactive* tokens read as "not ready", not "wrong". */
+button.primary:disabled {
+  background: var(--accent-inactive-gradient);
+  border-color: var(--accent-inactive);
+  opacity: 1;
+}
+
+/* Primary action: the Ping Red gradient, white text. Add class="primary". */
+button.primary {
+  background: var(--accent-gradient);
+  color: var(--on-accent);
+  border-color: var(--primary-edge);
+}
+
+/* Selected tab or toggle: filled accent. Set aria-selected="true" or aria-pressed="true". */
+button[aria-selected="true"],
+button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The dark shell bar sits on --box-dark: the shared --focus ring is too faint on it
+   (2.29:1 in the light theme), so inside the bar the ring uses --on-box. */
+.shell-bar :focus-visible {
+  outline: 3px solid var(--on-box);
+  outline-offset: 2px;
+}
+
+/* Phone width: no horizontal scroll. Layout grids drop to one column. */
+@media (max-width: 600px) {
+  body {
+    font-size: 0.875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ===== Diagrams (owner-approved 2026-11-03, mock: shared/device-diagram-color-mock.html) =====
+   The outline + stripe box look, shared by every lab's ReactFlow diagrams (rule 17/5).
+   Roles: dark = lab/neutral, blue = PingOne/IAM, green = person/success, red = Ping Red
+   (active/deny), amber = warning, grey = external. Layout stays in each app's stylesheet;
+   this file owns the colors. Dark stripes use saturated brand colors (--dg-*), never
+   the near-white --text/--focus. */
+:root {
+  --dg-dark: var(--text);
+  --dg-blue: var(--focus);
+  --dg-green: var(--status-ok);
+  --dg-red: var(--accent);
+  --dg-grey: var(--muted);
+  --dg-amber: var(--status-warn);
+  --dg-stripe: 10px;
+}
+:root[data-theme="dark"],
+:root:not([data-theme="light"]) {
+  --dg-dark: var(--box-blue);
+  --dg-blue: var(--status-info);
+  --dg-green: #4cc26b;
+  --dg-red: var(--accent);
+  --dg-grey: var(--muted);
+  --dg-amber: var(--status-warn);
+}
+.dg-node {
+  padding: 8px 12px 8px 12px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 2px solid var(--border);
+  border-left-width: var(--dg-stripe);
+}
+.dg-node strong { font-weight: 700; }
+.dg-node span { font-size: 0.75rem; overflow-wrap: anywhere; color: var(--text-body); }
+.dg-node.hot { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.dg-dark  { border-left-color: var(--dg-dark); }
+.dg-blue  { border-left-color: var(--dg-blue); }
+.dg-green { border-left-color: var(--dg-green); }
+.dg-red   { border-left-color: var(--dg-red); }
+.dg-grey  { border-left-color: var(--dg-grey); }
+.dg-amber { border-left-color: var(--dg-amber); }
+.dg-now {
+  background: var(--surface-2);
+  color: var(--text);
+  border-left: 4px solid var(--accent);
+  padding: 6px 10px;
+}
+.dg-now b { color: var(--accent); }
+.edge-on .react-flow__edge-path { stroke: var(--accent); }
+.react-flow__edge.edge-dim { opacity: 0.3; }
+
+/* ===== Shelf link (owner request 2026-11-05): the "Shelf" button in every app's header =====
+   Opens the launcher (demo shelf) in a new tab. The URL comes from GET /api/shelf, which
+   reads SHELF_URL from the shared settings file written by scripts/bootstrap.sh. */
+.shelf-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+.shelf-link:hover { border-color: var(--accent); }
+.shelf-link:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* ===== Theme picker (owner, 2026-11-06): the auto/light/dark select in every app's header =====
+   Sets data-theme on <html> only; the tokens above do the rest. */
+.shell-theme {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.shell-theme select { min-height: 32px; padding: 4px 8px; }
+
+/* ===== Evidence lanes (owner-approved 2026-11-08; mock: customer-agent-LAB sequence and movie reel pages) =====
+   One colour per actor lane in the sequence view and movie reel, from AI-DEMO2's SequenceReelDiagram hue
+   families (browser blue, agent orange, tool/gateway green, identity amber, back-end pink; no purple).
+   Used on borders, strokes and tile rings only, never as text colour. Apps use var(--lane-*) and add no literals. */
+:root {
+  --lane-browser: #2a78d6; --lane-page: #5f98df; --lane-hitl: #5f98df;
+  --lane-agent: #eb6834; --lane-a2a: #f1946d;
+  --lane-mcp: #1baf7a; --lane-gateway: #5fc8a1; --lane-privilege: #13805a; --lane-credentials: #8fd7bc;
+  --lane-idp: #eda100; --lane-mcp-as: #f2bd4d; --lane-authorize: #f2bd4d;
+  --lane-bff: #e87ba4; --lane-registry: #efa3c0; --lane-lab: var(--muted); --lane-neutral: var(--muted);
+  --lane-llm: color-mix(in oklab, #eb6834 60%, white); --lane-api: color-mix(in oklab, #e87ba4 55%, white); --lane-database: color-mix(in oklab, #e87ba4 30%, white);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --lane-browser: #4a9eff; --lane-page: #7db8ff; --lane-hitl: #7db8ff;
+    --lane-agent: #ff6b4a; --lane-a2a: #ff9a80;
+    --lane-mcp: #2ed9a3; --lane-gateway: #6ee3bd; --lane-privilege: #3fcf94; --lane-credentials: #97ead0;
+    --lane-idp: #ffa500; --lane-mcp-as: #ffc04d; --lane-authorize: #ffc04d;
+    --lane-bff: #ff5599; --lane-registry: #ff88bb;
+    --lane-llm: color-mix(in oklab, #ff6b4a 80%, white); --lane-api: color-mix(in oklab, #ff5599 75%, white); --lane-database: color-mix(in oklab, #ff5599 55%, white);
+  }
+}
+:root[data-theme="dark"] {
+  --lane-browser: #4a9eff; --lane-page: #7db8ff; --lane-hitl: #7db8ff;
+  --lane-agent: #ff6b4a; --lane-a2a: #ff9a80;
+  --lane-mcp: #2ed9a3; --lane-gateway: #6ee3bd; --lane-privilege: #3fcf94; --lane-credentials: #97ead0;
+  --lane-idp: #ffa500; --lane-mcp-as: #ffc04d; --lane-authorize: #ffc04d;
+  --lane-bff: #ff5599; --lane-registry: #ff88bb;
+  --lane-llm: color-mix(in oklab, #ff6b4a 80%, white); --lane-api: color-mix(in oklab, #ff5599 75%, white); --lane-database: color-mix(in oklab, #ff5599 55%, white);
+}
+
+
+/* ===== Shared component blocks (owner, 2026-11-13, standard §8d.2) =====
+   The .pill / .chip / .story / .presenter-say / .mode-toggle families repeated verbatim across the labs;
+   these canonical copies come from the most complete lab (hostile-a2a). A lab may drop its private copies
+   as it migrates; until then, the lab's own rules simply win the cascade (same specificity, later file).
+   Reference: shared/STANDALONE-UI-PATTERNS.md — "shared means change it once and every app gets it."
+*/
+
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-left: 0.25rem;
+}
+
+.badges .pill {
+  margin-left: 0;
+}
+
+.pill.yes {
+  border-color: var(--status-ok);
+  color: var(--status-ok);
+}
+
+.pill.partial, .pill.hold {
+  border-color: var(--status-warn);
+  color: var(--status-warn);
+}
+
+.pill.no {
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
+/* Talk track, adapted from the kit */
+.story {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.story__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.story__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--danger-text);
+}
+
+.story__title {
+  margin: 0.15rem 0 0;
+  font-size: 1.1rem;
+}
+
+.story__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  margin: 0.6rem 0;
+}
+
+.story__field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.story__summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.story__steps {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.story__step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+}
+
+.is-current > .story__step {
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.story__n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.75rem;
+}
+
+.story__step[aria-pressed="true"] .story__n {
+  background: var(--on-accent);
+  color: var(--accent);
+}
+
+.story__tag {
+  margin-left: auto;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--status-warn);
+  color: var(--status-warn);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.story__body {
+  margin: 0.4rem 0 0.4rem 2rem;
+  font-size: 0.9rem;
+}
+
+.story__body p {
+  margin: 0.3rem 0;
+}
+
+.story__say {
+  padding: 0.4rem 0.7rem;
+  border-left: 4px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 6px 6px 0;
+}
+
+.story__why {
+  color: var(--muted);
+}
+
+.story__proof {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.story__takeaway {
+  margin: 0.4rem 0 0;
+  font-weight: 700;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0 0.3em;
+  border: 1px solid var(--danger-text);
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--danger-text);
+  font: 0.8em var(--font-mono);
+}
+
+.story__body {
+  margin-left: 0.25rem;
+}
+
+.story__summary, .poison dl, .hashes, .kv {
+  grid-template-columns: 1fr;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.mode-toggle button {
+  border: 0;
+  border-radius: 0;
+  padding: 3px 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: default;
+}
+
+.mode-toggle button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.mode-toggle button:disabled {
+  opacity: 0.6;
+}
+
+.mode-toggle button:focus-visible {
+  outline-offset: -3px;
+}
