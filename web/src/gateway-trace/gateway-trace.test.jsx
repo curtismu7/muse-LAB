@@ -111,6 +111,15 @@ describe("GatewayTrace", () => {
     expect(responseText({ status: 204, headers: {}, body: null })).toBe("HTTP 204");
   });
 
+  test("basisNote replaces the sentence about what kind of gateway this is, in either mode", () => {
+    const { rerender } = render(<GatewayTrace exchanges={[]} source="mock" basisNote="Local engine: the lab's own policy runs here." />);
+    expect(screen.getByTestId("gateway-trace-basis")).toHaveTextContent("Local engine: the lab's own policy runs here.");
+    expect(screen.getByTestId("gateway-trace-basis")).not.toHaveTextContent(/Real mode shows the actual gateway/);
+    rerender(<GatewayTrace exchanges={[]} source="real" basisNote="Local engine." />);
+    expect(screen.getByTestId("gateway-trace-basis")).toHaveTextContent("Local engine.");
+    expect(screen.getByTestId("gateway-trace-basis")).not.toHaveTextContent(/Real gateway/);
+  });
+
   test("a custom title is used for the heading and the label", () => {
     render(<GatewayTrace exchanges={[]} source="mock" title="What the gateway did" />);
     expect(screen.getByRole("heading", { name: "What the gateway did" })).toBeInTheDocument();

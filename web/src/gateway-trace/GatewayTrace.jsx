@@ -7,6 +7,7 @@ import "./gateway-trace.css";
   response, and the decisions the gateway made in between. The family's one panel for it (Rule 25).
 
   <GatewayTrace exchanges={[{ step: 2, title: "Gateway check: tools/list", status: 200, trace }]} source="real" />
+  Optional: title (heading), basisNote (replaces the sentence saying what kind of gateway this is; for a lab whose "Real" is not Privilege).
 
   trace = {                                         (built server-side by gatewayTrace.js, vendored beside this)
     source: "mock" | "real",
@@ -101,7 +102,9 @@ function Exchange({ ex }) {
   );
 }
 
-export default function GatewayTrace({ exchanges, source, title = "What Privilege did" }) {
+// basisNote: replaces the sentence under the heading that says what kind of gateway this is. For a lab whose "Real" mode is not the
+// Privilege gateway (a local engine, say), where the default wording would be wrong.
+export default function GatewayTrace({ exchanges, source, title = "What Privilege did", basisNote }) {
   const list = Array.isArray(exchanges) ? exchanges : [];
   return (
     <section className="gw-trace" data-testid="gateway-trace" aria-label={title}>
@@ -111,7 +114,7 @@ export default function GatewayTrace({ exchanges, source, title = "What Privileg
         made in between.
       </p>
       <p className="gw-muted" data-testid="gateway-trace-basis">
-        {source === "real"
+        {basisNote ? basisNote : source === "real"
           ? "Real gateway. The requests and responses are exact. The gateway answers with a status and a body, not a per-check breakdown, so decisions marked \"inferred\" are read from the outcome; the gateway log is the authoritative record."
           : "Simulated: the lab's in-process gateway runs the checks in the same order, so these decisions are what it computed. Real mode shows the actual gateway."}
       </p>
