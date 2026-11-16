@@ -68,6 +68,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded, 
             )}
             {la.ask && session.discovery && !la.signedIn && !la.answer && !auto && (
               <div className="msg">
+                {/* ui-pattern: allow P9 this Real-only Sign in never shows with the Mock-only Sign in button in App; two components, so the checker cannot see it */}
                 <button type="button" className="primary" onClick={signIn} disabled={busy} data-testid="live-signin">Sign in</button>
               </div>
             )}
@@ -81,7 +82,7 @@ export default function DiscoveryPanel({ session, api, onChange, busy, guarded, 
           <form className="composer" onSubmit={(e) => { e.preventDefault(); if (prompt.trim()) { ask(prompt.trim()); setPrompt(''); } }}>
             <label className="sr-only" htmlFor="live-ask-input">Ask Personal Agent</label>
             <input id="live-ask-input" type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder='Ask Personal Agent, e.g. "show my airline points"' autoComplete="off" disabled={busy} />
-            <button type="submit" className="primary" disabled={busy || !prompt.trim()}>Send</button>
+            <button type="submit" disabled={busy || !prompt.trim()}>Send</button>
           </form>
           <div className="prompts" role="group" aria-label="Prompts">
             <button type="button" className="chip" onClick={() => ask(POINTS_PROMPT)} disabled={busy}>{POINTS_PROMPT}</button>

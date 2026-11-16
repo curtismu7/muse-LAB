@@ -11,18 +11,12 @@ import Json from './components/JsonPane.jsx';
 import FloatingDialog from './floating-dialog/FloatingDialog';
 // Loaded when someone signs in: it carries Ping's DaVinci client SDK.
 const SignInModal = lazy(() => import('./SignInModal.jsx'));
-import ThemeToggle, { applyTheme, readTheme } from './ThemeToggle.jsx';
-import { applySize, readSize, saveSize } from './textsize.js';
-import TopMenu from './top-menu/TopMenu.jsx';
+import Frame, { PageTitle } from './Frame.jsx';
 
 import fs from 'node:fs';
 const LAB_VERSION = (() => { try { return JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version || null; } catch { return null; } })();
 import { parseIntent } from './intent.js';
 import ConnectMuseAi from './ConnectMuseAi.jsx';
-import ShelfLink from "./components/ShelfLink.jsx";
-import VerifyMark from "./components/VerifyMark.jsx";
-// Opened from Customer Agent LAB (UC48, UC-MUSE1 and UC-MUSE2 route here): strip + header Back only, nothing preselected.
-import ReturnLink from "./return-link/ReturnLink.jsx";
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -157,17 +151,6 @@ export default function App() {
   const [via, setVia] = useState('muse');
   const [consentAsk, setConsentAsk] = useState(null);
   const feedEnd = useRef(null);
-  // TopMenu's theme and text size ride the same stores the rest of the app shares (muse.theme, muse.fs as a multiplier).
-  const pickTheme = (t) => {
-    applyTheme(t);
-    try { if (t === 'auto') window.localStorage.removeItem('muse.theme'); else window.localStorage.setItem('muse.theme', t); } catch { /* storage unavailable */ }
-    setThemeTick((n) => n + 1);
-  };
-  const [themeTick, setThemeTick] = useState(0);
-  const FS_STEPS = { S: 0.85, M: 1, L: 1.15 };
-  const pickFontSize = (step) => { const v = FS_STEPS[step] ?? 1; saveSize(v); applySize(v); setThemeTick((n) => n + 1); };
-  const fsToStep = (v) => (v < 1 ? 'S' : v > 1 ? 'L' : 'M');
-
   const refresh = useCallback(async () => {
     try {
       setSession(await api('GET', '/api/session'));
@@ -311,9 +294,9 @@ export default function App() {
 
   if (!session) {
     return (
-      <main className="app">
-        {error ? <p className="error" role="alert">{error}</p> : <p className="muted pad">Loading</p>}
-      </main>
+      <Frame mode={null} current="agent">
+        {error ? <p className="error" role="alert">{error}</p> : <p className="muted pad" role="status">Loading</p>}
+      </Frame>
     );
   }
 
@@ -325,35 +308,28 @@ export default function App() {
   // The booking has its own panel in Book a flight; this one is for every other tool the chat calls.
   const lastToolTrace = [...feed].reverse().find((m) => m.entry?.trace && m.entry.tool !== 'flights.book')?.entry.trace ?? null;
 
-  return (
-    <main className={session.mode === 'live' ? 'app app--live' : 'app'}>
-      {consentAsk && <ConsentModal ask={consentAsk} />}
-      <header className="shell-bar">
-        <span className="shell-brand"><span className="shell-logo" aria-hidden="true">M</span> {session.customer?.brandName ?? 'Personal Agent'} <span className="shell-badge">{session.mode === 'live' ? 'Real' : 'Mock'}</span></span>
-        <nav className="shell-nav" aria-label="Site">
-          <a href="./" aria-current="page">Agent</a>
-          <a href="/how-agent-connect-works.html">How it works</a>
-          <a href="/how-agent-connect-works.html#connect">How customers connect</a>
-          <a href="/clients.html">Claude, ChatGPT, Codex</a>
-          <a href="/diagram">Diagram</a>
-        </nav>
-        <span className="shell-right">
-          <ShelfLink />
-          <ReturnLink app="muse" variant="header" />
-          <TopMenu
-            mode={{ value: session.mode === 'live' ? 'real' : 'mock', onChange: setMode, realAvailable, realHint: modeInfo?.realReason }}
-            theme={{ value: themeTick >= 0 ? readTheme() : 'auto', onChange: pickTheme }}
-            fontSize={{ value: fsToStep(readSize()), onChange: pickFontSize }}
-            present={session.signedIn ? { active: presenter, onToggle: () => setPresenter((v) => !v), label: 'Presenter' } : undefined}
-            help={{ href: 'https://github.com/curtismu7/muse-LAB#readme' }}
-            version={LAB_VERSION}
-            onReset={session.signedIn ? () => guarded(async () => { await api('POST', '/api/reset'); setTrace(null); setFeed([]); }) : undefined}
-          >
-            <VerifyMark id="muse" />
-          </TopMenu>
-        </span>
-      </header>
+  const live = session.mode === 'live';
+  const banner = live ? (
+    <aside className="banner" data-state="live" role="note">
+      Real. PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Personal Agent acts on their behalf through the gateway at {session.live.origin}. Nothing in this mode is simulated. Switch to Fake (mock) below for the offline version.
+    </aside>
+  ) : (
+    <aside className="banner" role="note">
+      Simulated. PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.
+      {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
+    </aside>
+  );
+  const menu = {
+    mode: { value: live ? 'real' : 'mock', onChange: setMode, realAvailable, realHint: modeInfo?.realReason },
+    present: session.signedIn ? { active: presenter, onToggle: () => setPresenter((v) => !v), label: 'Presenter' } : undefined,
+    version: LAB_VERSION,
+    onReset: session.signedIn ? () => guarded(async () => { await api('POST', '/api/reset'); setTrace(null); setFeed([]); }) : undefined,
+  };
 
+  return (
+    <Frame brand={session.customer?.brandName ?? 'Personal Agent'} mode={live ? 'real' : 'mock'} current="agent" menu={menu} banner={banner}>
+      {consentAsk && <ConsentModal ask={consentAsk} />}
+      <div className={live ? 'app app--live' : 'app'}>
       <nav className="rail" aria-label="Sections">
         <span className="rail-logo" aria-hidden="true">M</span>
         <button type="button" className="rail-btn active" aria-label="Chat"><Icon name="chat" /></button>
@@ -363,19 +339,7 @@ export default function App() {
       </nav>
 
       <section className="chat">
-
-        {session.mode === 'live' ? (
-          <aside className="banner live" role="note">
-            Real. PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Personal Agent acts on their behalf through the gateway at {session.live.origin}. Nothing in this mode is simulated. Switch to Fake (mock) below for the offline version.
-          </aside>
-        ) : (
-          <aside className="banner" role="note">
-            Simulated. PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.
-            {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
-          </aside>
-        )}
-        <ReturnLink app="muse" />
-        <h1>{session.customer?.brandName ?? 'Personal Agent'}</h1>
+        <PageTitle>{session.customer?.brandName ?? 'Personal Agent'}</PageTitle>
         <p className="muted">{session.customer?.agentName ?? 'Personal Agent'} is a personal agent that asks first, gets a 401, sends you to PingOne to sign in, then acts on your behalf.</p>
 
         <ConnectMuseAi session={session} api={api} />
@@ -404,11 +368,10 @@ export default function App() {
                 </select>
               </label>
             )}
-            {session.mode !== 'live' && (
-              <button type="button" className="primary" onClick={signIn} disabled={busy}>
-                {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
-              </button>
-            )}
+            {/* ui-pattern: allow P9 this Mock-only Sign in never shows with the Real-only Sign in button in DiscoveryPanel; two components, so the checker cannot see it */}
+            {session.mode !== 'live' && <button type="button" className="primary" onClick={signIn} disabled={busy}>
+              {session.picker ? 'Sign in' : 'Sign in as Sam, Finance lead (simulated)'}
+            </button>}
           </div>
         ) : (
           <>
@@ -445,6 +408,7 @@ export default function App() {
                 autoComplete="off"
                 disabled={busy}
               />
+              {/* ui-pattern: allow P9 Send is in the signed-in view only; the two Sign in buttons are in the signed-out arm of the ternary above and never show with it */}
               <button type="submit" className="primary" disabled={busy || !draft.trim()}>Send</button>
             </form>
 
@@ -542,7 +506,8 @@ export default function App() {
           <PatternFlow />
         </div>
       )}
+      </div>
       {piflow && <Suspense fallback={null}><SignInModal config={piflow.config} api={api} onClose={closePiflow} /></Suspense>}
-    </main>
+    </Frame>
   );
 }
