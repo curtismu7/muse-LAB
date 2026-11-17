@@ -85,7 +85,7 @@ p { margin: 0; }
 code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
 
 /* The centred page frame every view renders in (Frame.jsx): banner first, then the view. */
-.page { max-width: 1100px; margin: 0 auto; padding: 16px 0 32px; display: grid; gap: 12px; align-content: start; }
+.page { max-width: 2200px; margin: 0 auto; padding: 16px 0 32px; display: grid; gap: 12px; align-content: start; }
 .page > * { min-width: 0; }
 .page > .banner { margin: 0; }
 
