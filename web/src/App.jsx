@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import PersonalAgentFlow from './PersonalAgentFlow.jsx';
 import PatternFlow from './PatternFlow.jsx';
+import TalkTrackDialog from "./talk-track/TalkTrackDialog.jsx";
+import talkMd from "../../docs/talk-track.md?raw";
 import DiscoveryPanel from './DiscoveryPanel.jsx';
 import AssistantConnect from './AssistantConnect.jsx';
 import UserLoginPanel from './UserLoginPanel.jsx';
@@ -292,6 +294,16 @@ export default function App() {
     setFeed((f) => f.map((m) => (m.entry?.id === done.id ? { ...m, entry: done } : m)));
   });
 
+  const [talkOpen, setTalkOpen] = useState(false);
+  const talkSteps = (() => {
+    const steps = []; let n = 0;
+    for (const line of talkMd.split("\n")) {
+      const m = line.match(/^\d+\.\s+(?:"(.+?)"|\*\*(.+?)\.\*\*\s*(.*))$/);
+      if (m) { n += 1; steps.push({ id: `s${n}`, title: (m[1] || m[2]).slice(0, 60), say: m[1] || m[3] }); }
+    }
+    return steps.length ? steps : [{ id: "s1", title: "Talk track", say: talkMd.slice(0, 600) }];
+  })();
+
   if (!session) {
     return (
       <Frame mode={null} current="agent">
@@ -322,6 +334,7 @@ export default function App() {
   const menu = {
     mode: { value: live ? 'real' : 'mock', onChange: setMode, realAvailable, realHint: modeInfo?.realReason },
     present: session.signedIn ? { active: presenter, onToggle: () => setPresenter((v) => !v), label: 'Presenter' } : undefined,
+    talkTrack: { active: talkOpen, onToggle: () => setTalkOpen((v) => !v) },
     version: LAB_VERSION,
     onReset: session.signedIn ? () => guarded(async () => { await api('POST', '/api/reset'); setTrace(null); setFeed([]); }) : undefined,
   };
@@ -508,6 +521,7 @@ export default function App() {
       )}
       </div>
       {piflow && <Suspense fallback={null}><SignInModal config={piflow.config} api={api} onClose={closePiflow} /></Suspense>}
+      <TalkTrackDialog isOpen={talkOpen} onClose={() => setTalkOpen(false)} talk={talkSteps} />
     </Frame>
   );
 }
