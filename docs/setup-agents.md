@@ -90,7 +90,7 @@ After sign-in the connector asks a gateway for the passenger record. With the ri
 3. **The PingOne Authorize policy accepts the token's actor.** The connector's own PingOne app is the actor (`act`) in the delegation chain, and the policy keeps a closed list of actors. An actor missing from it is denied as `invalid-actor-chain`.
 4. **The backends are running** (the airline backends behind the gateway). With them scaled to zero the gateway answers 502.
 
-Using a local gateway: the connector can call the AI-DEMO2 PingGateway on the local Docker network instead of the hosted chain (owner-run script, `LOCAL_GATEWAY`). Hosting the connector behind the Privilege gateway needs the Privilege audience added in three places (the gateway's accepted audiences, the Authorize policy's audience rule, and the `mcp:invoke` scope), and was not completed.
+Using a local gateway: the connector can call a gateway you run on this machine instead of a hosted one: point `MUSE_LIVE_GATEWAY_URL` at it (see `docs/real-setup.md` for what it must do). Hosting the connector behind the Privilege gateway needs the Privilege audience added in three places (the gateway's accepted audiences, the Authorize policy's audience rule, and the `mcp:invoke` scope), and was not completed.
 
 The signs of each failure, all in the connector log:
 - `gateway step 7 refused: invalid_token`: the token is not accepted (audience or scope at the gateway).
