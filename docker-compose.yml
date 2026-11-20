@@ -2,9 +2,9 @@ services:
   muse:
     build: .
     ports:
-      - "127.0.0.1:5100:5100"
+      - "127.0.0.1:5101:5100"
     environment:
-      SHELF_URL: ${SHELF_URL:-http://127.0.0.1:4400}
+      SHELF_URL: ${SHELF_URL:-https://local.ping-devops.com:8443/demo-shelf}
       # Names besides loopback the app answers to (as <name>:5100). The default is the Host the family lab-proxy sends.
       LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-muse.local.ping-devops.com,agent-connect.local.ping-devops.com,local.ping-devops.com}
       # Test controls: member tier and agent limit (Real only, opt-in, owner-approved 2026-11-09). Names only; the values come from your shell or
