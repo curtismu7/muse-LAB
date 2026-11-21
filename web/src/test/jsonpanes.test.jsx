@@ -44,7 +44,7 @@ describe('a raw step (discovery and connect)', () => {
     const body = screen.getByTestId('m-res-body');
     expect(body.className).toContain('json--form');
     expect(within(body).getByText('resource')).toBeInTheDocument();
-    expect(body.querySelectorAll('.jform__row[data-hot="true"]').length).toBe(2);
+    expect(body.querySelectorAll('.jform__row[data-hot="true"]').length).toBe(3);
   });
 
   it('a step with no body (a GET) is plain text, and a step with no response shows only the request', () => {
