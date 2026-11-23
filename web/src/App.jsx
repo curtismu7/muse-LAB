@@ -137,6 +137,34 @@ export function ConsentModal({ ask }) {
 }
 
 export default function App() {
+  // Drag the divider before the identity panel to resize it; the width persists.
+  const onSideHandleDown = useCallback((e) => {
+    e.preventDefault();
+    const app = e.target.closest('.app');
+    if (!app) return;
+    const move = (ev) => {
+      ev.preventDefault();
+      const rect = app.getBoundingClientRect();
+      const w = Math.min(Math.max(rect.right - ev.clientX, 220), rect.width * 0.45);
+      app.style.setProperty('--side-w', `${w}px`);
+    };
+    const up = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try {
+        const w = parseFloat(getComputedStyle(app).getPropertyValue('--side-w'));
+        if (w) localStorage.setItem('muse.sideW', String(w));
+      } catch { /* none */ }
+    };
+    try {
+      const saved = parseFloat(localStorage.getItem('muse.sideW'));
+      if (saved) app.style.setProperty('--side-w', `${saved}px`);
+    } catch { /* none */ }
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  }, []);
   const [session, setSession] = useState(null);
   const [persona, setPersona] = useState('staff');
   const [trace, setTrace] = useState(null);
@@ -435,6 +463,8 @@ export default function App() {
 
         {error && <p className="error" role="alert">{error}</p>}
       </section>
+
+      <div className="col-handle" role="separator" aria-orientation="vertical" aria-label="Resize identity panel" onPointerDown={onSideHandleDown} />
 
       <aside className="side" aria-label="Personal Agent identity and activity">
         <div className="identity">
