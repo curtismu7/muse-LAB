@@ -92,8 +92,15 @@ code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: br
 /* Three columns on wide screens: icon rail, conversation, identity panel. */
 .app {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 300px;
+  grid-template-columns: 64px 6px minmax(0, 1fr) 6px var(--side-w, 300px);
 }
+
+.col-handle { width: 6px; min-height: 4rem; border-radius: 3px; background: var(--line); cursor: col-resize; touch-action: none; grid-column: 4; }
+.col-handle:hover, .col-handle.dragging { background: var(--muted, #888); }
+.app > .rail { grid-column: 1; }
+.app > .chat { grid-column: 3; }
+.app > .side { grid-column: 5; }
+@media (max-width: 900px) { .app { grid-template-columns: 64px minmax(0, 1fr); } .col-handle { display: none; } .app > .rail, .app > .chat, .app > .side { grid-column: auto; } }
 
 .rail {
   display: flex;
