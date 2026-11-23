@@ -21,8 +21,9 @@ test('shipped files hold only placeholder ids and no SE host names', () => {
   for (const f of files) {
     let s; try { s = readFileSync(new URL(f, root), 'utf8'); } catch { continue; }
     for (const m of s.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? []) if (!m.startsWith('00000000')) bad.push(`${f}: ${m}`);
-    // One exception: compose's LAB_ALLOWED_HOSTS default, the inbound Host name the family lab-proxy sends (not an SE host).
-    if (f === 'docker-compose.yml') s = s.replace(/^ {6}LAB_ALLOWED_HOSTS: .*local\.ping-devops\.com.*$/m, '');
+    // One exception: compose's lab-proxy names — LAB_ALLOWED_HOSTS (the inbound Host the family lab-proxy sends) and SHELF_URL (the family
+    // shelf button target). Both are the shared local lab-proxy host, a loopback name, not an SE host.
+    if (f === 'docker-compose.yml') s = s.replace(/^ {6}(LAB_ALLOWED_HOSTS|SHELF_URL): .*local\.ping-devops\.com.*$/gm, '');
     // Second exception: the connector info's list of addresses muse.ai cannot reach names the local lab-proxy host (a loopback name, not an SE host), and its test checks it.
     if (f === 'server/src/connectorInfo.js' || f === 'server/test/connector-info.test.js') s = s.replace(/\blocal\.ping-devops\.com\b/g, '');
     if (/ping-devops|ai-demo\.ping/i.test(s)) bad.push(`${f}: SE host name`);
