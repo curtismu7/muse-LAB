@@ -14,7 +14,7 @@
   border-bottom: 3px solid transparent;
   border-image: var(--accent-gradient) 1;
 }
-.shell-brand { display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 700; letter-spacing: 0.02em; }
+.shell-brand  { display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 700; letter-spacing: 0.02em; }
 .shell-logo {
   display: inline-grid;
   place-items: center;
