@@ -12,7 +12,7 @@ const stub = async (input, init = {}) => {
   if (u.pathname === `/v1/environments/${ENV_ID}/users/${U1}`) { if ((init.method ?? 'GET') !== 'GET') log.writes++; log.ok++; return json(200, { id: U1, airlineMemberTier: 'Premier Gold', agentSpendLimit: '750' }); }
   log.unexpected.push(String(input)); throw new Error('stub: unexpected outbound call');
 };
-const LIVE = { ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: 'https://gw.example/muse-ig/mcp', MUSE_P1_ENV_ID: ENV_ID, MUSE_P1_CLIENT_ID: WORKER, MUSE_P1_CLIENT_SECRET: 'proof-secret-not-real', MUSE_P1_LANE: 'privilege', MUSE_CONNECTOR: '1', MUSE_CONNECTOR_AIRLINE: 'SkyHigh', MUSE_CONNECTOR_CLIENT_ID: 'airline-connector', MUSE_CONNECTOR_REDIRECT_URIS: 'https://chat.agent.example/oauth/callback',
+const LIVE = { ALLOW_LIVE: '1', MUSE_LIVE_GATEWAY_URL: 'https://gw.example/muse-ig/mcp', MUSE_P1_ENV_ID: ENV_ID, MUSE_P1_CLIENT_ID: WORKER, MUSE_P1_CLIENT_SECRET: 'proof-secret-not-real', MUSE_P1_LANE: 'privilege', MUSE_CONNECTOR: '1', MUSE_CONNECTOR_AIRLINE: 'AirGuard', MUSE_CONNECTOR_CLIENT_ID: 'airline-connector', MUSE_CONNECTOR_REDIRECT_URIS: 'https://chat.agent.example/oauth/callback',
   MUSE_TIER_ENABLE: 'read', MUSE_TIER_WORKER_CLIENT_ID: WORKER, MUSE_TIER_WORKER_CLIENT_SECRET: 'proof-worker-secret-not-real', MUSE_TIER_USER_IDS: U1 };
 const apps = [
   [5701, {}],                                                              // Mock

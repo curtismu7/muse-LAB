@@ -74,7 +74,7 @@ with sync_playwright() as p:
         check(f'real/local: {tid} copies {want!r} and shows Copied', got == want and vis, (got, vis))
     page.locator('[data-testid=cm-prompt-copy]').click()
     got = page.evaluate('navigator.clipboard.readText()')
-    check('real/local: prompt copy puts the whole prompt on the clipboard', got.startswith('Set up an MCP connector for me. Name: SkyHigh Airline Connector. URL: http://127.0.0.1:5702/mcp.') and got.endswith('list the tools you got.'), got[:80])
+    check('real/local: prompt copy puts the whole prompt on the clipboard', got.startswith('Set up an MCP connector for me. Name: AirGuard Airline Connector. URL: http://127.0.0.1:5702/mcp.') and got.endswith('list the tools you got.'), got[:80])
     page.wait_for_timeout(2800)
     check('real/local: Copied goes away', not page.locator('[data-testid=cm-prompt-copy-state]').is_visible())
     # keyboard: tab to the first Copy button and press Space, then Enter on another

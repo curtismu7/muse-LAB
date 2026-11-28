@@ -18,7 +18,7 @@ export const EXAMPLE_PROMPTS = EXAMPLES.map((e) => e.prompt);
 
 // The prompt a person pastes into muse.ai so that muse.ai sets the connector up itself.
 export function buildPrompt(info) {
-  const name = `${info.airline || 'SkyHigh'} Airline Connector`;
+  const name = `${info.airline || 'AirGuard'} Airline Connector`;
   const fallback = info.clientId
     ? ` If registration fails or asks for a client ID, use client ID ${info.clientId}: it is a public client with no client secret, PKCE S256, scope ${info.scope || 'mcp'}.`
     : '';
@@ -177,7 +177,7 @@ export default function ConnectMuseAi({ session, api }) {
 
       <div className="cm-step" data-testid="cm-how">
         <h3>How the prompts work</h3>
-        <ol className="cm-how">{HOW(rules, info.airline || 'SkyHigh').map((t, i) => <li key={i}>{t}</li>)}</ol>
+        <ol className="cm-how">{HOW(rules, info.airline || 'AirGuard').map((t, i) => <li key={i}>{t}</li>)}</ol>
       </div>
     </section>
   );

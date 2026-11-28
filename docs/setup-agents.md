@@ -49,28 +49,28 @@ Check it is up: `curl http://127.0.0.1:5102/api/health` returns `demo-health/1`,
 ## 2. Claude Code (terminal)
 
 ```
-claude mcp add --scope user --transport http skyhigh http://127.0.0.1:5102/mcp
+claude mcp add --scope user --transport http airguard http://127.0.0.1:5102/mcp
 claude
 ```
-In `claude`, type `/mcp`, choose `skyhigh`, then **Authenticate**. Sign in as the demo user in the browser. Then ask: "Use the skyhigh tools: what is my SkyHigh points balance?" and approve the tool call.
+In `claude`, type `/mcp`, choose `airguard`, then **Authenticate**. Sign in as the demo user in the browser. Then ask: "Use the airguard tools: what is my AirGuard points balance?" and approve the tool call.
 
 Traps:
 - Use `--scope user`. Without it the server is saved only for the folder you ran the command in.
 - `claude -p` does not use the sign-in saved by `/mcp`. Ask in the interactive session.
-- Unless `MUSE_CLIENTS_FILE` is set, a connector restart forgets every registered client: `claude mcp remove skyhigh`, add it again, authenticate again.
+- Unless `MUSE_CLIENTS_FILE` is set, a connector restart forgets every registered client: `claude mcp remove airguard`, add it again, authenticate again.
 
 ## 3. Codex (terminal)
 
 ```
-codex mcp add skyhigh --url http://127.0.0.1:5102/mcp
-codex mcp login skyhigh
-codex exec --approve-for-me "Use the skyhigh tools: what is my SkyHigh points balance?"
+codex mcp add airguard --url http://127.0.0.1:5102/mcp
+codex mcp login airguard
+codex exec --approve-for-me "Use the airguard tools: what is my AirGuard points balance?"
 ```
 Sign in as the demo user in the browser.
 
 Traps:
 - Plain `codex exec` refuses MCP tool calls because approvals are off, and the call never leaves your machine. Use `--approve-for-me`, or ask inside interactive `codex` and approve.
-- Unless `MUSE_CLIENTS_FILE` is set, after a connector restart: `codex mcp remove skyhigh`, add and log in again.
+- Unless `MUSE_CLIENTS_FILE` is set, after a connector restart: `codex mcp remove airguard`, add and log in again.
 - If PingOne shows `userSessionMismatch`, an old PingOne session in the browser is the usual cause. The connector can sign out of PingOne first (`MUSE_CONNECTOR_SIGNOUT_FIRST=1`), or use a private window.
 
 ## 4. Claude web / Desktop and ChatGPT (not verified)

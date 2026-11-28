@@ -97,8 +97,8 @@ test('tools/list shows the four tools with valid input schemas; book_flight take
     assert.match(s.properties.amount.description, /US dollars/); assert.match(s.properties.amount.description, /precedence/);
     assert.match(book.description, /US dollars/); assert.match(book.description, /precedence/); assert.match(book.description, /at least one/);
     assert.equal(list.result.tools.find((t) => t.name === 'list_flights').annotations.readOnlyHint, true);
-    assert.ok(toolsFor('SkyHigh').every((x) => x.description.includes('SkyHigh')));
-    assert.ok(toolsFor('').every((x) => !x.description.includes('SkyHigh')));
+    assert.ok(toolsFor('AirGuard').every((x) => x.description.includes('AirGuard')));
+    assert.ok(toolsFor('').every((x) => !x.description.includes('AirGuard')));
   } finally { await a.close(); }
 });
 

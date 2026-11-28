@@ -18,13 +18,13 @@ Discovery, already checked live on 2026-10-30:
 
 ## Per client
 
-For each: add the connector, sign in, ask the agent "What's my SkyHigh points balance?", then record the table below.
+For each: add the connector, sign in, ask the agent "What's my AirGuard points balance?", then record the table below.
 
 | Client | Where to add it | Callback it should use |
 |---|---|---|
 | Claude (web or Desktop) | Settings > Connectors > Add custom connector, URL above | `https://claude.ai/api/mcp/auth_callback` |
 | ChatGPT | Settings > Connectors (developer mode) > Create, URL above, auth OAuth | `https://chatgpt.com/connector_platform_oauth_redirect` |
-| Codex CLI | `codex mcp add skyhigh --url <URL above>` then `codex mcp login skyhigh` | `http://127.0.0.1:<port>/callback` |
+| Codex CLI | `codex mcp add airguard --url <URL above>` then `codex mcp login airguard` | `http://127.0.0.1:<port>/callback` |
 
 Exact menu names change; if one differs, note the real path.
 
@@ -34,7 +34,7 @@ Exact menu names change; if one differs, note the real path.
 - Request body of the registration: `token_endpoint_auth_method`, `redirect_uris`, `grant_types`.
 - At `/connector/token`: `client_assertion_type` present? (ChatGPT: `private_key_jwt`, or none.)
 - Whether PKCE (`code_challenge`, S256) was sent.
-- Whether the PingOne screen named the right agent (Claude, ChatGPT or Codex) and SkyHigh Airlines.
+- Whether the PingOne screen named the right agent (Claude, ChatGPT or Codex) and AirGuard Airlines.
 - Whether the tool call returned the points balance, and the `act` claim in the token.
 - Any error and its exact text.
 

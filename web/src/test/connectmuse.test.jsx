@@ -5,7 +5,7 @@ import ConnectMuseAi, { EXAMPLE_PROMPTS, buildPrompt } from '../ConnectMuseAi.js
 // Invented values only. The "server" is a stub api().
 const INFO = {
   url: 'https://muse.example/mcp', clientId: 'airline-connector', tokenAuth: 'none (public client, PKCE S256)', scope: 'mcp',
-  redirectUris: ['https://chat.agent.example/oauth/callback'], airline: 'SkyHigh', publicReachable: true,
+  redirectUris: ['https://chat.agent.example/oauth/callback'], airline: 'AirGuard', publicReachable: true,
   tools: ['loyalty_balance', 'get_loyalty_status', 'list_flights', 'book_flight'],
 };
 const RULES = { rules: { agentLimit: 500, premiumThreshold: 750, premiumTiers: ['Premier Gold'] }, flights: [] };
@@ -99,11 +99,19 @@ describe('Connect muse.ai card', () => {
     expect(screen.getByRole('heading', { name: 'Step 1: ask muse.ai to add it' })).toBeInTheDocument();
   });
 
-  it('buildPrompt: no static client means no client-ID sentence; the default airline name is SkyHigh', () => {
+  it('buildPrompt: no static client means no client-ID sentence; the default airline name is AirGuard', () => {
     const p = buildPrompt({ ...INFO, clientId: null, airline: '' });
-    expect(p).toContain('Name: SkyHigh Airline Connector.');
+    expect(p).toContain('Name: AirGuard Airline Connector.');
     expect(p).not.toContain('client ID');
     expect(p).toContain('URL: https://muse.example/mcp.');
+  });
+
+  it('the default airline is AirGuard on the rendered card: prompt, steps and no retired brand', async () => {
+    const { container } = render(<ConnectMuseAi session={real} api={fakeApi({ ...INFO, airline: '' })} />);
+    const prompt = await screen.findByTestId('cm-prompt');
+    expect(prompt.textContent).toContain('Name: AirGuard Airline Connector.');
+    expect(within(screen.getByTestId('cm-how')).getAllByRole('listitem')[6]).toHaveTextContent('using the AirGuard connector');
+    expect(container.textContent).not.toMatch(new RegExp(['Sky', 'High'].join(''), 'i'));
   });
 
   it('Steps 2 to 4: the sign-in, the four tools with the old-connector hint, and the copyable example prompts', async () => {
@@ -144,7 +152,7 @@ describe('Connect muse.ai card', () => {
     expect(items[5]).toHaveTextContent("the rules judge the price the agent states. A real airline would price the ticket itself");
     expect(items[6]).toHaveTextContent("muse.ai's assistant asks for a destination and a day first, so include them");
     expect(items[6]).toHaveTextContent('The connector ignores the day and only needs a price or a destination');
-    expect(items[6]).toHaveTextContent('using the SkyHigh connector');
+    expect(items[6]).toHaveTextContent('using the AirGuard connector');
   });
 
   it('no static client or redirect URI: says muse.ai registers itself, with no empty Copy buttons', async () => {
