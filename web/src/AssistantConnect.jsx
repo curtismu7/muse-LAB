@@ -31,7 +31,7 @@ export default function AssistantConnect({ session, api, guarded }) {
         <div className="assistant-card">
           <span className="avatar" aria-hidden="true">{airline.slice(0, 1)}</span>
           <div className="assistant-card-text">
-            <strong>{c.airline ? `${c.airline} Airlines` : 'Airline'}</strong>
+            <strong>{c.airline ? (/\bairlines?$/i.test(c.airline) ? c.airline : `${c.airline} Airlines`) : 'Airline'}</strong>
             <span className="muted small">Check your points and loyalty status. Published by {airline}.</span>
           </div>
           <button type="button" onClick={connect} data-testid="assistant-connect-btn">{done?.points ? 'Connected' : 'Connect'}</button>

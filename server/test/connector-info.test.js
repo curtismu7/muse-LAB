@@ -53,7 +53,7 @@ test('with no static client or airline: clientId null, no redirect URIs, the dem
 });
 
 test('no secret, token or internal setting is in the response, whatever is configured', async () => {
-  const a = await boot({ ...BASE, MUSE_CONNECTOR_CLIENT_ID: 'airline-connector', MUSE_CONNECTOR_REDIRECT_URIS: REDIRECT, MUSE_CONNECTOR_AIRLINE: 'SkyHigh' });
+  const a = await boot({ ...BASE, MUSE_CONNECTOR_CLIENT_ID: 'airline-connector', MUSE_CONNECTOR_REDIRECT_URIS: REDIRECT, MUSE_CONNECTOR_AIRLINE: 'AirGuard' });
   try {
     const r = await a.get('/api/connector/info');
     for (const s of [IDP_SECRET, BRIDGE_SECRET, AGENT_SECRET, WORKER_SECRET, BASE.MUSE_P1_CLIENT_ID, BASE.MUSE_P1_ENV_ID, 'gw.example', 'pingone', 'access_token', 'Bearer']) {

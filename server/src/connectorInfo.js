@@ -2,7 +2,7 @@
 // Built from a fixed list of fields, never from the config object or the environment, so a secret, a token or an internal setting cannot end up in it.
 import { connectorConfig, toolsFor } from './connector.js';
 
-export const DEFAULT_AIRLINE = 'SkyHigh';
+export const DEFAULT_AIRLINE = 'AirGuard Airlines';
 export const TOKEN_AUTH = 'none (public client, PKCE S256)';
 
 // A host muse.ai (a cloud service) cannot reach: loopback, private and link-local ranges, names that only resolve locally (*.local, *.localhost, *.internal,

@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
+// Same rule as the server's connectorName: a name that already ends in "Airline(s)" gets no second "Airline".
+const DEFAULT_AIRLINE = 'AirGuard Airlines';
+export const connectorName = (airline) => {
+  const a = String(airline ?? '').trim();
+  return !a ? 'Airline Connector' : /\bairlines?$/i.test(a) ? `${a} Connector` : `${a} Airline Connector`;
+};
+
 // "Connect muse.ai": tells a person exactly how to add the Airline Connector to muse.ai (a cloud assistant used as the MCP client) and how the
 // booking prompts work. The facts come from GET /api/connector/info (public facts only); nothing here is a secret.
 // Real / connector-enabled: the full card. Mock: one line saying the connector is not enabled in this mode.
@@ -18,7 +25,7 @@ export const EXAMPLE_PROMPTS = EXAMPLES.map((e) => e.prompt);
 
 // The prompt a person pastes into muse.ai so that muse.ai sets the connector up itself.
 export function buildPrompt(info) {
-  const name = `${info.airline || 'SkyHigh'} Airline Connector`;
+  const name = connectorName(info.airline || DEFAULT_AIRLINE);
   const fallback = info.clientId
     ? ` If registration fails or asks for a client ID, use client ID ${info.clientId}: it is a public client with no client secret, PKCE S256, scope ${info.scope || 'mcp'}.`
     : '';
@@ -177,7 +184,7 @@ export default function ConnectMuseAi({ session, api }) {
 
       <div className="cm-step" data-testid="cm-how">
         <h3>How the prompts work</h3>
-        <ol className="cm-how">{HOW(rules, info.airline || 'SkyHigh').map((t, i) => <li key={i}>{t}</li>)}</ol>
+        <ol className="cm-how">{HOW(rules, info.airline || DEFAULT_AIRLINE).map((t, i) => <li key={i}>{t}</li>)}</ol>
       </div>
     </section>
   );
