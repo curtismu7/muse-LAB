@@ -11,7 +11,7 @@
 # It needs neither OWNER_APPROVED nor a cluster. NAMESPACE has no default (the owner decides).
 #
 # After a deploy (not done by this script): verify by CONTENT, not 200. GET /api/health must say demo-health/1, and the
-# served page must contain the hosted banner. Check the registry manifest and the pod's imageID match IMAGE, then hand over the https:// URL.
+# served bundle must contain the hosted line of the opening modal ("This is the hosted, mock-only build"). Check the registry manifest and the pod's imageID match IMAGE, then hand over the https:// URL.
 set -euo pipefail
 cd "$(dirname "$0")"
 

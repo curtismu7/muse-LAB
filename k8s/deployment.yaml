@@ -1,7 +1,7 @@
 # Hosted build of Muse for the SE cluster (rule 18). MODE=mock (deploy.sh default) is the MOCK-ONLY build: live mode is refused
 # even if a Secret exists. MODE=live is the owner's real build: it reads the Secret `__NAME__-real` (see the README, "Hosted builds"), which
 # holds every tenant id, address and credential, so none of them are in this repo. Same image as the local standalone; MUSE_HOSTED=1
-# switches on the hosted banner, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids. The only volume holds client registrations (no user data).
+# switches on the hosted line of the opening modal, the Secure cookie and per-visitor workspaces. No secrets, no tenant ids. The only volume holds client registrations (no user data).
 # Placeholders (__IMAGE__, __SE_HOST__, __NAME__, __MODE__) are filled by k8s/deploy.sh. No namespace: deploy.sh takes NAMESPACE.
 apiVersion: apps/v1
 kind: Deployment
