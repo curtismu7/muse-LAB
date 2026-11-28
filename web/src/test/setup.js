@@ -4,7 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
-afterEach(cleanup);
+// The Real-or-mock modal remembers a dismissal in sessionStorage; start every test with it open.
+afterEach(() => { cleanup(); try { sessionStorage.clear(); } catch { /* storage unavailable */ } });
 
 if (typeof globalThis.localStorage?.clear !== 'function') {
   const store = new Map();

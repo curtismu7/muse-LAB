@@ -3,11 +3,13 @@ import TopMenu from './top-menu/TopMenu.jsx';
 import ShelfLink from './components/ShelfLink.jsx';
 import VerifyMark from './components/VerifyMark.jsx';
 import ReturnLink from './return-link/ReturnLink.jsx';
+import ModeModal from './mode-modal/ModeModal.jsx';
 import { applyTheme, readTheme } from './ThemeToggle.jsx';
 import { applySize, readSize, saveSize } from './textsize.js';
 
 // The one frame every view of the bundle renders in (STANDALONE-UI-PATTERNS section 1): the shell bar first, then ONE <main class="page">
-// in the centred frame whose first child is the simulation banner (then the hand-off strip), then the view. Page order is pinned by
+// in the centred frame whose first child is the hand-off strip (when there is one), then the view; the Real-or-mock modal (shared mode-modal) sits
+// after <main>, so a view never remounts it. Page order is pinned by
 // web/src/test/shell-order.test.jsx. The view supplies its own <h1>; the bar's brand is not a heading.
 
 const FS_STEPS = { S: 0.85, M: 1, L: 1.15 };
@@ -26,22 +28,23 @@ function useFetchedMode(enabled) {
   return source;
 }
 
-const bannerFor = (mode) => (mode === 'real'
-  ? 'Real. This page talks to your configured PingOne and gateway. Nothing in this mode is simulated.'
-  : mode === 'mock'
-    ? 'Simulated. No PingOne tenant and no gateway is contacted in this build.'
-    : 'Checking whether this is the Mock or the Real build.');
+// What the Real-or-mock modal says when a view gives no lines of its own (the connector sign-in page). Replaces the plain mode banner.
+const DEFAULT_MODE_LINES = {
+  mock: 'No PingOne tenant and no gateway is contacted in this build.',
+  real: 'This page talks to your configured PingOne and gateway. Nothing in this mode is simulated.',
+};
 
 /**
  * mode: 'mock' | 'real' | null (no badge, no lookup) | undefined (look it up). menu: the TopMenu props only the view knows
- * (mode switch, presenter, reset, version). banner: the view's own banner node; without one a plain mode banner is shown.
+ * (mode switch, presenter, reset, version). modeLines: the view's own { mock, real } line for the modal; modeKey: its sessionStorage prefix (one per view,
+ * so dismissing it on one view does not hide another view's line). A null mode shows no modal; an unknown one (still being looked up) reads as MOCK.
  */
 // The one <h1> every view renders (the page title); the bar's brand is not a heading.
 export function PageTitle({ children, className }) {
   return <h1 className={className}>{children}</h1>;
 }
 
-export default function Frame({ brand = 'Personal Agent', mode, current = null, menu = {}, banner, strip = true, mainClass = '', children }) {
+export default function Frame({ brand = 'Personal Agent', mode, current = null, menu = {}, modeLines = DEFAULT_MODE_LINES, modeKey = 'muse-page-mode', strip = true, mainClass = '', children }) {
   const fetched = useFetchedMode(mode === undefined);
   const shownMode = mode === undefined ? fetched : mode;
   const [theme, setTheme] = useState(readTheme);
@@ -78,10 +81,10 @@ export default function Frame({ brand = 'Personal Agent', mode, current = null, 
         </TopMenu>
       </header>
       <main className={`page ${mainClass}`.trim()} id="main">
-        {banner ?? <aside className="banner" data-state={shownMode === 'real' ? 'live' : undefined} role="note">{bannerFor(shownMode)}</aside>}
         {strip && <ReturnLink app="muse" />}
         {children}
       </main>
+      {mode !== null && <ModeModal mode={shownMode ?? 'mock'} lines={modeLines} storageKey={modeKey} />}
     </>
   );
 }

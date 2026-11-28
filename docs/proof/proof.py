@@ -17,6 +17,8 @@ def set_theme(page, t):
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)
     ctx = b.new_context(viewport={'width': 1100, 'height': 900}, permissions=['clipboard-read', 'clipboard-write'], color_scheme='light')
+    # The Real-or-mock modal would cover the page: pre-dismiss it for both modes (sessionStorage prefix muse-mode).
+    ctx.add_init_script("sessionStorage.setItem('muse-mode-seen-mock','1'); sessionStorage.setItem('muse-mode-seen-real','1');")
     page = ctx.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))

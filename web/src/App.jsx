@@ -349,16 +349,11 @@ export default function App() {
   const lastToolTrace = [...feed].reverse().find((m) => m.entry?.trace && m.entry.tool !== 'flights.book')?.entry.trace ?? null;
 
   const live = session.mode === 'live';
-  const banner = live ? (
-    <aside className="banner" data-state="live" role="note">
-      Real. PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Personal Agent acts on their behalf through the gateway at {session.live.origin}. Nothing in this mode is simulated. Switch to Fake (mock) below for the offline version.
-    </aside>
-  ) : (
-    <aside className="banner" role="note">
-      Simulated. PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.
-      {session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}
-    </aside>
-  );
+  // The Real-or-mock modal's lines (the old banner's facts: what is simulated, hosted or local, and in Real who signs in and where the calls go).
+  const modeLines = {
+    mock: `PingOne sign-in, the DaVinci detection flow and Privilege are stubs in this build, and no tenant is contacted.${session.hosted ? ' This is the hosted, mock-only build.' : ' This is the local mock build.'}`,
+    real: `PingOne signs the user in (DaVinci, Protect, MFA on medium risk, consent), then Personal Agent acts on their behalf through the gateway at ${session.live?.origin}. Nothing in this mode is simulated.`,
+  };
   const menu = {
     mode: { value: live ? 'real' : 'mock', onChange: setMode, realAvailable, realHint: modeInfo?.realReason },
     present: session.signedIn ? { active: presenter, onToggle: () => setPresenter((v) => !v), label: 'Presenter' } : undefined,
@@ -368,7 +363,7 @@ export default function App() {
   };
 
   return (
-    <Frame brand={session.customer?.brandName ?? 'Personal Agent'} mode={live ? 'real' : 'mock'} current="agent" menu={menu} banner={banner}>
+    <Frame brand={session.customer?.brandName ?? 'Personal Agent'} mode={live ? 'real' : 'mock'} current="agent" menu={menu} modeLines={modeLines} modeKey="muse-mode">
       {consentAsk && <ConsentModal ask={consentAsk} />}
       <div className={live ? 'app app--live' : 'app'}>
       <nav className="rail" aria-label="Sections">
