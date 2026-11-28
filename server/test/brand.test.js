@@ -6,13 +6,14 @@ import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../src/index.js';
 import { DEFAULT_AIRLINE } from '../src/connectorInfo.js';
+import { connectorName } from '../src/connectorName.js';
 import { loadStories, renderStory } from '../src/stories.js';
 
 // The family's airline brand is AirGuard Airlines (owner decision, 2026-11-28). The earlier brand is retired: it is built from pieces here so this file does not trip its own sweep.
 const RETIRED = new RegExp(['Sky', 'High'].join('') + '|' + ['sky', 'high'].join(''), 'i');
 
-test('the default airline is AirGuard in the connector facts and AirGuard Airlines in the story pack', async () => {
-  assert.equal(DEFAULT_AIRLINE, 'AirGuard');
+test('the default airline is AirGuard Airlines in the connector facts and in the story pack', async () => {
+  assert.equal(DEFAULT_AIRLINE, 'AirGuard Airlines');
   const data = loadStories();
   assert.equal(data.default, 'airline');
   assert.equal(data.verticals.airline.cast.provider, 'AirGuard Airlines');
@@ -42,4 +43,15 @@ test('the retired airline brand appears nowhere in the repo text (code, docs, di
   };
   walk(root);
   assert.deepEqual(hits, []);
+});
+
+test('connectorName: no second "Airline" after the full brand; an older value keeps its form; blank is the generic name', () => {
+  const OLD = ['Sky', 'High'].join(''); // the value the hosted site still runs until its Secret is changed
+  assert.equal(connectorName('AirGuard Airlines'), 'AirGuard Airlines Connector');
+  assert.equal(connectorName('  AirGuard Airlines  '), 'AirGuard Airlines Connector');
+  assert.equal(connectorName('AirGuard Airline'), 'AirGuard Airline Connector');
+  assert.equal(connectorName('AirGuard'), 'AirGuard Airline Connector');
+  assert.equal(connectorName(OLD), `${OLD} Airline Connector`);
+  assert.equal(connectorName(''), 'Airline Connector');
+  assert.equal(connectorName(undefined), 'Airline Connector');
 });

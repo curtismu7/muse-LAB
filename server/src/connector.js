@@ -11,6 +11,7 @@ import { createRefreshStore, newRefreshToken, REFRESH_FAMILY_CAP } from './refre
 import { SELF_MARK, simKeyOf } from './platforms.js';
 import { bookingTool, classifyBooking } from './booking.js';
 import { DESTINATION_MAX, OPEN_FARE_FLIGHT, OPEN_FARE_MAX, PREMIUM_THRESHOLD, RULES, fareFor, flightById, flightForDestination, flightId as flightIdOf, listFlights, validAmount } from './fares.js';
+import { connectorName } from './connectorName.js';
 
 const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
@@ -332,7 +333,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
 
   // Discovery (RFC 9728, RFC 8414). Public documents, so a plain CORS header is fine.
   const open = (req, res, next) => { res.set('Access-Control-Allow-Origin', '*').set('Cache-Control', 'public, max-age=60'); next(); };
-  const prm = { resource: `${PUBLIC}/mcp`, authorization_servers: [PUBLIC], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: airline ? `${airline} Airline Connector` : 'Airline Connector' };
+  const prm = { resource: `${PUBLIC}/mcp`, authorization_servers: [PUBLIC], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: connectorName(airline) };
   app.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], open, (req, res) => res.json(prm));
   app.get(['/.well-known/oauth-authorization-server', '/.well-known/openid-configuration'], open, (req, res) => res.json({
     issuer: PUBLIC, authorization_endpoint: `${PUBLIC}/connector/authorize`, token_endpoint: `${PUBLIC}/connector/token`,

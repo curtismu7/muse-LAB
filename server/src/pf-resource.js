@@ -7,6 +7,7 @@
 import express from 'express';
 import { createPublicKey, generateKeyPairSync, verify as verifySig } from 'node:crypto';
 import { flightsResult, toolsFor } from './connector.js';
+import { connectorName } from './connectorName.js';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const JWKS_TTL_MS = 10 * 60 * 1000;
@@ -84,7 +85,7 @@ export function mountPfResource(app, { env, live, fetchImpl = fetch, key }) {
 
   app.get('/sim/:k/client.json', open, (req, res) => (docs[req.params.k] ? res.type('application/json').send(JSON.stringify(docs[req.params.k])) : res.status(404).end()));
   app.get('/sim/chatgpt/jwks.json', open, (req, res) => res.json({ keys: [key.jwk] }));
-  const prm = { resource, authorization_servers: [cfg.issuer], bearer_methods_supported: ['header'], scopes_supported: [cfg.scope], resource_name: airline ? `${airline} Airline Connector (PingFederate)` : 'Airline Connector (PingFederate)' };
+  const prm = { resource, authorization_servers: [cfg.issuer], bearer_methods_supported: ['header'], scopes_supported: [cfg.scope], resource_name: `${connectorName(airline)} (PingFederate)` };
   app.get('/.well-known/oauth-protected-resource/mcp-pf', open, (req, res) => res.json(prm));
 
   const challenge = (res, why) => res.status(401).set('WWW-Authenticate', `Bearer resource_metadata="${PUBLIC}/.well-known/oauth-protected-resource/mcp-pf"${why ? `, error="invalid_token", error_description="${why}"` : ''}`).json({ error: 'unauthorized', ...(why ? { detail: why } : {}) });

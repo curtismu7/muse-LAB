@@ -214,6 +214,17 @@ test('the session tells the page which assistants can connect, and says nothing 
   await b.close();
 });
 
+test('the connector name follows the configured airline: the full brand gets no second "Airline"; an older env value still works (the hosted site keeps its value until redeployed)', async () => {
+  const OLD = ['Sky', 'High'].join('');
+  for (const [env, want] of [['AirGuard Airlines', 'AirGuard Airlines Connector'], [OLD, `${OLD} Airline Connector`], [undefined, 'Airline Connector']]) {
+    const a = await boot(env === undefined ? {} : { MUSE_CONNECTOR_AIRLINE: env });
+    try {
+      const prm = await (await a.get('/.well-known/oauth-protected-resource/mcp')).json();
+      assert.equal(prm.resource_name, want, String(env));
+    } finally { await a.close(); }
+  }
+});
+
 test('with an airline named, the tool descriptions and server name say which airline, and odd characters are dropped', async () => {
   const a = await boot({ MUSE_CONNECTOR_AIRLINE: 'AirGuard <b>' });
   const prm = await (await a.get('/.well-known/oauth-protected-resource/mcp')).json();
