@@ -6,7 +6,7 @@ import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../src/index.js';
 import { DEFAULT_AIRLINE } from '../src/connectorInfo.js';
-import { connectorName } from '../src/connectorName.js';
+import { connectorName, connectorServerName } from '../src/connectorName.js';
 import { loadStories, renderStory } from '../src/stories.js';
 
 // The family's airline brand is AirGuard Airlines (owner decision, 2026-11-28). The earlier brand is retired: it is built from pieces here so this file does not trip its own sweep.
@@ -54,4 +54,15 @@ test('connectorName: no second "Airline" after the full brand; an older value ke
   assert.equal(connectorName(OLD), `${OLD} Airline Connector`);
   assert.equal(connectorName(''), 'Airline Connector');
   assert.equal(connectorName(undefined), 'Airline Connector');
+});
+
+test('connectorServerName: the MCP server name gets no second "airline" after the full brand; an older value keeps exactly its old name', () => {
+  const OLD = ['Sky', 'High'].join('');
+  assert.equal(connectorServerName('AirGuard Airlines'), 'airguard-airlines-connector');
+  assert.equal(connectorServerName('AirGuard'), 'airguard-airline-connector');
+  assert.equal(connectorServerName(OLD), `${OLD.toLowerCase()}-airline-connector`); // what the hosted site already reports
+  assert.equal(connectorServerName(''), 'airline-connector');
+  assert.equal(connectorServerName(undefined), 'airline-connector');
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/connector.js'), 'utf8');
+  assert.ok(src.includes('serverInfo: { name: connectorServerName(airline)'), 'the initialize response uses the helper');
 });

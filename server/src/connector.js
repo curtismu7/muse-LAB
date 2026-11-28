@@ -11,7 +11,7 @@ import { createRefreshStore, newRefreshToken, REFRESH_FAMILY_CAP } from './refre
 import { SELF_MARK, simKeyOf } from './platforms.js';
 import { bookingTool, classifyBooking } from './booking.js';
 import { DESTINATION_MAX, OPEN_FARE_FLIGHT, OPEN_FARE_MAX, PREMIUM_THRESHOLD, RULES, fareFor, flightById, flightForDestination, flightId as flightIdOf, listFlights, validAmount } from './fares.js';
-import { connectorName } from './connectorName.js';
+import { connectorName, connectorServerName } from './connectorName.js';
 
 const b64u = (b) => b.toString('base64url');
 const rand = (n = 32) => b64u(randomBytes(n));
@@ -586,7 +586,7 @@ export function mountConnector(app, { env, live, fetchImpl = fetch, userFacts = 
   }
   async function handle(msg, session) {
     const { id, method, params } = msg ?? {};
-    if (method === 'initialize') return rpc(id, { protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[1], capabilities: { tools: { listChanged: false } }, serverInfo: { name: airline ? `${airline.toLowerCase().replace(/ +/g, '-')}-airline-connector` : 'airline-connector', version: '0.1.0' } });
+    if (method === 'initialize') return rpc(id, { protocolVersion: PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[1], capabilities: { tools: { listChanged: false } }, serverInfo: { name: connectorServerName(airline), version: '0.1.0' } });
     if (method === 'ping') return rpc(id, {});
     if (method === 'tools/list') return rpc(id, { tools: TOOLS });
     if (method === 'tools/call') {

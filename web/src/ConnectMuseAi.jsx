@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 // Same rule as the server's connectorName: a name that already ends in "Airline(s)" gets no second "Airline".
 const DEFAULT_AIRLINE = 'AirGuard Airlines';
-export const connectorName = (a) => (!a ? 'Airline Connector' : /\bairlines?$/i.test(a) ? `${a} Connector` : `${a} Airline Connector`);
+export const connectorName = (airline) => {
+  const a = String(airline ?? '').trim();
+  return !a ? 'Airline Connector' : /\bairlines?$/i.test(a) ? `${a} Connector` : `${a} Airline Connector`;
+};
 
 // "Connect muse.ai": tells a person exactly how to add the Airline Connector to muse.ai (a cloud assistant used as the MCP client) and how the
 // booking prompts work. The facts come from GET /api/connector/info (public facts only); nothing here is a secret.

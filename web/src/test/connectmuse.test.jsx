@@ -183,5 +183,8 @@ describe('connectorName (same rule as the server)', () => {
     expect(connectorName('AirGuard')).toBe('AirGuard Airline Connector');
     expect(connectorName(['Sky', 'High'].join(''))).toBe(['Sky', 'High'].join('') + ' Airline Connector');
     expect(connectorName('')).toBe('Airline Connector');
+    expect(connectorName(undefined)).toBe('Airline Connector');
+    expect(connectorName('  AirGuard Airlines  ')).toBe('AirGuard Airlines Connector');
+    expect(connectorName('AirGuard Airline')).toBe('AirGuard Airline Connector');
   });
 });
